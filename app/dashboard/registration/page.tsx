@@ -1,34 +1,26 @@
-import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { DashboardHeader } from "@/components/dashboard/header";
-import { DashboardSidebar } from "@/components/dashboard/sidebar";
-import { CourseRegistrationForm } from "@/components/dashboard/course-registration-form";
+import { getServerSession } from "next-auth/next"
+import { redirect } from "next/navigation"
+import type { User } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { CourseRegistration } from "@/components/dashboard/course-registration"
 
 export default async function RegistrationPage() {
-  const session = await getServerSession(authOptions);
-  
-  if (!session) {
-    redirect("/auth/login");
+  const session = await getServerSession(authOptions)
+
+  if (!session?.user) {
+    redirect("/auth/login")
   }
-  
+
+  const user = session.user as User & { id: string }
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <DashboardHeader user={session.user} />
-      
-      <div className="flex-1 flex">
-        <DashboardSidebar user={session.user} />
-        
-        <main className="flex-1 p-6 bg-gray-100">
-          <div className="max-w-6xl mx-auto">
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h1 className="text-xl font-semibold mb-6">Course Registration</h1>
-              
-              <CourseRegistrationForm />
-            </div>
-          </div>
-        </main>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Course Registration</h1>
       </div>
+
+      <CourseRegistration userId={user.id} />
     </div>
-  );
+  )
 }
+
