@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server"
 import { hash } from "bcrypt"
 import prisma from "@/lib/prisma"
+import { UserRole } from "@prisma/client"
 
 export async function POST(req: Request) {
   try {
-    const { name, email, registrationNo, password } = await req.json()
+    const { name, email, registrationNo, password, role = "STUDENT" } = await req.json()
+
+    // Validate role
+    if (!Object.values(UserRole).includes(role)) {
+      return NextResponse.json({ message: "Invalid role specified" }, { status: 400 })
+    }
 
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
@@ -30,7 +36,7 @@ export async function POST(req: Request) {
         email,
         registrationNo,
         password: hashedPassword,
-        role: "STUDENT",
+        role,
         profile: {
           create: {
             // Default profile data

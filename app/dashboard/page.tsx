@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DashboardStats } from "@/components/dashboard/stats"
 import { CourseChart } from "@/components/dashboard/course-chart"
 import { NotificationList } from "@/components/dashboard/notification-list"
+import { UpcomingDeadlines } from "@/components/dashboard/upcoming-deadlines"
+import { RecentRegistrations } from "@/components/dashboard/recent-registrations"
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
@@ -24,7 +26,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Course Chart</CardTitle>
+            <CardTitle>Course Registration Status</CardTitle>
             <CardDescription>Overview of your course registrations by semester</CardDescription>
           </CardHeader>
           <CardContent>
@@ -39,6 +41,28 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <NotificationList />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Upcoming Deadlines</CardTitle>
+            <CardDescription>Important dates and deadlines</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <UpcomingDeadlines />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Registrations</CardTitle>
+            <CardDescription>Your recent course registration activities</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RecentRegistrations />
           </CardContent>
         </Card>
       </div>

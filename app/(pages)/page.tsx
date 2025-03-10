@@ -1,17 +1,44 @@
 import Image from "next/image"
 import Link from "next/link"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
-export default function Home() {
+export default async function Home() {
+  const session = await getServerSession(authOptions)
+
+  // If user is logged in, redirect to the appropriate dashboard
+  let dashboardLink = "/auth/login"
+
+  if (session) {
+    if (session.user.role === "ADMIN") {
+      dashboardLink = "/admin/dashboard"
+    } else if (session.user.role === "FACULTY") {
+      dashboardLink = "/faculty/dashboard"
+    } else {
+      dashboardLink = "/dashboard"
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex items-center">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center">
             <Image src="/logo.svg" alt="Bugema University Logo" width={50} height={50} className="mr-3" />
             <h1 className="text-2xl font-bold text-blue-900">Bugema University</h1>
           </div>
+
+          {session ? (
+            <Button asChild>
+              <Link href={dashboardLink}>Go to Dashboard</Link>
+            </Button>
+          ) : (
+            <Button asChild>
+              <Link href="/auth/login">Login</Link>
+            </Button>
+          )}
         </div>
       </header>
 
@@ -81,10 +108,10 @@ export default function Home() {
             </CardContent>
             <CardFooter className="flex justify-between">
               <Button variant="outline" asChild>
-                <Link href="/auth/signup">Sign Up</Link>
+                <Link href="/auth/signup?role=student">Student Sign Up</Link>
               </Button>
               <Button variant="outline" asChild className="bg-orange-500 text-white hover:bg-orange-600">
-                <Link href="/auth/new-student">New Student</Link>
+                <Link href="/auth/signup?role=faculty">Faculty Sign Up</Link>
               </Button>
             </CardFooter>
           </Card>

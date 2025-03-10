@@ -1,22 +1,17 @@
 import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
-import type { User } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FacultyStats } from "@/components/faculty/stats"
 import { FacultyCourses } from "@/components/faculty/courses"
 import { EnrolledStudents } from "@/components/faculty/enrolled-students"
+import { AttendanceChart } from "@/components/faculty/attendance-chart"
+import { UpcomingClasses } from "@/components/faculty/upcoming-classes"
 
 export default async function FacultyDashboardPage() {
   const session = await getServerSession(authOptions)
 
-  if (!session?.user) {
-    redirect("/auth/login")
-  }
-
-  const user = session.user as User & { id: string; role: string }
-  
-  if (user.role !== "FACULTY") {
+  if (!session || session.user.role !== "FACULTY") {
     redirect("/auth/login")
   }
 
@@ -35,7 +30,7 @@ export default async function FacultyDashboardPage() {
             <CardDescription>Courses you are teaching this semester</CardDescription>
           </CardHeader>
           <CardContent>
-            <FacultyCourses facultyId={user.id} />
+            <FacultyCourses facultyId={session.user.id} />
           </CardContent>
         </Card>
 
@@ -45,7 +40,29 @@ export default async function FacultyDashboardPage() {
             <CardDescription>Students enrolled in your courses</CardDescription>
           </CardHeader>
           <CardContent>
-            <EnrolledStudents facultyId={user.id} />
+            <EnrolledStudents facultyId={session.user.id} />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Attendance Statistics</CardTitle>
+            <CardDescription>Student attendance rates by course</CardDescription>
+          </CardHeader>
+          <CardContent className="h-80">
+            <AttendanceChart />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Upcoming Classes</CardTitle>
+            <CardDescription>Your scheduled classes for the next week</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <UpcomingClasses />
           </CardContent>
         </Card>
       </div>

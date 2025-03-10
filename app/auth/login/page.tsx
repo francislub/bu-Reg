@@ -172,29 +172,39 @@ export default function LoginPage() {
           <Card className="shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center">
-                <span className="mr-2">📢</span> Latest Notification
+                <span className="mr-2">🏢</span> Staff Portal
               </CardTitle>
-              <CardDescription>Stay updated with the latest announcements from the university</CardDescription>
+              <CardDescription>Access portals for faculty and administrative staff</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="bg-red-100 text-red-800 p-4 rounded-md">
-                <div className="flex items-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 mr-2"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  Notification List Empty!
-                </div>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-md">
+                <h3 className="font-medium text-blue-800 mb-2">Faculty Members</h3>
+                <p className="text-sm text-blue-700 mb-4">
+                  Access your teaching schedule, student lists, and grade submission portal.
+                </p>
+                <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
+                  <Link href="/auth/faculty">Faculty Login</Link>
+                </Button>
+              </div>
+
+              <div className="bg-purple-50 p-4 rounded-md">
+                <h3 className="font-medium text-purple-800 mb-2">Administrators</h3>
+                <p className="text-sm text-purple-700 mb-4">
+                  Access system management, reports, and administrative functions.
+                </p>
+                <Button asChild className="w-full bg-purple-600 hover:bg-purple-700">
+                  <Link href="/auth/admin">Admin Login</Link>
+                </Button>
               </div>
             </CardContent>
+            <CardFooter>
+              <div className="text-sm text-center w-full text-gray-600">
+                For technical support, please contact the IT department at{" "}
+                <a href="mailto:it@bugema.ac.ug" className="text-blue-600 hover:underline">
+                  it@bugema.ac.ug
+                </a>
+              </div>
+            </CardFooter>
           </Card>
         </div>
       </main>

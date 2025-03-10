@@ -13,7 +13,14 @@ export async function middleware(req: NextRequest) {
 
   // Redirect authenticated users away from auth pages
   if (isAuthenticated && isAuthPage) {
-    return NextResponse.redirect(new URL("/dashboard", req.url))
+    // Redirect to appropriate dashboard based on role
+    if (token.role === "ADMIN") {
+      return NextResponse.redirect(new URL("/admin/dashboard", req.url))
+    } else if (token.role === "FACULTY") {
+      return NextResponse.redirect(new URL("/faculty/dashboard", req.url))
+    } else {
+      return NextResponse.redirect(new URL("/dashboard", req.url))
+    }
   }
 
   // Redirect unauthenticated users to login
@@ -27,12 +34,27 @@ export async function middleware(req: NextRequest) {
 
     // Restrict admin pages to admin users
     if (isAdminPage && userRole !== "ADMIN") {
-      return NextResponse.redirect(new URL("/dashboard", req.url))
+      if (userRole === "FACULTY") {
+        return NextResponse.redirect(new URL("/faculty/dashboard", req.url))
+      } else {
+        return NextResponse.redirect(new URL("/dashboard", req.url))
+      }
     }
 
     // Restrict faculty pages to faculty users
     if (isFacultyPage && userRole !== "FACULTY") {
-      return NextResponse.redirect(new URL("/dashboard", req.url))
+      if (userRole === "ADMIN") {
+        return NextResponse.redirect(new URL("/admin/dashboard", req.url))
+      } else {
+        return NextResponse.redirect(new URL("/dashboard", req.url))
+      }
+    }
+
+    // Restrict student pages to student users
+    if (isStudentPage && userRole === "ADMIN") {
+      return NextResponse.redirect(new URL("/admin/dashboard", req.url))
+    } else if (isStudentPage && userRole === "FACULTY") {
+      return NextResponse.redirect(new URL("/faculty/dashboard", req.url))
     }
   }
 

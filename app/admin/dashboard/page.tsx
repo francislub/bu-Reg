@@ -1,22 +1,17 @@
 import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
-import type { User } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AdminStats } from "@/components/admin/stats"
 import { RegistrationApprovals } from "@/components/admin/registration-approvals"
 import { RecentActivity } from "@/components/admin/recent-activity"
+import { EnrollmentChart } from "@/components/admin/enrollment-chart"
+import { SystemStatus } from "@/components/admin/system-status"
 
 export default async function AdminDashboardPage() {
   const session = await getServerSession(authOptions)
 
-  if (!session?.user) {
-    redirect("/auth/login")
-  }
-
-  const user = session.user as User & { role: string }
-  
-  if (user.role !== "ADMIN") {
+  if (!session || session.user.role !== "ADMIN") {
     redirect("/auth/login")
   }
 
@@ -46,6 +41,28 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <RecentActivity />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Enrollment Trends</CardTitle>
+            <CardDescription>Student enrollment statistics by department</CardDescription>
+          </CardHeader>
+          <CardContent className="h-80">
+            <EnrollmentChart />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>System Status</CardTitle>
+            <CardDescription>Current system performance metrics</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SystemStatus />
           </CardContent>
         </Card>
       </div>

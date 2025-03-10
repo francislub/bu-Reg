@@ -4,11 +4,12 @@ import { authOptions } from "@/lib/auth";
 import { AdminHeader } from "@/components/admin/header";
 import { AdminSidebar } from "@/components/admin/sidebar";
 import { AdminDashboard } from "@/components/admin/dashboard";
+import type { UserRole } from "@prisma/client";
 
 export default async function AdminPage() {
   const session = await getServerSession(authOptions);
   
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     redirect("/auth/login");
   }
   

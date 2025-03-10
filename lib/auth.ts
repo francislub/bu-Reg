@@ -3,18 +3,21 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { compare } from "bcrypt"
 import prisma from "@/lib/prisma"
+import type { UserRole } from "@prisma/client"
 
 // Extend the built-in session types
 declare module "next-auth" {
   interface User {
     id: string
-    role: string
-    registrationNo?: string
+    email: string
+    name: string
+    role: UserRole
+    registrationNo?: string | null
     profile?: any
   }
   
-  interface Session {
-    user: User & DefaultSession["user"]
+  interface Session extends DefaultSession {
+    user: User
   }
 }
 
@@ -23,6 +26,7 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
     signIn: "/auth/login",
@@ -50,7 +54,13 @@ export const authOptions: NextAuthOptions = {
           },
         })
 
-        if (!user || !await compare(credentials.password, user.password)) {
+        if (!user) {
+          return null
+        }
+
+        const isPasswordValid = await compare(credentials.password, user.password)
+
+        if (!isPasswordValid) {
           return null
         }
 
@@ -59,8 +69,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
-          registrationNo: user.registrationNo || undefined,
-          profile: user.profile,
+          registrationNo: user.registrationNo,
         }
       },
     }),
@@ -68,27 +77,19 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        return {
-          ...token,
-          id: user.id,
-          role: user.role,
-          registrationNo: user.registrationNo,
-          profile: user.profile,
-        }
+        token.id = user.id
+        token.role = user.role
+        token.registrationNo = user.registrationNo
       }
       return token
     },
     async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.id,
-          role: token.role,
-          registrationNo: token.registrationNo,
-          profile: token.profile,
-        },
+      if (session.user) {
+        session.user.id = token.id as string
+        session.user.role = token.role as UserRole
+        session.user.registrationNo = (token.registrationNo as string) || null
       }
+      return session
     },
   },
 }
