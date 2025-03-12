@@ -19,7 +19,7 @@ export async function middleware(req: NextRequest) {
     } else if (token.role === "FACULTY") {
       return NextResponse.redirect(new URL("/faculty/dashboard", req.url))
     } else {
-      return NextResponse.redirect(new URL("/dashboard", req.url))
+      return NextResponse.redirect(new URL("/dashboard/student", req.url))
     }
   }
 
@@ -37,7 +37,7 @@ export async function middleware(req: NextRequest) {
       if (userRole === "FACULTY") {
         return NextResponse.redirect(new URL("/faculty/dashboard", req.url))
       } else {
-        return NextResponse.redirect(new URL("/dashboard", req.url))
+        return NextResponse.redirect(new URL("/dashboard/student", req.url))
       }
     }
 
@@ -46,15 +46,17 @@ export async function middleware(req: NextRequest) {
       if (userRole === "ADMIN") {
         return NextResponse.redirect(new URL("/admin/dashboard", req.url))
       } else {
-        return NextResponse.redirect(new URL("/dashboard", req.url))
+        return NextResponse.redirect(new URL("/dashboard/student", req.url))
       }
     }
 
     // Restrict student pages to student users
-    if (isStudentPage && userRole === "ADMIN") {
-      return NextResponse.redirect(new URL("/admin/dashboard", req.url))
-    } else if (isStudentPage && userRole === "FACULTY") {
-      return NextResponse.redirect(new URL("/faculty/dashboard", req.url))
+    if (isStudentPage && userRole !== "STUDENT") {
+      if (userRole === "ADMIN") {
+        return NextResponse.redirect(new URL("/admin/dashboard", req.url))
+      } else if (userRole === "FACULTY") {
+        return NextResponse.redirect(new URL("/faculty/dashboard", req.url))
+      }
     }
   }
 

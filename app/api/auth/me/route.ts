@@ -7,19 +7,22 @@ export async function GET() {
     const session = await getServerSession(authOptions)
 
     if (!session) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
     return NextResponse.json({
-      id: session.user.id,
-      name: session.user.name,
-      email: session.user.email,
-      role: session.user.role,
-      registrationNo: session.user.registrationNo,
+      success: true,
+      user: {
+        id: session.user.id,
+        name: session.user.name,
+        email: session.user.email,
+        role: session.user.role,
+        registrationNo: session.user.registrationNo,
+      },
     })
   } catch (error) {
     console.error("Error fetching user:", error)
-    return NextResponse.json({ message: "Something went wrong" }, { status: 500 })
+    return NextResponse.json({ success: false, message: "Something went wrong" }, { status: 500 })
   }
 }
 

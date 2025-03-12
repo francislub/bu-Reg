@@ -23,7 +23,7 @@ export default function DashboardRedirect() {
     } else if (session.user.role === "FACULTY") {
       router.push("/faculty/dashboard")
     } else {
-      router.push("/dashboard")
+      router.push("/dashboard/student")
     }
   }, [session, status, router])
 

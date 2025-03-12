@@ -1,10 +1,19 @@
-
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertTriangle } from "lucide-react"
 
-export function UnauthorizedAccess() {
+interface UnauthorizedAccessProps {
+  message?: string
+  redirectUrl?: string
+  redirectLabel?: string
+}
+
+export function UnauthorizedAccess({
+  message = "You do not have permission to access this page",
+  redirectUrl = "/auth/login",
+  redirectLabel = "Return to Login",
+}: UnauthorizedAccessProps) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <Card className="max-w-md w-full">
@@ -15,7 +24,7 @@ export function UnauthorizedAccess() {
             </div>
           </div>
           <CardTitle className="text-center">Unauthorized Access</CardTitle>
-          <CardDescription className="text-center">You do not have permission to access this page</CardDescription>
+          <CardDescription className="text-center">{message}</CardDescription>
         </CardHeader>
         <CardContent className="text-center">
           <p className="text-gray-600">
@@ -24,7 +33,7 @@ export function UnauthorizedAccess() {
         </CardContent>
         <CardFooter className="flex justify-center">
           <Button asChild>
-            <Link href="/auth/login">Return to Login</Link>
+            <Link href={redirectUrl}>{redirectLabel}</Link>
           </Button>
         </CardFooter>
       </Card>

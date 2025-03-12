@@ -1,24 +1,12 @@
-import type { NextAuthOptions, DefaultSession } from "next-auth"
+import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { compare } from "bcrypt"
-import prisma from "@/lib/prisma"
-import type { UserRole } from "@prisma/client"
+import { prisma } from "@/lib/db"
 
-// Extend the built-in session types
-declare module "next-auth" {
-  interface User {
-    id: string
-    email: string
-    name: string
-    role: UserRole
-    registrationNo?: string | null
-    profile?: any
-  }
-  
-  interface Session extends DefaultSession {
-    user: User
-  }
+// Ensure we have a secret
+if (!process.env.NEXTAUTH_SECRET) {
+  console.warn("WARNING: NEXTAUTH_SECRET is not defined. This is insecure and not recommended for production.")
 }
 
 export const authOptions: NextAuthOptions = {
@@ -42,34 +30,29 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null
+          throw new Error("Email and password are required")
         }
 
         const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email,
-          },
-          include: {
-            profile: true,
-          },
+          where: { email: credentials.email },
         })
 
         if (!user) {
-          return null
+          throw new Error("Invalid credentials")
         }
 
-        const isPasswordValid = await compare(credentials.password, user.password)
-
-        if (!isPasswordValid) {
-          return null
+        const passwordMatch = await compare(credentials.password, user.password)
+        if (!passwordMatch) {
+          throw new Error("Invalid credentials")
         }
 
+        // Return user data without sensitive information
         return {
           id: user.id,
           email: user.email,
-          name: user.name,
+          name: user.name || "",
           role: user.role,
-          registrationNo: user.registrationNo,
+          registrationNo: user.registrationNo || "",
         }
       },
     }),
@@ -84,13 +67,14 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }) {
-      if (session.user) {
+      if (token) {
         session.user.id = token.id as string
-        session.user.role = token.role as UserRole
+        session.user.role = token.role as string
         session.user.registrationNo = (token.registrationNo as string) || null
       }
       return session
     },
   },
+  debug: process.env.NODE_ENV === "development",
 }
 

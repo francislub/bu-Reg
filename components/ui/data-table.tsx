@@ -58,11 +58,14 @@ export function DataTable<TData, TValue>({
         <div className="rounded-md border">
           <Table>
             <TableHeader>
-              {columns.map((column, i) => (
-                <TableHead key={i}>
-                  <Skeleton className="h-6 w-full" />
-                </TableHead>
-              ))}
+              {/* Fix: Add TableRow to wrap TableHead elements */}
+              <TableRow>
+                {columns.map((column, i) => (
+                  <TableHead key={i}>
+                    <Skeleton className="h-6 w-full" />
+                  </TableHead>
+                ))}
+              </TableRow>
             </TableHeader>
             <TableBody>
               {Array.from({ length: 5 }).map((_, i) => (

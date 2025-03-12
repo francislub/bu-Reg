@@ -1,10 +1,7 @@
 "use client"
-
-import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { signIn } from "next-auth/react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -12,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { useToast } from "@/hooks/use-toast"
+import { useLoginHandler } from "@/components/auth/login-handler"
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -23,8 +20,7 @@ type LoginFormValues = z.infer<typeof loginSchema>
 
 export default function FacultyLoginPage() {
   const router = useRouter()
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
+  const { handleLogin, isLoading } = useLoginHandler()
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -35,40 +31,12 @@ export default function FacultyLoginPage() {
   })
 
   async function onSubmit(data: LoginFormValues) {
-    setIsLoading(true)
-
-    try {
-      const response = await signIn("credentials", {
-        email: data.email,
-        password: data.password,
-        redirect: false,
-      })
-
-      if (response?.error) {
-        toast({
-          title: "Login Failed",
-          description: "Invalid email or password. Please try again.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      toast({
-        title: "Login Successful",
-        description: "Welcome to Bugema University Faculty Portal!",
-      })
-
-      router.push("/faculty/dashboard")
-      router.refresh()
-    } catch (error) {
-      toast({
-        title: "Something went wrong",
-        description: "Please try again later",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
+    await handleLogin({
+      email: data.email,
+      password: data.password,
+      expectedRole: "FACULTY",
+      onComplete: () => form.reset(),
+    })
   }
 
   return (
@@ -91,6 +59,25 @@ export default function FacultyLoginPage() {
             <CardDescription>Enter your credentials to access the faculty portal</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="flex justify-center mb-6">
+              <div className="w-24 h-24 rounded-full bg-blue-100 flex items-center justify-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-12 w-12 text-blue-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                  />
+                </svg>
+              </div>
+            </div>
+
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
