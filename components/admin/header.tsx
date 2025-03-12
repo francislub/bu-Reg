@@ -18,10 +18,10 @@ export function AdminHeader({ user }: AdminHeaderProps) {
           <div className="flex items-center gap-2">
             <Link href="/admin" className="flex items-center gap-2">
               <Image 
-                src="/logo.png" 
+                src="/images/bugema.png"
                 alt="Bugema University Logo" 
-                width={40} 
-                height={40}
+                width={60} 
+                height={60}
                 className="rounded-full"
               />
               <div>

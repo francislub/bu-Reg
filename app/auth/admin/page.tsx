@@ -44,7 +44,7 @@ export default function AdminLoginPage() {
       <header className="bg-white shadow-sm">
         <div className="container mx-auto px-4 py-4 flex items-center">
           <div className="flex items-center">
-            <Image src="/logo.svg" alt="Bugema University Logo" width={50} height={50} className="mr-3" />
+            <Image src="/images/bugema.png" alt="Bugema University Logo" width={50} height={50} className="mr-3" />
             <h1 className="text-2xl font-bold text-blue-900">Bugema University</h1>
           </div>
         </div>

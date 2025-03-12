@@ -28,7 +28,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
-            <Image src="/logo.svg" alt="Bugema University Logo" width={40} height={40} className="mr-3" />
+            <Image src="/images/bugema.png" alt="Bugema University Logo" width={60} height={60} className="mr-3" />
             <h1 className="text-xl font-bold text-blue-900">Bugema University</h1>
           </div>
 

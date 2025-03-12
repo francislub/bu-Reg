@@ -45,7 +45,7 @@ function getRoleBasedRedirectUrl(role: string): string {
       return "/faculty/dashboard"
     case "STUDENT":
     default:
-      return "/dashboard/student"
+      return "/dashboard"
   }
 }
 
