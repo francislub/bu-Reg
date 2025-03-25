@@ -1,66 +1,117 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
 import prisma from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 
-export async function GET(req: Request) {
+// GET /api/courses - Get all courses
+export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
-
-    const { searchParams } = new URL(req.url)
+    const { searchParams } = new URL(request.url)
+    const department = searchParams.get("department")
     const semester = searchParams.get("semester")
     const academicYear = searchParams.get("academicYear")
+    const facultyId = searchParams.get("facultyId")
+    const limit = Number.parseInt(searchParams.get("limit") || "10")
+    const page = Number.parseInt(searchParams.get("page") || "1")
+    const skip = (page - 1) * limit
 
-    const whereClause: any = {}
-
-    if (semester) {
-      whereClause.semester = semester
-    }
-
-    if (academicYear) {
-      whereClause.academicYear = academicYear
-    }
+    // Build where clause based on query params
+    const where: any = {}
+    if (department) where.department = department
+    if (semester) where.semester = semester
+    if (academicYear) where.academicYear = academicYear
+    if (facultyId) where.facultyId = facultyId
 
     const courses = await prisma.course.findMany({
-      where: whereClause,
+      where,
       include: {
         faculty: {
           select: {
+            id: true,
             name: true,
+            email: true,
+          },
+        },
+      },
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+
+    const total = await prisma.course.count({ where })
+
+    return NextResponse.json({
+      courses,
+      meta: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    })
+  } catch (error) {
+    console.error("Error fetching courses:", error)
+    return NextResponse.json({ error: "Failed to fetch courses" }, { status: 500 })
+  }
+}
+
+// POST /api/courses - Create a new course
+export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+    const {
+      code,
+      title,
+      credits,
+      description,
+      department,
+      semester,
+      academicYear,
+      maxCapacity,
+      prerequisites,
+      facultyId,
+    } = body
+
+    // Check if course with same code already exists
+    const existingCourse = await prisma.course.findUnique({
+      where: {
+        code,
+      },
+    })
+
+    if (existingCourse) {
+      return NextResponse.json({ error: "Course with this code already exists" }, { status: 400 })
+    }
+
+    // Create course
+    const course = await prisma.course.create({
+      data: {
+        code,
+        title,
+        credits,
+        description,
+        department,
+        semester,
+        academicYear,
+        maxCapacity,
+        prerequisites: prerequisites || [],
+        facultyId,
+      },
+      include: {
+        faculty: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
           },
         },
       },
     })
 
-    return NextResponse.json(courses)
-  } catch (error) {
-    console.error("Error fetching courses:", error)
-    return NextResponse.json({ message: "Something went wrong" }, { status: 500 })
-  }
-}
-
-export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-
-    if (!session || session.user.role !== "ADMIN") {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
-
-    const data = await req.json()
-
-    const course = await prisma.course.create({
-      data,
-    })
-
     return NextResponse.json(course, { status: 201 })
   } catch (error) {
     console.error("Error creating course:", error)
-    return NextResponse.json({ message: "Something went wrong" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to create course" }, { status: 500 })
   }
 }
 

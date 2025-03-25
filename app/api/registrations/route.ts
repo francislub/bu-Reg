@@ -1,65 +1,83 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import type { User } from "next-auth"
 import prisma from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 
-export async function GET(req: Request) {
+// GET /api/registrations - Get all registrations
+export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
-
-    const user = session.user as User & { id: string; role: string }
-    const { searchParams } = new URL(req.url)
-    const studentId = searchParams.get("studentId") || user.id
+    const { searchParams } = new URL(request.url)
+    const studentId = searchParams.get("studentId")
+    const courseId = searchParams.get("courseId")
+    const status = searchParams.get("status")
     const semester = searchParams.get("semester")
     const academicYear = searchParams.get("academicYear")
+    const limit = Number.parseInt(searchParams.get("limit") || "10")
+    const page = Number.parseInt(searchParams.get("page") || "1")
+    const skip = (page - 1) * limit
 
-    if (studentId !== user.id && user.role !== "ADMIN" && user.role !== "FACULTY") {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 403 })
-    }
-
-    const whereClause: any = {
-      studentId,
-    }
-
-    if (semester) {
-      whereClause.semester = semester
-    }
-
-    if (academicYear) {
-      whereClause.academicYear = academicYear
-    }
+    // Build where clause based on query params
+    const where: any = {}
+    if (studentId) where.studentId = studentId
+    if (courseId) where.courseId = courseId
+    if (status) where.status = status
+    if (semester) where.semester = semester
+    if (academicYear) where.academicYear = academicYear
 
     const registrations = await prisma.registration.findMany({
-      where: whereClause,
+      where,
       include: {
+        student: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            registrationNo: true,
+          },
+        },
         course: true,
+      },
+      skip,
+      take: limit,
+      orderBy: {
+        registeredAt: "desc",
       },
     })
 
-    return NextResponse.json(registrations)
+    const total = await prisma.registration.count({ where })
+
+    return NextResponse.json({
+      registrations,
+      meta: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    })
   } catch (error) {
     console.error("Error fetching registrations:", error)
-    return NextResponse.json({ message: "Something went wrong" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch registrations" }, { status: 500 })
   }
 }
 
-export async function POST(req: Request) {
+// POST /api/registrations - Create a new registration
+export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
+    const body = await request.json()
+    const { studentId, courseId, semester, academicYear } = body
 
-    if (!session?.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    // Check if student exists
+    const student = await prisma.user.findUnique({
+      where: {
+        id: studentId,
+        role: "STUDENT",
+      },
+    })
+
+    if (!student) {
+      return NextResponse.json({ error: "Student not found" }, { status: 404 })
     }
 
-    const user = session.user as User & { id: string }
-    const { courseId, semester, academicYear } = await req.json()
-
-    // Check if the course exists
+    // Check if course exists
     const course = await prisma.course.findUnique({
       where: {
         id: courseId,
@@ -67,18 +85,13 @@ export async function POST(req: Request) {
     })
 
     if (!course) {
-      return NextResponse.json({ message: "Course not found" }, { status: 404 })
+      return NextResponse.json({ error: "Course not found" }, { status: 404 })
     }
 
-    // Check if the course has available seats
-    if (course.currentEnrolled >= course.maxCapacity) {
-      return NextResponse.json({ message: "Course is full" }, { status: 400 })
-    }
-
-    // Check if the student is already registered for this course
+    // Check if registration already exists
     const existingRegistration = await prisma.registration.findFirst({
       where: {
-        studentId: user.id,
+        studentId,
         courseId,
         semester,
         academicYear,
@@ -86,46 +99,50 @@ export async function POST(req: Request) {
     })
 
     if (existingRegistration) {
-      return NextResponse.json({ message: "You are already registered for this course" }, { status: 400 })
+      return NextResponse.json({ error: "Registration already exists" }, { status: 400 })
     }
 
-    // Create the registration
+    // Check if course is full
+    if (course.currentEnrolled >= course.maxCapacity) {
+      return NextResponse.json({ error: "Course is at maximum capacity" }, { status: 400 })
+    }
+
+    // Create registration
     const registration = await prisma.registration.create({
       data: {
-        studentId: user.id,
+        studentId,
         courseId,
         semester,
         academicYear,
         status: "PENDING",
       },
-    })
-
-    // Update the course enrollment count
-    await prisma.course.update({
-      where: {
-        id: courseId,
-      },
-      data: {
-        currentEnrolled: {
-          increment: 1,
+      include: {
+        student: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            registrationNo: true,
+          },
         },
+        course: true,
       },
     })
 
-    // Create a notification for the student
+    // Create notification for student
     await prisma.notification.create({
       data: {
-        title: "Course Registration",
-        message: `You have successfully registered for ${course.code}: ${course.title}. Your registration is pending approval.`,
+        title: "Registration Submitted",
+        message: `Your registration for ${course.code}: ${course.title} has been submitted and is pending approval.`,
         type: "REGISTRATION",
-        userId: user.id,
+        userId: studentId,
       },
     })
 
     return NextResponse.json(registration, { status: 201 })
   } catch (error) {
     console.error("Error creating registration:", error)
-    return NextResponse.json({ message: "Something went wrong" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to create registration" }, { status: 500 })
   }
 }
 

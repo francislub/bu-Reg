@@ -1,67 +1,88 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import type { User } from "next-auth"
 import prisma from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 
-export async function GET(req: Request) {
+// GET /api/notifications - Get all notifications
+export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
-
-    const user = session.user as User & { id: string; role: string }
-    const { searchParams } = new URL(req.url)
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get("userId")
+    const type = searchParams.get("type")
+    const isRead = searchParams.get("isRead") === "true"
     const limit = Number.parseInt(searchParams.get("limit") || "10")
-    const userId = searchParams.get("userId") || user.id
+    const page = Number.parseInt(searchParams.get("page") || "1")
+    const skip = (page - 1) * limit
 
-    if (userId !== user.id && user.role !== "ADMIN") {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 403 })
-    }
+    // Build where clause based on query params
+    const where: any = {}
+    if (userId) where.userId = userId
+    if (type) where.type = type
+    if (searchParams.has("isRead")) where.isRead = isRead
 
     const notifications = await prisma.notification.findMany({
-      where: {
-        OR: [
-          { userId },
-          { userId: null }, // System-wide notifications
-        ],
-      },
+      where,
+      skip,
+      take: limit,
       orderBy: {
         createdAt: "desc",
       },
-      take: limit,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     })
 
-    return NextResponse.json(notifications)
+    const total = await prisma.notification.count({ where })
+
+    return NextResponse.json({
+      notifications,
+      meta: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    })
   } catch (error) {
     console.error("Error fetching notifications:", error)
-    return NextResponse.json({ message: "Something went wrong" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch notifications" }, { status: 500 })
   }
 }
 
-export async function POST(req: Request) {
+// POST /api/notifications - Create a new notification
+export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
+    const body = await request.json()
+    const { title, message, type, userId, userIds } = body
 
-    if (!session?.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    // If userIds is provided, create notifications for multiple users
+    if (userIds && Array.isArray(userIds) && userIds.length > 0) {
+      const notifications = await Promise.all(
+        userIds.map((id) =>
+          prisma.notification.create({
+            data: {
+              title,
+              message,
+              type: type || "SYSTEM",
+              userId: id,
+            },
+          }),
+        ),
+      )
+
+      return NextResponse.json({ message: `${notifications.length} notifications created` }, { status: 201 })
     }
 
-    const user = session.user as User & { role: string }
-    
-    if (user.role !== "ADMIN") {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
-
-    const { title, message, type, userId } = await req.json()
-
+    // Create notification for a single user or system-wide
     const notification = await prisma.notification.create({
       data: {
         title,
         message,
-        type,
+        type: type || "SYSTEM",
         userId,
       },
     })
@@ -69,7 +90,7 @@ export async function POST(req: Request) {
     return NextResponse.json(notification, { status: 201 })
   } catch (error) {
     console.error("Error creating notification:", error)
-    return NextResponse.json({ message: "Something went wrong" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to create notification" }, { status: 500 })
   }
 }
 

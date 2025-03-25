@@ -1,59 +1,100 @@
-"use client";
+"use client"
 
-import Link from "next/link";
-import Image from "next/image";
-import { signOut } from "next-auth/react";
-import { Button } from "@/components/ui/button";
-import { User } from "next-auth";
+import { useState } from "react"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { signOut } from "next-auth/react"
+import { Bell, Menu, Moon, Sun, User } from "lucide-react"
+import { useTheme } from "next-themes"
 
 interface AdminHeaderProps {
-  user: User;
+  user: {
+    name?: string | null
+    email?: string | null
+    image?: string | null
+  }
 }
 
 export function AdminHeader({ user }: AdminHeaderProps) {
+  const { theme, setTheme } = useTheme()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark")
+  }
+
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: "/login" })
+  }
+
+  const userInitials = user?.name
+    ? user.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+    : "U"
+
   return (
-    <header className="bg-white border-b sticky top-0 z-10">
-      <div className="container mx-auto px-4 py-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Link href="/admin" className="flex items-center gap-2">
-              <Image 
-                src="/images/bugema.png"
-                alt="Bugema University Logo" 
-                width={60} 
-                height={60}
-                className="rounded-full"
-              />
-              <div>
-                <h1 className="text-xl font-bold">Bugema University</h1>
-                <p className="text-sm text-gray-500">Admin Portal</p>
-              </div>
-            </Link>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2">
-              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-user text-gray-500"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              </div>
-              <div>
-                <p className="font-medium text-sm">{user.name}</p>
-                <p className="text-xs text-gray-500">Administrator</p>
-              </div>
-            </div>
-            
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-red-600 hover:text-red-800 hover:bg-red-50"
-              onClick={() => signOut({ callbackUrl: "/" })}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out mr-1"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
-              Logout
-            </Button>
-          </div>
+    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30">
+      <div className="px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
+        <div className="flex items-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden mr-2"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Toggle menu</span>
+          </Button>
+          <Link href="/admin" className="flex items-center">
+            <span className="text-xl font-bold">Course Registration</span>
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" className="text-gray-500 dark:text-gray-400">
+            <Bell className="h-5 w-5" />
+            <span className="sr-only">Notifications</span>
+          </Button>
+
+          <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-gray-500 dark:text-gray-400">
+            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            <span className="sr-only">Toggle theme</span>
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user?.image || ""} alt={user?.name || "User"} />
+                  <AvatarFallback>{userInitials}</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSignOut}>Log out</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>
-  );
+  )
 }
+
