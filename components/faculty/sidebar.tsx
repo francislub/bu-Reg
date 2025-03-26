@@ -11,9 +11,9 @@ import {
   Settings,
   LogOut,
   Menu,
-  ClipboardList,
+  Users,
   FileText,
-  GraduationCap,
+  CheckSquare,
   Bell,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -21,11 +21,11 @@ import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { signOut } from "next-auth/react"
 
-interface DashboardSidebarProps {
+interface FacultySidebarProps {
   user: User
 }
 
-export function DashboardSidebar({ user }: DashboardSidebarProps) {
+export function FacultySidebar({ user }: FacultySidebarProps) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -53,47 +53,47 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
   const menuItems = [
     {
       name: "Dashboard",
-      href: "/dashboard/dashboard",
+      href: "/faculty/dashboard",
       icon: <Home className="h-5 w-5" />,
     },
     {
       name: "My Courses",
-      href: "/dashboard/my-courses",
+      href: "/faculty/courses",
       icon: <BookOpen className="h-5 w-5" />,
     },
     {
-      name: "Course Registration",
-      href: "/dashboard/course-registration",
-      icon: <ClipboardList className="h-5 w-5" />,
+      name: "Student Approvals",
+      href: "/faculty/approvals",
+      icon: <CheckSquare className="h-5 w-5" />,
     },
     {
-      name: "Registration History",
-      href: "/dashboard/registration-history",
+      name: "Student List",
+      href: "/faculty/students",
+      icon: <Users className="h-5 w-5" />,
+    },
+    {
+      name: "Course Materials",
+      href: "/faculty/materials",
       icon: <FileText className="h-5 w-5" />,
     },
     {
       name: "Academic Calendar",
-      href: "/dashboard/calendar",
+      href: "/faculty/calendar",
       icon: <Calendar className="h-5 w-5" />,
     },
     {
-      name: "Grades",
-      href: "/dashboard/grades",
-      icon: <GraduationCap className="h-5 w-5" />,
-    },
-    {
       name: "Notifications",
-      href: "/dashboard/notifications",
+      href: "/faculty/notifications",
       icon: <Bell className="h-5 w-5" />,
     },
     {
       name: "Profile",
-      href: "/dashboard/profile",
+      href: "/faculty/profile",
       icon: <UserIcon className="h-5 w-5" />,
     },
     {
       name: "Settings",
-      href: "/dashboard/settings",
+      href: "/faculty/settings",
       icon: <Settings className="h-5 w-5" />,
     },
   ]
@@ -114,7 +114,7 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
         )}
       >
         <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-          <h2 className="text-xl font-bold">Student Portal</h2>
+          <h2 className="text-xl font-bold">Faculty Portal</h2>
           {isMobile && (
             <Button
               variant="ghost"

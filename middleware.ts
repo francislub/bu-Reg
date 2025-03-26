@@ -37,7 +37,7 @@ export async function middleware(req: NextRequest) {
       if (userRole === "FACULTY") {
         return NextResponse.redirect(new URL("/faculty/dashboard", req.url))
       } else {
-        return NextResponse.redirect(new URL("/dashboard", req.url))
+        return NextResponse.redirect(new URL("/dashboard/dashboard", req.url))
       }
     }
 
@@ -46,7 +46,7 @@ export async function middleware(req: NextRequest) {
       if (userRole === "ADMIN") {
         return NextResponse.redirect(new URL("/admin/dashboard", req.url))
       } else {
-        return NextResponse.redirect(new URL("/dashboard", req.url))
+        return NextResponse.redirect(new URL("/dashboard/dashboard", req.url))
       }
     }
 
