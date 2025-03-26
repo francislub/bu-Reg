@@ -46,11 +46,11 @@ const registrationFormSchema = z.object({
 
 type RegistrationFormValues = z.infer<typeof registrationFormSchema>
 
-interface CourseRegistrationProps {
-  userId: string
-}
+// interface CourseRegistrationProps {
+//   userId: string
+// }
 
-export function CourseRegistration({ userId }: CourseRegistrationProps) {
+export function CourseRegistration() {
   const { toast } = useToast()
   const [availableCourses, setAvailableCourses] = useState<Course[]>([])
   const [registrations, setRegistrations] = useState<Registration[]>([])
@@ -139,6 +139,7 @@ export function CourseRegistration({ userId }: CourseRegistrationProps) {
           setIsLoading(false)
         }, 1000)
       } catch (error) {
+        console.error(error);
         toast({
           title: "Error",
           description: "Failed to fetch data. Please try again.",
@@ -185,6 +186,7 @@ export function CourseRegistration({ userId }: CourseRegistrationProps) {
         setIsRegistering(false)
       }, 1000)
     } catch (error) {
+      console.error(error);
       toast({
         title: "Registration Failed",
         description: "Failed to register for the course. Please try again.",

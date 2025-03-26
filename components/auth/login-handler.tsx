@@ -76,6 +76,7 @@ export function useLoginHandler() {
         router.refresh()
       }
     } catch (error) {
+      console.error(error);
       toast({
         title: "Something went wrong",
         description: "Please try again later",

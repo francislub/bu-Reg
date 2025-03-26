@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import type { User } from "next-auth"
+// import type { User } from "next-auth"
 import {
   Home,
   BookOpen,
@@ -21,11 +21,12 @@ import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { signOut } from "next-auth/react"
 
-interface FacultySidebarProps {
-  user: User
-}
+// interface FacultySidebarProps {
+//   user: User
+// }
 
-export function FacultySidebar({ user }: FacultySidebarProps) {
+// export function FacultySidebar({ user }: FacultySidebarProps) {
+export function FacultySidebar() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)

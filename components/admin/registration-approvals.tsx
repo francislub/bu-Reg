@@ -62,6 +62,7 @@ export function RegistrationApprovals() {
         description: "The student registration has been approved.",
       })
     } catch (error) {
+      console.error(error);
       toast({
         title: "Error",
         description: "Failed to approve registration.",
@@ -79,6 +80,7 @@ export function RegistrationApprovals() {
         description: "The student registration has been rejected.",
       })
     } catch (error) {
+      console.error(error);
       toast({
         title: "Error",
         description: "Failed to reject registration.",

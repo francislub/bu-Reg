@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Bell, LogOut, Menu, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useState } from "react"
+import Image from "next/image"
 
 interface DashboardHeaderProps {
   user: User
@@ -49,6 +50,14 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
             <span className="sr-only">Toggle theme</span>
           </Button>
 
+          {/* User Avatar and Name */}
+          <div className="flex items-center gap-2">
+            {user.image && (
+              <Image src={user.image} alt="User Avatar" width={32} height={32} className="rounded-full" />
+            )}
+            <span className="text-sm font-medium">{user.name}</span>
+          </div>
+
           <Button
             variant="ghost"
             size="sm"
@@ -63,4 +72,3 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
     </header>
   )
 }
-

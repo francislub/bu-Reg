@@ -73,6 +73,7 @@ export function ProfileForm() {
         description: "Your profile has been updated successfully.",
       });
     } catch (error) {
+      console.error(error);
       toast({
         variant: "destructive",
         title: "Update Failed",

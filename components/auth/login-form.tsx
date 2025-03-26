@@ -56,6 +56,7 @@ export function LoginForm() {
         router.refresh();
       }
     } catch (error) {
+      console.error(error);
       toast({
         variant: "destructive",
         title: "Something went wrong",

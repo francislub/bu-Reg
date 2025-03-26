@@ -20,9 +20,9 @@ export const ChartPie = ({ children }: { children: React.ReactNode }) => {
   return <div className="chart-pie">{children}</div>
 }
 
-export const ChartPieSeries = ({ data, nameKey, valueKey }: { data: any[]; nameKey: string; valueKey: string }) => {
-  return <div className="chart-pie-series"></div>
-}
+// export const ChartPieSeries = ({ data, nameKey, valueKey }: { data: any[]; nameKey: string; valueKey: string }) => {
+//   return <div className="chart-pie-series"></div>
+// }
 
 export const ChartTooltip = ({ children }: { children: React.ReactNode }) => {
   return <div className="chart-tooltip">{children}</div>

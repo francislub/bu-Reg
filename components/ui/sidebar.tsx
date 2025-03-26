@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
@@ -57,12 +55,16 @@ SidebarMenuItem.displayName = "SidebarMenuItem"
 
 const SidebarMenuButton = React.forwardRef<
   HTMLButtonElement | HTMLDivElement,
-  React.HTMLAttributes<HTMLButtonElement | HTMLDivElement> & { isActive?: boolean; asChild?: boolean }
+  React.ButtonHTMLAttributes<HTMLButtonElement> &
+    React.HTMLAttributes<HTMLDivElement> & {
+      isActive?: boolean
+      asChild?: boolean
+    }
 >(({ className, isActive, asChild = false, ...props }, ref) => {
-  const Comp = asChild ? "div" : "button"
+  const Comp = (asChild ? "div" : "button") as React.ElementType
   return (
     <Comp
-      ref={ref as any}
+      ref={ref as React.Ref<HTMLButtonElement | HTMLDivElement>}
       className={cn(
         "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
         isActive && "bg-accent text-accent-foreground",
@@ -87,4 +89,4 @@ export {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarProvider,
-} 
+}

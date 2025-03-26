@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import type { User } from "next-auth"
+// import type { User } from "next-auth"
 import {
   Home,
   BookOpen,
@@ -21,11 +21,12 @@ import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { signOut } from "next-auth/react"
 
-interface DashboardSidebarProps {
-  user: User
-}
+// interface DashboardSidebarProps {
+//   user: User
+// }
 
-export function DashboardSidebar({ user }: DashboardSidebarProps) {
+// export function DashboardSidebar({ user }: DashboardSidebarProps) {
+export function DashboardSidebar() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
