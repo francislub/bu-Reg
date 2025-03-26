@@ -29,7 +29,7 @@ export default function AdminLayout({
 
   const handleLogout = () => {
     // Implement logout logic here
-    router.push("/login")
+    router.push("/auth/login")
   }
 
   return (

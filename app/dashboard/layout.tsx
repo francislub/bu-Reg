@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { redirect } from "next/navigation"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
 import type { User } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
@@ -14,7 +14,7 @@ export default async function DashboardLayout({
   const session = await getServerSession(authOptions)
 
   if (!session?.user) {
-    redirect("/auth/login")
+    redirect("/auth/login") // Change from "/login" to "/auth/login"
   }
 
   const user = session.user as User
@@ -29,3 +29,4 @@ export default async function DashboardLayout({
     </div>
   )
 }
+

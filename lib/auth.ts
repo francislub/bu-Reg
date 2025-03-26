@@ -1,26 +1,9 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { compare } from "bcrypt"
-import { prisma } from "@/lib/db"
-
-// Ensure we have a secret
-if (!process.env.NEXTAUTH_SECRET) {
-  console.warn("WARNING: NEXTAUTH_SECRET is not defined. This is insecure and not recommended for production.")
-}
+import prisma from "@/lib/prisma"
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
-  secret: process.env.NEXTAUTH_SECRET,
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  pages: {
-    signIn: "/auth/login",
-    signOut: "/auth/logout",
-    error: "/auth/error",
-  },
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -30,29 +13,51 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Email and password are required")
+          return null
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+        // First check for a user in the User model
+        let user = await prisma.user.findUnique({
+          where: {
+            email: credentials.email,
+          },
         })
 
+        // If not found, check in the Faculty model
         if (!user) {
-          throw new Error("Invalid credentials")
+          const faculty = await prisma.faculty.findUnique({
+            where: {
+              email: credentials.email,
+            },
+          })
+
+          if (faculty) {
+            // Create a user object from faculty data
+            user = {
+              id: faculty.id,
+              email: faculty.email,
+              name: faculty.name,
+              role: "FACULTY",
+              password: faculty.password,
+            }
+          }
         }
 
-        const passwordMatch = await compare(credentials.password, user.password)
-        if (!passwordMatch) {
-          throw new Error("Invalid credentials")
+        if (!user) {
+          return null
         }
 
-        // Return user data without sensitive information
+        const isPasswordValid = await compare(credentials.password, user.password)
+
+        if (!isPasswordValid) {
+          return null
+        }
+
         return {
           id: user.id,
           email: user.email,
-          name: user.name || "",
-          role: user.role,
-          registrationNo: user.registrationNo || "",
+          name: user.name,
+          role: user.role || "STUDENT",
         }
       },
     }),
@@ -62,7 +67,6 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.role = user.role
-        token.registrationNo = user.registrationNo
       }
       return token
     },
@@ -70,11 +74,17 @@ export const authOptions: NextAuthOptions = {
       if (token) {
         session.user.id = token.id as string
         session.user.role = token.role as string
-        session.user.registrationNo = (token.registrationNo as string) || null
       }
       return session
     },
   },
+  pages: {
+    signIn: "/auth/login", // Change from "/login" to "/auth/login"
+  },
+  session: {
+    strategy: "jwt",
+  },
+  secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
 }
 

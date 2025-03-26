@@ -1,112 +1,87 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle, Clock, XCircle } from "lucide-react"
-
-interface Registration {
-  id: string
-  courseCode: string
-  courseTitle: string
-  status: "PENDING" | "APPROVED" | "REJECTED"
-  registeredAt: string
-}
+import { useEffect, useState } from "react"
+import { BookOpen } from "lucide-react"
 
 export function RecentRegistrations() {
-  const [registrations, setRegistrations] = useState<Registration[]>([])
+  const [registrations, setRegistrations] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setRegistrations([
-        {
-          id: "1",
-          courseCode: "CSC101",
-          courseTitle: "Introduction to Computer Science",
-          status: "APPROVED",
-          registeredAt: "2025-02-28T10:30:00Z",
-        },
-        {
-          id: "2",
-          courseCode: "MAT101",
-          courseTitle: "Calculus I",
-          status: "PENDING",
-          registeredAt: "2025-03-01T09:45:00Z",
-        },
-        {
-          id: "3",
-          courseCode: "ENG101",
-          courseTitle: "English Composition",
-          status: "REJECTED",
-          registeredAt: "2025-03-02T14:20:00Z",
-        },
-        {
-          id: "4",
-          courseCode: "PHY101",
-          courseTitle: "Physics I",
-          status: "PENDING",
-          registeredAt: "2025-03-03T08:10:00Z",
-        },
-      ])
-      setLoading(false)
-    }, 1000)
+    const fetchRegistrations = async () => {
+      try {
+        setLoading(true)
+        // In a real app, you would fetch this data from your API
+        // For now, we'll use mock data
+        setTimeout(() => {
+          setRegistrations([
+            {
+              id: "1",
+              courseCode: "CS101",
+              courseTitle: "Introduction to Computer Science",
+              status: "APPROVED",
+              date: "2023-08-28",
+            },
+            {
+              id: "2",
+              courseCode: "MATH201",
+              courseTitle: "Calculus II",
+              status: "APPROVED",
+              date: "2023-08-27",
+            },
+            {
+              id: "3",
+              courseCode: "ENG105",
+              courseTitle: "Academic Writing",
+              status: "PENDING",
+              date: "2023-08-25",
+            },
+          ])
+          setLoading(false)
+        }, 1000)
+      } catch (error) {
+        console.error("Error fetching registrations:", error)
+        setLoading(false)
+      }
+    }
+
+    fetchRegistrations()
   }, [])
 
   if (loading) {
+    return <div className="flex items-center justify-center h-40">Loading registrations...</div>
+  }
+
+  if (registrations.length === 0) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
+      <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+        <BookOpen className="h-8 w-8 mb-2" />
+        <p>No recent registrations</p>
       </div>
     )
   }
 
-  // Sort registrations by date (newest first)
-  const sortedRegistrations = [...registrations].sort(
-    (a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime(),
-  )
-
   return (
     <div className="space-y-4">
-      {sortedRegistrations.map((registration) => (
-        <div key={registration.id} className="border rounded-md p-3">
-          <div className="flex justify-between items-start">
-            <div>
-              <h4 className="font-medium">
-                {registration.courseCode}: {registration.courseTitle}
-              </h4>
-              <p className="text-xs text-gray-500">{new Date(registration.registeredAt).toLocaleString()}</p>
-            </div>
-            <div className="flex items-center">
-              {registration.status === "APPROVED" && (
-                <div className="flex items-center text-green-500">
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  <span className="text-sm">Approved</span>
-                </div>
-              )}
-              {registration.status === "PENDING" && (
-                <div className="flex items-center text-amber-500">
-                  <Clock className="h-4 w-4 mr-1" />
-                  <span className="text-sm">Pending</span>
-                </div>
-              )}
-              {registration.status === "REJECTED" && (
-                <div className="flex items-center text-red-500">
-                  <XCircle className="h-4 w-4 mr-1" />
-                  <span className="text-sm">Rejected</span>
-                </div>
-              )}
-            </div>
+      {registrations.map((registration) => (
+        <div key={registration.id} className="flex justify-between items-center pb-3 border-b last:border-0">
+          <div>
+            <h4 className="font-medium">
+              {registration.courseCode}: {registration.courseTitle}
+            </h4>
+            <p className="text-sm text-muted-foreground">{registration.date}</p>
+          </div>
+          <div
+            className={`px-2 py-1 rounded-full text-xs font-medium ${
+              registration.status === "APPROVED"
+                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+            }`}
+          >
+            {registration.status}
           </div>
         </div>
       ))}
-
-      <Button variant="outline" size="sm" className="w-full">
-        View All Registrations
-      </Button>
     </div>
   )
 }

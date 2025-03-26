@@ -14,7 +14,7 @@ export default async function StudentDashboardPage() {
   const session = await getServerSession(authOptions)
 
   if (!session || session.user.role !== "STUDENT") {
-    redirect("/login")
+    redirect("/auth/login")
   }
 
   // Get student data
@@ -24,7 +24,7 @@ export default async function StudentDashboardPage() {
   })
 
   if (!student) {
-    redirect("/login")
+    redirect("/auth/login")
   }
 
   // Get student registrations

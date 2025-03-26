@@ -17,24 +17,44 @@ enum UserRole {
 }
 
 model User {
-  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
   name           String
-  email          String    @unique
+  email          String         @unique
   password       String
-  role           UserRole  @default(STUDENT)
-  registrationNo String?   @unique
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  role           UserRole       @default(STUDENT)
+  registrationNo String?        @unique
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
   profile        Profile?
   registrations  Registration[]
   notifications  Notification[]
-  courses        Course[]  @relation("FacultyCourses")
+  courses        Course[]       @relation("FacultyCourses")
+  Student        Student?
+}
+
+model Student {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id])
+  enrollmentDate DateTime  @default(now())
+  graduationDate DateTime?
+}
+
+model Faculty {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  email      String   @unique
+  password   String
+  department String
+  courses    Course[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Profile {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId          String   @unique @db.ObjectId
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String    @unique @db.ObjectId
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   department      String?
   program         String?
   campus          String?
@@ -44,13 +64,13 @@ model Profile {
   dateOfBirth     DateTime?
   gender          String?
   profileImageUrl String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model Course {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  code            String   @unique
+  id              String         @id @default(auto()) @map("_id") @db.ObjectId
+  code            String         @unique
   title           String
   credits         Int
   description     String?
@@ -58,13 +78,14 @@ model Course {
   semester        String
   academicYear    String
   maxCapacity     Int
-  currentEnrolled Int      @default(0)
-  prerequisites   String[] @default([])
-  facultyId       String?  @db.ObjectId
-  faculty         User?    @relation("FacultyCourses", fields: [facultyId], references: [id])
+  currentEnrolled Int            @default(0)
+  prerequisites   String[]       @default([])
+  facultyId       String?        @db.ObjectId
+  faculty         User?          @relation("FacultyCourses", fields: [facultyId], references: [id])
   registrations   Registration[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  Faculty         Faculty?       @relation(fields: [facultyId], references: [id])
 }
 
 enum RegistrationStatus {
@@ -74,16 +95,16 @@ enum RegistrationStatus {
 }
 
 model Registration {
-  id         String             @id @default(auto()) @map("_id") @db.ObjectId
-  studentId  String             @db.ObjectId
-  student    User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  courseId   String             @db.ObjectId
-  course     Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  status     RegistrationStatus @default(PENDING)
-  semester   String
+  id           String             @id @default(auto()) @map("_id") @db.ObjectId
+  studentId    String             @db.ObjectId
+  student      User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseId     String             @db.ObjectId
+  course       Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status       RegistrationStatus @default(PENDING)
+  semester     String
   academicYear String
-  registeredAt DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  registeredAt DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
   @@unique([studentId, courseId, semester, academicYear])
 }
@@ -118,3 +139,9 @@ model Report {
   updatedAt   DateTime @updatedAt
 }
 
+model Setting {
+  key       String @id @map("_id")
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

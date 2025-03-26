@@ -3,17 +3,11 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { User } from "next-auth"
-import { BookOpen, Calendar, CreditCard, FileText, GraduationCap, Home, Library, UserIcon } from "lucide-react"
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-} from "@/components/ui/sidebar"
+import { Home, BookOpen, Calendar, UserIcon, Settings, LogOut, Menu } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useState, useEffect } from "react"
+import { cn } from "@/lib/utils"
+import { signOut } from "next-auth/react"
 
 interface DashboardSidebarProps {
   user: User
@@ -21,108 +15,150 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({ user }: DashboardSidebarProps) {
   const pathname = usePathname()
+  const [isOpen, setIsOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+
+    return () => {
+      window.removeEventListener("resize", checkMobile)
+    }
+  }, [])
+
+  useEffect(() => {
+    // Close sidebar on mobile when route changes
+    if (isMobile) {
+      setIsOpen(false)
+    }
+  }, [pathname, isMobile])
 
   const menuItems = [
     {
-      title: "Dashboard",
+      name: "Dashboard",
       href: "/dashboard",
-      icon: Home,
+      icon: <Home className="h-5 w-5" />,
     },
     {
-      title: "Profile",
+      name: "Courses",
+      href: "/dashboard/courses",
+      icon: <BookOpen className="h-5 w-5" />,
+    },
+    {
+      name: "Calendar",
+      href: "/dashboard/calendar",
+      icon: <Calendar className="h-5 w-5" />,
+    },
+    {
+      name: "Profile",
       href: "/dashboard/profile",
-      icon: UserIcon,
+      icon: <UserIcon className="h-5 w-5" />,
     },
     {
-      title: "Registration",
-      href: "/dashboard/registration",
-      icon: BookOpen,
-    },
-    {
-      title: "Class Permit",
-      href: "/dashboard/class-permit",
-      icon: Calendar,
-    },
-    {
-      title: "Fee Details",
-      href: "/dashboard/fee-details",
-      icon: CreditCard,
-    },
-    {
-      title: "Exam Clearance",
-      href: "/dashboard/exam-clearance",
-      icon: FileText,
-    },
-    {
-      title: "Library",
-      href: "/dashboard/library",
-      icon: Library,
-    },
-    {
-      title: "Mid Semester Clearance",
-      href: "/dashboard/mid-semester-clearance",
-      icon: FileText,
-    },
-    {
-      title: "Mid Semester Pass Slip",
-      href: "/dashboard/mid-semester-pass-slip",
-      icon: FileText,
-    },
-    {
-      title: "Transcript",
-      href: "/dashboard/transcript",
-      icon: FileText,
-    },
-    {
-      title: "Grade Slip",
-      href: "/dashboard/grade-slip",
-      icon: FileText,
-    },
-    {
-      title: "Graduation",
-      href: "/dashboard/graduation",
-      icon: GraduationCap,
+      name: "Settings",
+      href: "/dashboard/settings",
+      icon: <Settings className="h-5 w-5" />,
     },
   ]
 
   return (
-    <SidebarProvider>
-      <Sidebar>
-        <SidebarHeader>
-          <div className="p-2">
-            <div className="flex flex-col items-center justify-center p-2">
-              <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mb-2">
-                <UserIcon className="h-8 w-8 text-gray-500" />
-              </div>
-              <div className="text-center">
-                <p className="font-medium">{user.name}</p>
-                <p className="text-xs text-gray-500">BCC</p>
-                <Link href="/dashboard/profile/change-password" className="text-xs text-blue-500 hover:underline">
-                  Change Password
-                </Link>
-              </div>
-            </div>
-          </div>
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarMenu>
+    <>
+      {/* Mobile overlay */}
+      {isOpen && isMobile && (
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setIsOpen(false)} />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "bg-gray-900 text-white fixed md:sticky top-0 z-40 h-screen w-64 transition-transform duration-300 ease-in-out",
+          isOpen || !isMobile ? "translate-x-0" : "-translate-x-full",
+          "md:translate-x-0 flex flex-col",
+        )}
+      >
+        <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+          <h2 className="text-xl font-bold">Student Portal</h2>
+          {isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(false)}
+              className="text-gray-400 hover:text-white"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="lucide lucide-x"
+              >
+                <line x1="18" x2="6" y1="6" y2="18" />
+                <line x1="6" x2="18" y1="6" y2="6" />
+              </svg>
+            </Button>
+          )}
+        </div>
+
+        <nav className="flex-1 overflow-y-auto py-4">
+          <ul className="space-y-1 px-2">
             {menuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton asChild isActive={pathname === item.href}>
-                  <Link href={item.href}>
-                    <item.icon className="h-4 w-4" />
-                    <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <li key={item.name}>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
+                    pathname === item.href
+                      ? "bg-gray-800 text-white"
+                      : "text-gray-300 hover:bg-gray-800 hover:text-white",
+                  )}
+                >
+                  {item.icon}
+                  <span>{item.name}</span>
+                </Link>
+              </li>
             ))}
-          </SidebarMenu>
-        </SidebarContent>
-        <SidebarFooter>
-          <div className="p-4 text-xs text-center text-gray-500">Last Login: {new Date().toLocaleString()}</div>
-        </SidebarFooter>
-      </Sidebar>
-    </SidebarProvider>
+          </ul>
+        </nav>
+
+        <div className="p-4 border-t border-gray-800">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => signOut({ callbackUrl: "/auth/login" })}
+            className="flex items-center gap-2 w-full justify-start"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Logout</span>
+          </Button>
+          <div className="text-xs text-gray-400 mt-2">
+            <p>Course Registration System</p>
+            <p>Version 1.0.0</p>
+          </div>
+        </div>
+      </aside>
+
+      {/* Mobile toggle button */}
+      {isMobile && (
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-4 right-4 z-30 md:hidden bg-primary text-primary-foreground rounded-full shadow-lg"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      )}
+    </>
   )
 }
 

@@ -1,112 +1,82 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Skeleton } from "@/components/ui/skeleton"
-import { CalendarClock, AlertCircle } from "lucide-react"
-
-interface Deadline {
-  id: string
-  title: string
-  description: string
-  date: string
-  isUrgent: boolean
-}
+import { useEffect, useState } from "react"
+import { Calendar } from "lucide-react"
 
 export function UpcomingDeadlines() {
-  const [deadlines, setDeadlines] = useState<Deadline[]>([])
+  const [deadlines, setDeadlines] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setDeadlines([
-        {
-          id: "1",
-          title: "Course Registration Deadline",
-          description: "Last day to register for courses for the current semester",
-          date: "2025-03-15",
-          isUrgent: true,
-        },
-        {
-          id: "2",
-          title: "Tuition Fee Payment",
-          description: "Deadline for paying tuition fees for the current semester",
-          date: "2025-03-20",
-          isUrgent: true,
-        },
-        {
-          id: "3",
-          title: "Mid-Semester Exams",
-          description: "Mid-semester examinations begin",
-          date: "2025-04-10",
-          isUrgent: false,
-        },
-        {
-          id: "4",
-          title: "Course Withdrawal",
-          description: "Last day to withdraw from courses without academic penalty",
-          date: "2025-04-15",
-          isUrgent: false,
-        },
-      ])
-      setLoading(false)
-    }, 1000)
+    const fetchDeadlines = async () => {
+      try {
+        setLoading(true)
+        // In a real app, you would fetch this data from your API
+        // For now, we'll use mock data
+        setTimeout(() => {
+          setDeadlines([
+            {
+              id: "1",
+              title: "Course Registration Deadline",
+              date: "2023-09-15",
+              daysLeft: 5,
+            },
+            {
+              id: "2",
+              title: "Fee Payment Deadline",
+              date: "2023-09-20",
+              daysLeft: 10,
+            },
+            {
+              id: "3",
+              title: "Mid-Term Exams Begin",
+              date: "2023-10-10",
+              daysLeft: 30,
+            },
+          ])
+          setLoading(false)
+        }, 1000)
+      } catch (error) {
+        console.error("Error fetching deadlines:", error)
+        setLoading(false)
+      }
+    }
+
+    fetchDeadlines()
   }, [])
 
   if (loading) {
+    return <div className="flex items-center justify-center h-40">Loading deadlines...</div>
+  }
+
+  if (deadlines.length === 0) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
+      <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+        <Calendar className="h-8 w-8 mb-2" />
+        <p>No upcoming deadlines</p>
       </div>
     )
   }
 
-  // Sort deadlines by date
-  const sortedDeadlines = [...deadlines].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-
   return (
     <div className="space-y-4">
-      {sortedDeadlines.map((deadline) => {
-        const deadlineDate = new Date(deadline.date)
-        const today = new Date()
-        const daysRemaining = Math.ceil((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-        const isNearDeadline = daysRemaining <= 7 && daysRemaining >= 0
-
-        return (
-          <div
-            key={deadline.id}
-            className={`border rounded-md p-3 ${deadline.isUrgent && isNearDeadline ? "border-red-300 bg-red-50" : ""}`}
-          >
-            <div className="flex justify-between items-start">
-              <div className="flex items-start gap-2">
-                {deadline.isUrgent && isNearDeadline ? (
-                  <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
-                ) : (
-                  <CalendarClock className="h-5 w-5 text-blue-500 mt-0.5" />
-                )}
-                <div>
-                  <h4 className="font-medium">{deadline.title}</h4>
-                  <p className="text-sm text-gray-600">{deadline.description}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-medium">{new Date(deadline.date).toLocaleDateString()}</p>
-                <p
-                  className={`text-xs ${daysRemaining <= 0 ? "text-red-500 font-bold" : daysRemaining <= 7 ? "text-amber-500" : "text-gray-500"}`}
-                >
-                  {daysRemaining <= 0
-                    ? "Overdue!"
-                    : daysRemaining === 1
-                      ? "1 day remaining"
-                      : `${daysRemaining} days remaining`}
-                </p>
-              </div>
-            </div>
+      {deadlines.map((deadline) => (
+        <div key={deadline.id} className="flex justify-between items-center pb-3 border-b last:border-0">
+          <div>
+            <h4 className="font-medium">{deadline.title}</h4>
+            <p className="text-sm text-muted-foreground">{deadline.date}</p>
           </div>
-        )
-      })}
+          <div
+            className={`px-2 py-1 rounded-full text-xs font-medium ${
+              deadline.daysLeft <= 7
+                ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+                : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+            }`}
+          >
+            {deadline.daysLeft} days left
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

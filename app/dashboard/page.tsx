@@ -1,6 +1,3 @@
-import { getServerSession } from "next-auth/next"
-import { redirect } from "next/navigation"
-import { authOptions } from "@/lib/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DashboardStats } from "@/components/dashboard/stats"
 import { CourseChart } from "@/components/dashboard/course-chart"
@@ -8,13 +5,7 @@ import { NotificationList } from "@/components/dashboard/notification-list"
 import { UpcomingDeadlines } from "@/components/dashboard/upcoming-deadlines"
 import { RecentRegistrations } from "@/components/dashboard/recent-registrations"
 
-export default async function DashboardPage() {
-  const session = await getServerSession(authOptions)
-
-  if (!session) {
-    redirect("/auth/login")
-  }
-
+export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

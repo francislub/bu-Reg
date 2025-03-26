@@ -14,11 +14,7 @@ export async function GET() {
     const activeCourses = await prisma.course.count()
 
     // Get faculty members count
-    const facultyMembers = await prisma.user.count({
-      where: {
-        role: "FACULTY",
-      },
-    })
+    const facultyMembers = await prisma.faculty.count()
 
     // Get pending registrations count
     const pendingRegistrations = await prisma.registration.count({
