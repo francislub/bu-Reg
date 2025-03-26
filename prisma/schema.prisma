@@ -30,6 +30,8 @@ model User {
   notifications  Notification[]
   courses        Course[]       @relation("FacultyCourses")
   Student        Student?
+  resetToken     String?
+  resetTokenExp  DateTime?
 }
 
 model Student {
