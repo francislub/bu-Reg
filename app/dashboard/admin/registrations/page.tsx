@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { RegistrationApprovalForm } from "@/components/dashboard/registration-approval-form"
+// import { RegistrationApprovalForm } from "@/components/dashboard/registration-approval-form"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default async function AdminRegistrationsPage() {
@@ -73,9 +73,9 @@ export default async function AdminRegistrationsPage() {
               <CardTitle>Pending Registrations</CardTitle>
               <CardDescription>Review and approve student course registrations</CardDescription>
             </CardHeader>
-            <CardContent>
+            {/* <CardContent>
               <RegistrationApprovalForm registrations={pendingRegistrations} />
-            </CardContent>
+            </CardContent> */}
           </Card>
         </TabsContent>
         <TabsContent value="approved" className="space-y-4">

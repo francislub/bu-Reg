@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AdminChart } from "@/components/dashboard/admin-chart"
+// import { AdminChart } from "@/components/dashboard/admin-chart"
 import { NotificationList } from "@/components/dashboard/notification-list"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -112,9 +112,9 @@ export default async function AdminDashboardPage() {
                 <CardTitle>Registration Analytics</CardTitle>
                 <CardDescription>Course registration distribution</CardDescription>
               </CardHeader>
-              <CardContent className="pl-2">
+              {/* <CardContent className="pl-2">
                 <AdminChart />
-              </CardContent>
+              </CardContent> */}
             </Card>
             <Card className="col-span-1">
               <CardHeader>
