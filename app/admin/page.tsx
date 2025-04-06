@@ -2,7 +2,6 @@ import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { AdminHeader } from "@/components/admin/header"
-import { AdminSidebar } from "@/components/admin/sidebar"
 import { AdminDashboard } from "@/components/admin/dashboard"
 
 export default async function AdminPage() {
