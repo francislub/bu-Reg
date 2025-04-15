@@ -1,31 +1,31 @@
-import type { ReactNode } from "react"
+import type React from "react"
 import { redirect } from "next/navigation"
-import { getServerSession } from "next-auth"
-import type { User } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-import { DashboardSidebar } from "@/components/dashboard/sidebar"
-import { DashboardHeader } from "@/components/dashboard/header"
+import { SidebarProvider } from "@/components/dashboard/sidebar-provider"
+import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar"
+import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 
 export default async function DashboardLayout({
   children,
 }: {
-  children: ReactNode
+  children: React.ReactNode
 }) {
   const session = await getServerSession(authOptions)
 
-  if (!session?.user) {
-    redirect("/auth/login") // Change from "/login" to "/auth/login"
+  if (!session) {
+    redirect("/login")
   }
 
-  const user = session.user as User
-
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="flex">
-        <DashboardSidebar user={user} />
-        <main className="flex-1 p-6">{children}</main>
+    <SidebarProvider>
+      <div className="flex min-h-screen">
+        <DashboardSidebar />
+        <div className="flex-1 flex flex-col">
+          <DashboardHeader />
+          <main className="flex-1 p-6 bg-gray-50">{children}</main>
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   )
 }
-

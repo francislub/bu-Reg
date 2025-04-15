@@ -1,111 +1,84 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { z } from "zod"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { BookOpen, Info, Trash } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Form, FormField, FormItem, FormMessage } from "@/components/ui/form"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/components/ui/use-toast"
-import { registerForCourse } from "@/lib/actions/course-actions"
-import { Loader2 } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
-interface Course {
-  id: string
-  courseCode: string
-  title: string
-  credits: number
-  semester: string
-  academicYear: string
-  maxStudents: number
-  currentStudents: number
-}
+const registrationSchema = z.object({
+  courses: z.array(z.string()).min(1, {
+    message: "You must select at least one course",
+  }),
+})
 
-interface Registration {
-  id: string
-  courseId: string
-  status: string
-  course: Course
-}
+type RegistrationFormValues = z.infer<typeof registrationSchema>
 
-interface CourseRegistrationFormProps {
-  courses: Course[]
-  registrations: Registration[]
-}
-
-export function CourseRegistrationForm({ courses, registrations }: CourseRegistrationFormProps) {
+export function CourseRegistrationForm({
+  userId,
+  semester,
+  availableCourses,
+}: {
+  userId: string
+  semester: any
+  availableCourses: any[]
+}) {
+  const router = useRouter()
+  const { toast } = useToast()
   const [selectedCourses, setSelectedCourses] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const { toast } = useToast()
 
-  const handleCheckboxChange = (courseId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedCourses([...selectedCourses, courseId])
-    } else {
-      setSelectedCourses(selectedCourses.filter((id) => id !== courseId))
-    }
-  }
+  const form = useForm<RegistrationFormValues>({
+    resolver: zodResolver(registrationSchema),
+    defaultValues: {
+      courses: [],
+    },
+  })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (selectedCourses.length === 0) {
-      toast({
-        title: "No Courses Selected",
-        description: "Please select at least one course to register",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Check if selected courses exceed the limit
-    const currentSemesterRegistrations = registrations.filter(
-      (r) => r.course.semester === "Spring" && r.course.academicYear === "2024-2025",
-    )
-
-    if (currentSemesterRegistrations.length + selectedCourses.length > 6) {
-      toast({
-        title: "Course Limit Exceeded",
-        description: "You can register for a maximum of 6 courses per semester",
-        variant: "destructive",
-      })
-      return
-    }
-
+  const onSubmit = async (data: RegistrationFormValues) => {
     setIsSubmitting(true)
-
     try {
-      // Register for each selected course
-      for (const courseId of selectedCourses) {
-        const course = courses.find((c) => c.id === courseId)
-        if (!course) continue
+      // In a real application, you would send this data to your API
+      const response = await fetch("/api/registrations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId,
+          semesterId: semester.id,
+          courseIds: data.courses,
+        }),
+      })
 
-        const formData = new FormData()
-        formData.append("courseId", courseId)
-        formData.append("semester", course.semester)
-        formData.append("academicYear", course.academicYear)
-
-        const result = await registerForCourse(formData)
-
-        if (result.error) {
-          toast({
-            title: "Registration Failed",
-            description: result.error,
-            variant: "destructive",
-          })
-        } else {
-          toast({
-            title: "Registration Successful",
-            description: `You have successfully registered for ${course.courseCode}: ${course.title}`,
-          })
-        }
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || "Failed to register courses")
       }
 
-      // Reset selected courses
+      toast({
+        title: "Courses registered successfully",
+        description: "Your course registration has been submitted for approval",
+        variant: "default",
+      })
+
+      // Reset form
+      form.reset()
       setSelectedCourses([])
+
+      // Refresh the page to show updated data
+      router.refresh()
     } catch (error) {
       toast({
-        title: "Registration Failed",
-        description: "An unexpected error occurred",
+        title: "Registration failed",
+        description: error instanceof Error ? error.message : "There was an error submitting your course registration",
         variant: "destructive",
       })
     } finally {
@@ -113,61 +86,148 @@ export function CourseRegistrationForm({ courses, registrations }: CourseRegistr
     }
   }
 
-  // Filter out courses that the student is already registered for
-  const registeredCourseIds = registrations.map((r) => r.courseId)
-  const availableCourses = courses.filter((course) => !registeredCourseIds.includes(course.id))
-
-  if (availableCourses.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <p className="text-muted-foreground">
-          You have registered for all available courses or there are no courses available for registration at this time.
-        </p>
-      </div>
-    )
+  const handleCourseSelection = (courseId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedCourses([...selectedCourses, courseId])
+      form.setValue("courses", [...selectedCourses, courseId])
+    } else {
+      const filtered = selectedCourses.filter((id) => id !== courseId)
+      setSelectedCourses(filtered)
+      form.setValue("courses", filtered)
+    }
   }
 
+  const getSelectedCourseDetails = () => {
+    return availableCourses.filter((item) => selectedCourses.includes(item.courseId)).map((item) => item.course)
+  }
+
+  const totalCredits = getSelectedCourseDetails().reduce((sum, course) => sum + course.credits, 0)
+
+  const daysUntilDeadline = semester?.registrationDeadline
+    ? Math.ceil((new Date(semester.registrationDeadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+    : 0
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="rounded-md border">
-        <div className="grid grid-cols-6 gap-4 p-4 font-medium">
-          <div className="col-span-1">Select</div>
-          <div className="col-span-1">Code</div>
-          <div className="col-span-2">Title</div>
-          <div className="col-span-1">Credits</div>
-          <div className="col-span-1">Seats</div>
-        </div>
-        <div className="divide-y">
-          {availableCourses.map((course) => (
-            <div key={course.id} className="grid grid-cols-6 gap-4 p-4">
-              <div className="col-span-1 flex items-center">
-                <Checkbox
-                  id={course.id}
-                  checked={selectedCourses.includes(course.id)}
-                  onCheckedChange={(checked) => handleCheckboxChange(course.id, checked as boolean)}
+    <>
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>Registration Information</AlertTitle>
+        <AlertDescription>
+          You can register for courses until{" "}
+          {semester.registrationDeadline
+            ? new Date(semester.registrationDeadline).toLocaleDateString()
+            : "the deadline"}
+          .{daysUntilDeadline > 0 ? ` You have ${daysUntilDeadline} days remaining.` : " The deadline has passed."}
+        </AlertDescription>
+      </Alert>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Available Courses</CardTitle>
+            <CardDescription>Select the courses you want to register for this semester</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="courses"
+                  render={() => (
+                    <FormItem>
+                      <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+                        {availableCourses.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-10 text-center">
+                            <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
+                            <p className="text-muted-foreground">No courses available</p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              There are no courses available for registration this semester
+                            </p>
+                          </div>
+                        ) : (
+                          availableCourses.map((item) => (
+                            <div key={item.courseId} className="flex items-center space-x-2 border p-3 rounded-md">
+                              <Checkbox
+                                id={item.courseId}
+                                checked={selectedCourses.includes(item.courseId)}
+                                onCheckedChange={(checked) => {
+                                  handleCourseSelection(item.courseId, checked as boolean)
+                                }}
+                              />
+                              <div className="flex-1">
+                                <label
+                                  htmlFor={item.courseId}
+                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                  {item.course.code}: {item.course.title}
+                                </label>
+                                <p className="text-xs text-muted-foreground">
+                                  {item.course.credits} Credit Hours | {item.course.department.name}
+                                </p>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
+
+                <Button type="submit" disabled={isSubmitting || selectedCourses.length === 0}>
+                  {isSubmitting ? "Submitting..." : "Register Courses"}
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Selected Courses</CardTitle>
+            <CardDescription>Review your selected courses before submitting</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {selectedCourses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-center">
+                <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No courses selected yet</p>
+                <p className="text-xs text-muted-foreground mt-2">Select courses from the list on the left</p>
               </div>
-              <div className="col-span-1">{course.courseCode}</div>
-              <div className="col-span-2">{course.title}</div>
-              <div className="col-span-1">{course.credits}</div>
-              <div className="col-span-1">
-                {course.currentStudents}/{course.maxStudents}
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  {getSelectedCourseDetails().map((course) => (
+                    <div key={course.id} className="flex items-center justify-between border p-3 rounded-md">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {course.code}: {course.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{course.credits} Credit Hours</p>
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={() => handleCourseSelection(course.id, false)}>
+                        <Trash className="h-4 w-4" />
+                        <span className="sr-only">Remove course</span>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-4 border-t">
+                  <div className="flex justify-between">
+                    <p className="text-sm font-medium">Total Courses:</p>
+                    <p className="text-sm">{selectedCourses.length}</p>
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <p className="text-sm font-medium">Total Credit Hours:</p>
+                    <p className="text-sm">{totalCredits}</p>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-      <Button type="submit" disabled={isSubmitting || selectedCourses.length === 0}>
-        {isSubmitting ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Registering...
-          </>
-        ) : (
-          "Register for Selected Courses"
-        )}
-      </Button>
-    </form>
+    </>
   )
 }
-

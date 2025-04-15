@@ -1,98 +1,100 @@
 import { NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
-import { hash } from "bcrypt"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { userRoles } from "@/lib/utils"
 
-// GET /api/faculty - Get all faculty members
-export async function GET(request: Request) {
+export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const department = searchParams.get("department")
-    const limit = Number.parseInt(searchParams.get("limit") || "10")
-    const page = Number.parseInt(searchParams.get("page") || "1")
-    const skip = (page - 1) * limit
+    const session = await getServerSession(authOptions)
 
-    // Build where clause based on query params
-    const where: any = {}
-    if (department) where.department = department
+    if (!session) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
 
-    const faculty = await prisma.faculty.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        department: true,
-        createdAt: true,
-        updatedAt: true,
-        courses: {
-          select: {
-            id: true,
-            code: true,
-            title: true,
+    const { searchParams } = new URL(req.url)
+    const departmentId = searchParams.get("departmentId")
+    const search = searchParams.get("search")
+
+    const whereClause: any = {
+      role: userRoles.STAFF,
+    }
+
+    if (departmentId) {
+      whereClause.departmentStaff = {
+        some: {
+          departmentId,
+        },
+      }
+    }
+
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { profile: { title: { contains: search, mode: "insensitive" } } },
+        { profile: { specialization: { contains: search, mode: "insensitive" } } },
+      ]
+    }
+
+    const faculty = await prisma.user.findMany({
+      where: whereClause,
+      include: {
+        profile: true,
+        departmentStaff: {
+          include: {
+            department: true,
+          },
+        },
+        lecturerCourses: {
+          include: {
+            course: true,
+          },
+          where: {
+            semester: {
+              isActive: true,
+            },
           },
         },
       },
-      skip,
-      take: limit,
       orderBy: {
-        createdAt: "desc",
+        name: "asc",
       },
     })
 
-    const total = await prisma.faculty.count({ where })
+    // Transform the data to match the expected format
+    const formattedFaculty = faculty.map((member) => {
+      const department = member.departmentStaff[0]?.department || {
+        id: "unknown",
+        name: "Unknown Department",
+        code: "UNK",
+      }
 
-    return NextResponse.json({
-      faculty,
-      meta: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
-      },
+      return {
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        phone: member.profile?.phone || undefined,
+        title: member.profile?.title || "Lecturer",
+        department: {
+          id: department.id,
+          name: department.name,
+          code: department.code,
+        },
+        specialization: member.profile?.specialization || undefined,
+        bio: member.profile?.bio || undefined,
+        imageUrl: member.profile?.imageUrl || undefined,
+        courses: member.lecturerCourses.map((lc) => ({
+          id: lc.course.id,
+          code: lc.course.code,
+          title: lc.course.title,
+        })),
+      }
     })
+
+    return NextResponse.json(formattedFaculty)
   } catch (error) {
     console.error("Error fetching faculty:", error)
-    return NextResponse.json({ error: "Failed to fetch faculty" }, { status: 500 })
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
 }
-
-// POST /api/faculty - Create a new faculty member
-export async function POST(request: Request) {
-  try {
-    const body = await request.json()
-    const { name, email, password, department } = body
-
-    // Check if faculty member already exists
-    const existingFaculty = await prisma.faculty.findUnique({
-      where: {
-        email,
-      },
-    })
-
-    if (existingFaculty) {
-      return NextResponse.json({ error: "Faculty member with this email already exists" }, { status: 400 })
-    }
-
-    // Hash password
-    const hashedPassword = await hash(password, 10)
-
-    // Create faculty member
-    const faculty = await prisma.faculty.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        department,
-      },
-    })
-
-    // Remove password from response
-    const { password: _, ...facultyWithoutPassword } = faculty
-
-    return NextResponse.json(facultyWithoutPassword, { status: 201 })
-  } catch (error) {
-    console.error("Error creating faculty:", error)
-    return NextResponse.json({ error: "Failed to create faculty member" }, { status: 500 })
-  }
-}
-

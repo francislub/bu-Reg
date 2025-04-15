@@ -10,140 +10,260 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  STUDENT
-  FACULTY
-  ADMIN
-}
-
 model User {
-  id             String         @id @default(auto()) @map("_id") @db.ObjectId
-  name           String
-  email          String         @unique
-  password       String
-  role           UserRole       @default(STUDENT)
-  registrationNo String?        @unique
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  profile        Profile?
-  registrations  Registration[]
-  notifications  Notification[]
-  courses        Course[]       @relation("FacultyCourses")
-  Student        Student?
-  resetToken     String?
-  resetTokenExp  DateTime?
-}
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("STUDENT") // STUDENT, STAFF, REGISTRAR
+  profileId String?  @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-model Student {
-  id             String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId         String    @unique
-  user           User      @relation(fields: [userId], references: [id])
-  enrollmentDate DateTime  @default(now())
-  graduationDate DateTime?
-}
-
-model Faculty {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  name       String
-  email      String   @unique
-  password   String
-  department String
-  courses    Course[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  profile          Profile?          @relation(fields: [profileId], references: [id])
+  courseApprovals  CourseApproval[]
+  registrations    Registration[]
+  courseUploads    CourseUpload[]
+  departmentStaff  DepartmentStaff?
+  registrationCard RegistrationCard?
+  attendanceRecords AttendanceRecord[] @relation("StudentAttendance")
+  lecturedCourses   LecturerCourse[]
+  attendanceTaken   AttendanceSession[] @relation("LecturerAttendance")
 }
 
 model Profile {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId          String    @unique @db.ObjectId
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  department      String?
-  program         String?
-  campus          String?
-  yearOfStudy     Int?
-  phoneNumber     String?
-  address         String?
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  firstName       String
+  middleName      String?
+  lastName        String
   dateOfBirth     DateTime?
   gender          String?
-  profileImageUrl String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  nationality     String?
+  maritalStatus   String?
+  religion        String?
+  church          String?
+  responsibility  String?
+  referralSource  String?
+  physicallyDisabled Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  users User[]
+}
+
+model Department {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  code      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  courses        Course[]
+  departmentStaff DepartmentStaff[]
+}
+
+model DepartmentStaff {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @unique @db.ObjectId
+  departmentId String   @db.ObjectId
+  isHead       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 }
 
 model Course {
-  id              String         @id @default(auto()) @map("_id") @db.ObjectId
-  code            String         @unique
-  title           String
-  credits         Int
-  description     String?
-  department      String
-  semester        String
-  academicYear    String
-  maxCapacity     Int
-  currentEnrolled Int            @default(0)
-  prerequisites   String[]       @default([])
-  facultyId       String?        @db.ObjectId
-  faculty         User?          @relation("FacultyCourses", fields: [facultyId], references: [id])
-  registrations   Registration[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  Faculty         Faculty?       @relation(fields: [facultyId], references: [id])
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  code         String   @unique
+  title        String
+  credits      Int
+  description  String?
+  departmentId String   @db.ObjectId
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department     Department      @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  semesterCourses SemesterCourse[]
+  courseUploads   CourseUpload[]
+  lecturerCourses LecturerCourse[]
+  timetableSlots  TimetableSlot[]
+  attendanceSessions AttendanceSession[]
 }
 
-enum RegistrationStatus {
-  PENDING
-  APPROVED
-  REJECTED
+model Semester {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String   @unique
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  registrationDeadline DateTime?
+  courseUploadDeadline DateTime?
+
+  semesterCourses  SemesterCourse[]
+  registrations    Registration[]
+  courseUploads    CourseUpload[]
+  registrationCards RegistrationCard[]
+  timetables       Timetable[]
+  lecturerCourses  LecturerCourse[]
+  attendanceSessions AttendanceSession[]
+}
+
+model SemesterCourse {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  semesterId String   @db.ObjectId
+  courseId   String   @db.ObjectId
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([semesterId, courseId])
 }
 
 model Registration {
-  id           String             @id @default(auto()) @map("_id") @db.ObjectId
-  studentId    String             @db.ObjectId
-  student      User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  courseId     String             @db.ObjectId
-  course       Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  status       RegistrationStatus @default(PENDING)
-  semester     String
-  academicYear String
-  registeredAt DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  semesterId String   @db.ObjectId
+  status     String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  @@unique([studentId, courseId, semester, academicYear])
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+
+  courseUploads CourseUpload[]
+
+  @@unique([userId, semesterId])
 }
 
-enum NotificationType {
-  SYSTEM
-  REGISTRATION
-  DEADLINE
-  ANNOUNCEMENT
+model CourseUpload {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  registrationId String   @db.ObjectId
+  courseId       String   @db.ObjectId
+  userId         String   @db.ObjectId
+  semesterId     String   @db.ObjectId
+  status         String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  course       Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  semester     Semester     @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+
+  approvals CourseApproval[]
+
+  @@unique([registrationId, courseId])
 }
 
-model Notification {
-  id        String           @id @default(auto()) @map("_id") @db.ObjectId
-  title     String
-  message   String
-  type      NotificationType @default(SYSTEM)
-  userId    String?          @db.ObjectId
-  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  isRead    Boolean          @default(false)
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+model CourseApproval {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  courseUploadId String   @db.ObjectId
+  approverId    String   @db.ObjectId
+  status        String   // APPROVED, REJECTED
+  comments      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  courseUpload CourseUpload @relation(fields: [courseUploadId], references: [id], onDelete: Cascade)
+  approver     User         @relation(fields: [approverId], references: [id], onDelete: Cascade)
 }
 
-model Report {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  title       String
-  description String?
-  data        Json
-  type        String
-  createdBy   String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model RegistrationCard {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @unique @db.ObjectId
+  semesterId String   @db.ObjectId
+  cardNumber String   @unique
+  issuedDate DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
 }
 
-model Setting {
-  key       String @id @map("_id")
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// New models for timetable, lecturer assignment, and attendance
+
+model LecturerCourse {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  lecturerId String   @db.ObjectId
+  courseId   String   @db.ObjectId
+  semesterId String   @db.ObjectId
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  lecturer User     @relation(fields: [lecturerId], references: [id], onDelete: Cascade)
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  timetableSlots TimetableSlot[]
+
+  @@unique([lecturerId, courseId, semesterId])
+}
+
+model Timetable {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  semesterId String   @db.ObjectId
+  name       String
+  isPublished Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  slots    TimetableSlot[]
+}
+
+model TimetableSlot {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  timetableId   String   @db.ObjectId
+  courseId      String   @db.ObjectId
+  lecturerCourseId String? @db.ObjectId
+  dayOfWeek     Int      // 0 = Sunday, 1 = Monday, etc.
+  startTime     String   // Format: HH:MM (24-hour)
+  endTime       String   // Format: HH:MM (24-hour)
+  roomNumber    String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  timetable     Timetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
+  course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lecturerCourse LecturerCourse? @relation(fields: [lecturerCourseId], references: [id], onDelete: SetNull)
+}
+
+model AttendanceSession {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  courseId      String   @db.ObjectId
+  lecturerId    String   @db.ObjectId
+  semesterId    String   @db.ObjectId
+  date          DateTime
+  startTime     String   // Format: HH:MM (24-hour)
+  endTime       String   // Format: HH:MM (24-hour)
+  topic         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lecturer      User      @relation("LecturerAttendance", fields: [lecturerId], references: [id], onDelete: Cascade)
+  semester      Semester  @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  records       AttendanceRecord[]
+}
+
+model AttendanceRecord {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId     String   @db.ObjectId
+  studentId     String   @db.ObjectId
+  status        String   // PRESENT, ABSENT, LATE
+  comments      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  session       AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student       User              @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, studentId])
 }

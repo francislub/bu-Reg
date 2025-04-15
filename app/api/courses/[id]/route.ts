@@ -1,64 +1,56 @@
 import { NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { z } from "zod"
+import { userRoles } from "@/lib/utils"
 
-// GET /api/courses/[id] - Get a course by ID
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+const courseSchema = z.object({
+  code: z.string().min(2),
+  title: z.string().min(2),
+  credits: z.number().min(1).max(6),
+  description: z.string().optional(),
+  departmentId: z.string(),
+})
+
+export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+
     const course = await prisma.course.findUnique({
       where: {
         id: params.id,
       },
       include: {
-        faculty: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        registrations: {
-          include: {
-            student: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                registrationNo: true,
-                profile: true,
-              },
-            },
-          },
-        },
+        department: true,
       },
     })
 
     if (!course) {
-      return NextResponse.json({ error: "Course not found" }, { status: 404 })
+      return NextResponse.json({ message: "Course not found" }, { status: 404 })
     }
 
     return NextResponse.json(course)
   } catch (error) {
     console.error("Error fetching course:", error)
-    return NextResponse.json({ error: "Failed to fetch course" }, { status: 500 })
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
 }
 
-// PUT /api/courses/[id] - Update a course
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
-    const body = await request.json()
-    const {
-      code,
-      title,
-      credits,
-      description,
-      department,
-      semester,
-      academicYear,
-      maxCapacity,
-      prerequisites,
-      facultyId,
-    } = body
+    const session = await getServerSession(authOptions)
+
+    if (!session || session.user.role !== userRoles.REGISTRAR) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+
+    const body = await req.json()
+    const validatedData = courseSchema.parse(body)
 
     // Check if course exists
     const existingCourse = await prisma.course.findUnique({
@@ -68,60 +60,50 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     })
 
     if (!existingCourse) {
-      return NextResponse.json({ error: "Course not found" }, { status: 404 })
+      return NextResponse.json({ message: "Course not found" }, { status: 404 })
     }
 
-    // If code is being changed, check if new code already exists
-    if (code !== existingCourse.code) {
-      const courseWithCode = await prisma.course.findUnique({
+    // Check if updated code conflicts with another course
+    if (validatedData.code !== existingCourse.code) {
+      const codeConflict = await prisma.course.findUnique({
         where: {
-          code,
+          code: validatedData.code,
         },
       })
 
-      if (courseWithCode && courseWithCode.id !== params.id) {
-        return NextResponse.json({ error: "Course with this code already exists" }, { status: 400 })
+      if (codeConflict && codeConflict.id !== params.id) {
+        return NextResponse.json({ message: "Course with this code already exists" }, { status: 409 })
       }
     }
 
-    // Update course
-    const course = await prisma.course.update({
+    const updatedCourse = await prisma.course.update({
       where: {
         id: params.id,
       },
-      data: {
-        code,
-        title,
-        credits,
-        description,
-        department,
-        semester,
-        academicYear,
-        maxCapacity,
-        prerequisites: prerequisites || [],
-        facultyId,
-      },
+      data: validatedData,
       include: {
-        faculty: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+        department: true,
       },
     })
 
-    return NextResponse.json(course)
+    return NextResponse.json(updatedCourse)
   } catch (error) {
     console.error("Error updating course:", error)
-    return NextResponse.json({ error: "Failed to update course" }, { status: 500 })
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ message: "Validation error", errors: error.errors }, { status: 400 })
+    }
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
 }
 
-// DELETE /api/courses/[id] - Delete a course
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session || session.user.role !== userRoles.REGISTRAR) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+
     // Check if course exists
     const existingCourse = await prisma.course.findUnique({
       where: {
@@ -130,31 +112,29 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     })
 
     if (!existingCourse) {
-      return NextResponse.json({ error: "Course not found" }, { status: 404 })
+      return NextResponse.json({ message: "Course not found" }, { status: 404 })
     }
 
-    // Check if course has registrations
-    const registrationsCount = await prisma.registration.count({
+    // Check if course is being used in any semester
+    const semesterCourses = await prisma.semesterCourse.findMany({
       where: {
         courseId: params.id,
       },
     })
 
-    if (registrationsCount > 0) {
-      return NextResponse.json({ error: "Cannot delete course with existing registrations" }, { status: 400 })
+    if (semesterCourses.length > 0) {
+      return NextResponse.json({ message: "Cannot delete course that is assigned to a semester" }, { status: 400 })
     }
 
-    // Delete course
     await prisma.course.delete({
       where: {
         id: params.id,
       },
     })
 
-    return NextResponse.json({ message: "Course deleted successfully" })
+    return NextResponse.json({ message: "Course deleted successfully" }, { status: 200 })
   } catch (error) {
     console.error("Error deleting course:", error)
-    return NextResponse.json({ error: "Failed to delete course" }, { status: 500 })
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
 }
-

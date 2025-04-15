@@ -1,115 +1,80 @@
 import { NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
-import { hash } from "bcrypt"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { z } from "zod"
 
-// GET /api/users/[id] - Get a user by ID
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+const userUpdateSchema = z.object({
+  name: z.string().min(2),
+  email: z.string().email(),
+  firstName: z.string().min(2),
+  middleName: z.string().optional(),
+  lastName: z.string().min(2),
+  dateOfBirth: z.string().optional(),
+  gender: z.string().optional(),
+  nationality: z.string().optional(),
+  maritalStatus: z.string().optional(),
+  religion: z.string().optional(),
+  church: z.string().optional(),
+  responsibility: z.string().optional(),
+  referralSource: z.string().optional(),
+  physicallyDisabled: z.boolean().default(false),
+})
+
+export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+
+    // Users can only view their own profile unless they are staff or registrar
+    if (session.user.id !== params.id && session.user.role === "STUDENT") {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 403 })
+    }
+
     const user = await prisma.user.findUnique({
       where: {
         id: params.id,
       },
       include: {
         profile: true,
-        registrations: {
-          include: {
-            course: true,
-          },
-        },
       },
     })
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      return NextResponse.json({ message: "User not found" }, { status: 404 })
     }
 
-    // Remove password from response
+    // Remove sensitive information
     const { password, ...userWithoutPassword } = user
 
     return NextResponse.json(userWithoutPassword)
   } catch (error) {
     console.error("Error fetching user:", error)
-    return NextResponse.json({ error: "Failed to fetch user" }, { status: 500 })
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
 }
 
-// PUT /api/users/[id] - Update a user
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
-    const body = await request.json()
-    const { name, email, password, role, registrationNo, profile } = body
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+
+    // Users can only update their own profile
+    if (session.user.id !== params.id) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 403 })
+    }
+
+    const body = await req.json()
+    const validatedData = userUpdateSchema.parse(body)
 
     // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: {
-        id: params.id,
-      },
-    })
-
-    if (!existingUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // Prepare update data
-    const updateData: any = {
-      name,
-      email,
-      role,
-      registrationNo,
-    }
-
-    // Only hash and update password if provided
-    if (password) {
-      updateData.password = await hash(password, 10)
-    }
-
-    // Update user
-    const user = await prisma.user.update({
-      where: {
-        id: params.id,
-      },
-      data: updateData,
-    })
-
-    // Update profile if provided
-    if (profile) {
-      if (existingUser.profile) {
-        await prisma.profile.update({
-          where: {
-            userId: params.id,
-          },
-          data: {
-            department: profile.department,
-            program: profile.program,
-            campus: profile.campus,
-            yearOfStudy: profile.yearOfStudy,
-            phoneNumber: profile.phoneNumber,
-            address: profile.address,
-            dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth) : undefined,
-            gender: profile.gender,
-            profileImageUrl: profile.profileImageUrl,
-          },
-        })
-      } else {
-        await prisma.profile.create({
-          data: {
-            userId: params.id,
-            department: profile.department,
-            program: profile.program,
-            campus: profile.campus,
-            yearOfStudy: profile.yearOfStudy,
-            phoneNumber: profile.phoneNumber,
-            address: profile.address,
-            dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth) : undefined,
-            gender: profile.gender,
-            profileImageUrl: profile.profileImageUrl,
-          },
-        })
-      }
-    }
-
-    // Get updated user with profile
-    const updatedUser = await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: {
         id: params.id,
       },
@@ -118,41 +83,66 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       },
     })
 
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = updatedUser!
-
-    return NextResponse.json(userWithoutPassword)
-  } catch (error) {
-    console.error("Error updating user:", error)
-    return NextResponse.json({ error: "Failed to update user" }, { status: 500 })
-  }
-}
-
-// DELETE /api/users/[id] - Delete a user
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  try {
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: {
-        id: params.id,
-      },
-    })
-
-    if (!existingUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    if (!user) {
+      return NextResponse.json({ message: "User not found" }, { status: 404 })
     }
 
-    // Delete user (cascade will handle profile deletion)
-    await prisma.user.delete({
+    // Check if email is already taken by another user
+    if (validatedData.email !== user.email) {
+      const existingUser = await prisma.user.findUnique({
+        where: {
+          email: validatedData.email,
+        },
+      })
+
+      if (existingUser && existingUser.id !== params.id) {
+        return NextResponse.json({ message: "Email is already taken" }, { status: 409 })
+      }
+    }
+
+    // Update user
+    const updatedUser = await prisma.user.update({
       where: {
         id: params.id,
       },
+      data: {
+        name: validatedData.name,
+        email: validatedData.email,
+      },
     })
 
-    return NextResponse.json({ message: "User deleted successfully" })
+    // Update profile
+    const updatedProfile = await prisma.profile.update({
+      where: {
+        id: user.profileId!,
+      },
+      data: {
+        firstName: validatedData.firstName,
+        middleName: validatedData.middleName,
+        lastName: validatedData.lastName,
+        dateOfBirth: validatedData.dateOfBirth ? new Date(validatedData.dateOfBirth) : null,
+        gender: validatedData.gender,
+        nationality: validatedData.nationality,
+        maritalStatus: validatedData.maritalStatus,
+        religion: validatedData.religion,
+        church: validatedData.church,
+        responsibility: validatedData.responsibility,
+        referralSource: validatedData.referralSource,
+        physicallyDisabled: validatedData.physicallyDisabled,
+      },
+    })
+
+    // Return updated user with profile
+    const { password: _, ...userWithoutPassword } = updatedUser
+    return NextResponse.json({
+      ...userWithoutPassword,
+      profile: updatedProfile,
+    })
   } catch (error) {
-    console.error("Error deleting user:", error)
-    return NextResponse.json({ error: "Failed to delete user" }, { status: 500 })
+    console.error("Error updating user:", error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ message: "Validation error", errors: error.errors }, { status: 400 })
+    }
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
 }
-

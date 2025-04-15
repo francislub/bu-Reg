@@ -1,16 +1,17 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata } from "next/types"
 import { Inter } from "next/font/google"
-import "../styles/globals.css"
+import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
-import { AuthProvider } from "@/components/auth-provider"
+import { SessionProvider } from "@/components/session-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Bugema University - Student Portal",
-  description: "Student Registration Management System",
+  title: "Bugema University - Course Registration System",
+  description: "Online course registration system for Bugema University",
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -19,16 +20,20 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <AuthProvider>
-          <ThemeProvider attribute="class" defaultTheme="light">
+        <SessionProvider>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             {children}
             <Toaster />
           </ThemeProvider>
-        </AuthProvider>
+        </SessionProvider>
       </body>
     </html>
   )
 }
 
+import "./globals.css"
+
+
+import './globals.css'

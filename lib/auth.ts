@@ -1,9 +1,18 @@
+import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { compare } from "bcrypt"
-import prisma from "@/lib/prisma"
+import { prisma } from "@/lib/prisma"
 
 export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma),
+  secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: "jwt",
+  },
+  pages: {
+    signIn: "/login",
+  },
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -16,32 +25,14 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        // First check for a user in the User model
-        let user = await prisma.user.findUnique({
+        const user = await prisma.user.findUnique({
           where: {
             email: credentials.email,
           },
+          include: {
+            profile: true,
+          },
         })
-
-        // If not found, check in the Faculty model
-        if (!user) {
-          const faculty = await prisma.faculty.findUnique({
-            where: {
-              email: credentials.email,
-            },
-          })
-
-          if (faculty) {
-            // Create a user object from faculty data
-            user = {
-              id: faculty.id,
-              email: faculty.email,
-              name: faculty.name,
-              role: "FACULTY",
-              password: faculty.password,
-            }
-          }
-        }
 
         if (!user) {
           return null
@@ -57,7 +48,8 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role || "STUDENT",
+          role: user.role,
+          profileId: user.profileId,
         }
       },
     }),
@@ -65,26 +57,25 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id
-        token.role = user.role
+        return {
+          ...token,
+          id: user.id,
+          role: user.role,
+          profileId: user.profileId,
+        }
       }
       return token
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string
-        session.user.role = token.role as string
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: token.id,
+          role: token.role,
+          profileId: token.profileId,
+        },
       }
-      return session
     },
   },
-  pages: {
-    signIn: "/auth/login", // Change from "/login" to "/auth/login"
-  },
-  session: {
-    strategy: "jwt",
-  },
-  secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === "development",
 }
-

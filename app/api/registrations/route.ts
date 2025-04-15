@@ -1,148 +1,179 @@
 import { NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { z } from "zod"
+import { userRoles } from "@/lib/utils"
 
-// GET /api/registrations - Get all registrations
-export async function GET(request: Request) {
+const registrationSchema = z.object({
+  userId: z.string(),
+  semesterId: z.string(),
+  courseIds: z.array(z.string()).min(1),
+})
+
+export async function POST(req: Request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const studentId = searchParams.get("studentId")
-    const courseId = searchParams.get("courseId")
-    const status = searchParams.get("status")
-    const semester = searchParams.get("semester")
-    const academicYear = searchParams.get("academicYear")
-    const limit = Number.parseInt(searchParams.get("limit") || "10")
-    const page = Number.parseInt(searchParams.get("page") || "1")
-    const skip = (page - 1) * limit
+    const session = await getServerSession(authOptions)
 
-    // Build where clause based on query params
-    const where: any = {}
-    if (studentId) where.studentId = studentId
-    if (courseId) where.courseId = courseId
-    if (status) where.status = status
-    if (semester) where.semester = semester
-    if (academicYear) where.academicYear = academicYear
+    if (!session) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+
+    const body = await req.json()
+    const validatedData = registrationSchema.parse(body)
+
+    // Check if user is registering for themselves or if they have permission
+    if (session.user.id !== validatedData.userId && session.user.role === userRoles.STUDENT) {
+      return NextResponse.json({ message: "You can only register courses for yourself" }, { status: 403 })
+    }
+
+    // Check if semester exists and is active
+    const semester = await prisma.semester.findUnique({
+      where: {
+        id: validatedData.semesterId,
+        isActive: true,
+      },
+    })
+
+    if (!semester) {
+      return NextResponse.json({ message: "Semester not found or not active" }, { status: 404 })
+    }
+
+    // Check if registration deadline has passed
+    if (semester.registrationDeadline && new Date(semester.registrationDeadline) < new Date()) {
+      return NextResponse.json({ message: "Registration deadline has passed" }, { status: 400 })
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: {
+        id: validatedData.userId,
+      },
+    })
+
+    if (!user) {
+      return NextResponse.json({ message: "User not found" }, { status: 404 })
+    }
+
+    // Create or update registration
+    let registration = await prisma.registration.findUnique({
+      where: {
+        userId_semesterId: {
+          userId: validatedData.userId,
+          semesterId: validatedData.semesterId,
+        },
+      },
+    })
+
+    if (!registration) {
+      registration = await prisma.registration.create({
+        data: {
+          userId: validatedData.userId,
+          semesterId: validatedData.semesterId,
+          status: "PENDING",
+        },
+      })
+    }
+
+    // Delete existing course uploads for this registration
+    await prisma.courseUpload.deleteMany({
+      where: {
+        registrationId: registration.id,
+      },
+    })
+
+    // Create course uploads
+    const courseUploads = await Promise.all(
+      validatedData.courseIds.map((courseId) =>
+        prisma.courseUpload.create({
+          data: {
+            registrationId: registration!.id,
+            courseId,
+            userId: validatedData.userId,
+            semesterId: validatedData.semesterId,
+            status: "PENDING",
+          },
+        }),
+      ),
+    )
+
+    return NextResponse.json(
+      {
+        message: "Courses registered successfully",
+        registration,
+        courseUploads,
+      },
+      { status: 201 },
+    )
+  } catch (error) {
+    console.error("Error registering courses:", error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ message: "Validation error", errors: error.errors }, { status: 400 })
+    }
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function GET(req: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(req.url)
+    const userId = searchParams.get("userId")
+    const semesterId = searchParams.get("semesterId")
+    const status = searchParams.get("status")
+
+    const whereClause: any = {}
+
+    // Students can only view their own registrations
+    if (session.user.role === userRoles.STUDENT) {
+      whereClause.userId = session.user.id
+    } else if (userId) {
+      whereClause.userId = userId
+    }
+
+    if (semesterId) {
+      whereClause.semesterId = semesterId
+    }
+
+    if (status) {
+      whereClause.status = status
+    }
 
     const registrations = await prisma.registration.findMany({
-      where,
+      where: whereClause,
       include: {
-        student: {
+        user: {
           select: {
             id: true,
             name: true,
             email: true,
-            registrationNo: true,
+            profile: true,
           },
         },
-        course: true,
+        semester: true,
+        courseUploads: {
+          include: {
+            course: {
+              include: {
+                department: true,
+              },
+            },
+          },
+        },
       },
-      skip,
-      take: limit,
       orderBy: {
-        registeredAt: "desc",
+        createdAt: "desc",
       },
     })
 
-    const total = await prisma.registration.count({ where })
-
-    return NextResponse.json({
-      registrations,
-      meta: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
-      },
-    })
+    return NextResponse.json(registrations)
   } catch (error) {
     console.error("Error fetching registrations:", error)
-    return NextResponse.json({ error: "Failed to fetch registrations" }, { status: 500 })
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
 }
-
-// POST /api/registrations - Create a new registration
-export async function POST(request: Request) {
-  try {
-    const body = await request.json()
-    const { studentId, courseId, semester, academicYear } = body
-
-    // Check if student exists
-    const student = await prisma.user.findUnique({
-      where: {
-        id: studentId,
-        role: "STUDENT",
-      },
-    })
-
-    if (!student) {
-      return NextResponse.json({ error: "Student not found" }, { status: 404 })
-    }
-
-    // Check if course exists
-    const course = await prisma.course.findUnique({
-      where: {
-        id: courseId,
-      },
-    })
-
-    if (!course) {
-      return NextResponse.json({ error: "Course not found" }, { status: 404 })
-    }
-
-    // Check if registration already exists
-    const existingRegistration = await prisma.registration.findFirst({
-      where: {
-        studentId,
-        courseId,
-        semester,
-        academicYear,
-      },
-    })
-
-    if (existingRegistration) {
-      return NextResponse.json({ error: "Registration already exists" }, { status: 400 })
-    }
-
-    // Check if course is full
-    if (course.currentEnrolled >= course.maxCapacity) {
-      return NextResponse.json({ error: "Course is at maximum capacity" }, { status: 400 })
-    }
-
-    // Create registration
-    const registration = await prisma.registration.create({
-      data: {
-        studentId,
-        courseId,
-        semester,
-        academicYear,
-        status: "PENDING",
-      },
-      include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            registrationNo: true,
-          },
-        },
-        course: true,
-      },
-    })
-
-    // Create notification for student
-    await prisma.notification.create({
-      data: {
-        title: "Registration Submitted",
-        message: `Your registration for ${course.code}: ${course.title} has been submitted and is pending approval.`,
-        type: "REGISTRATION",
-        userId: studentId,
-      },
-    })
-
-    return NextResponse.json(registration, { status: 201 })
-  } catch (error) {
-    console.error("Error creating registration:", error)
-    return NextResponse.json({ error: "Failed to create registration" }, { status: 500 })
-  }
-}
-
