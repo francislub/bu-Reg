@@ -1,6 +1,6 @@
 "use server"
 
-import { hash, compare } from "bcrypt"
+import { hash, compare } from "bcryptjs"
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 
