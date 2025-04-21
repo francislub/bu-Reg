@@ -1,95 +1,61 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
+import { db } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { z } from "zod"
-import { userRoles } from "@/lib/utils"
-
-const courseSchema = z.object({
-  code: z.string().min(2),
-  title: z.string().min(2),
-  credits: z.number().min(1).max(6),
-  description: z.string().optional(),
-  departmentId: z.string(),
-})
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
-
-    const { searchParams } = new URL(req.url)
-    const departmentId = searchParams.get("departmentId")
-    const search = searchParams.get("search")
-
-    const whereClause: any = {}
-
-    if (departmentId) {
-      whereClause.departmentId = departmentId
-    }
-
-    if (search) {
-      whereClause.OR = [
-        { code: { contains: search, mode: "insensitive" } },
-        { title: { contains: search, mode: "insensitive" } },
-      ]
-    }
-
-    const courses = await prisma.course.findMany({
-      where: whereClause,
+    const courses = await db.course.findMany({
       include: {
         department: true,
-      },
-      orderBy: {
-        code: "asc",
+        semesterCourses: {
+          include: {
+            semester: true,
+          },
+        },
       },
     })
 
-    return NextResponse.json(courses)
+    return NextResponse.json({ success: true, courses })
   } catch (error) {
     console.error("Error fetching courses:", error)
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ success: false, message: "An error occurred while fetching courses" }, { status: 500 })
   }
 }
 
 export async function POST(req: Request) {
   try {
+    // Check if user is authenticated and is staff or registrar
     const session = await getServerSession(authOptions)
-
-    if (!session || session.user.role !== userRoles.REGISTRAR) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    if (!session || (session.user.role !== "STAFF" && session.user.role !== "REGISTRAR")) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
     const body = await req.json()
-    const validatedData = courseSchema.parse(body)
+    const { code, title, credits, description, departmentId } = body
 
-    // Check if course code already exists
-    const existingCourse = await prisma.course.findUnique({
-      where: {
-        code: validatedData.code,
-      },
+    // Check if course with same code already exists
+    const existingCourse = await db.course.findUnique({
+      where: { code },
     })
 
     if (existingCourse) {
-      return NextResponse.json({ message: "Course with this code already exists" }, { status: 409 })
+      return NextResponse.json({ success: false, message: "Course with this code already exists" }, { status: 400 })
     }
 
-    const course = await prisma.course.create({
-      data: validatedData,
-      include: {
-        department: true,
+    const course = await db.course.create({
+      data: {
+        code,
+        title,
+        credits,
+        description,
+        departmentId,
       },
     })
 
-    return NextResponse.json(course, { status: 201 })
+    return NextResponse.json({ success: true, course })
   } catch (error) {
-    console.error("Error creating course:", error)
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ message: "Validation error", errors: error.errors }, { status: 400 })
-    }
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
+    console.error("Course creation error:", error)
+    return NextResponse.json({ success: false, message: "An error occurred during course creation" }, { status: 500 })
   }
 }

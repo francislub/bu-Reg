@@ -1,99 +1,63 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
+import { db } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { z } from "zod"
-import { userRoles } from "@/lib/utils"
-
-const semesterSchema = z.object({
-  name: z.string().min(2),
-  startDate: z.string().min(1),
-  endDate: z.string().min(1),
-  registrationDeadline: z.string().min(1),
-  courseUploadDeadline: z.string().min(1),
-  isActive: z.boolean().default(false),
-})
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
-
-    const { searchParams } = new URL(req.url)
-    const isActive = searchParams.get("isActive")
-
-    const whereClause: any = {}
-
-    if (isActive === "true") {
-      whereClause.isActive = true
-    }
-
-    const semesters = await prisma.semester.findMany({
-      where: whereClause,
-      orderBy: [{ isActive: "desc" }, { startDate: "desc" }],
+    const semesters = await db.semester.findMany({
+      include: {
+        semesterCourses: {
+          include: {
+            course: true,
+          },
+        },
+      },
+      orderBy: {
+        startDate: "desc",
+      },
     })
 
-    return NextResponse.json(semesters)
+    return NextResponse.json({ success: true, semesters })
   } catch (error) {
     console.error("Error fetching semesters:", error)
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ success: false, message: "An error occurred while fetching semesters" }, { status: 500 })
   }
 }
 
 export async function POST(req: Request) {
   try {
+    // Check if user is authenticated and is a registrar
     const session = await getServerSession(authOptions)
-
-    if (!session || session.user.role !== userRoles.REGISTRAR) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    if (!session || session.user.role !== "REGISTRAR") {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
     const body = await req.json()
-    const validatedData = semesterSchema.parse(body)
+    const { name, startDate, endDate, isActive, registrationDeadline, courseUploadDeadline } = body
 
-    // Check if semester name already exists
-    const existingSemester = await prisma.semester.findUnique({
-      where: {
-        name: validatedData.name,
-      },
-    })
-
-    if (existingSemester) {
-      return NextResponse.json({ message: "Semester with this name already exists" }, { status: 409 })
-    }
-
-    // If this semester is active, deactivate all other semesters
-    if (validatedData.isActive) {
-      await prisma.semester.updateMany({
-        where: {
-          isActive: true,
-        },
-        data: {
-          isActive: false,
-        },
+    // If setting this semester as active, deactivate all other semesters
+    if (isActive) {
+      await db.semester.updateMany({
+        where: { isActive: true },
+        data: { isActive: false },
       })
     }
 
-    const semester = await prisma.semester.create({
+    const semester = await db.semester.create({
       data: {
-        name: validatedData.name,
-        startDate: new Date(validatedData.startDate),
-        endDate: new Date(validatedData.endDate),
-        registrationDeadline: new Date(validatedData.registrationDeadline),
-        courseUploadDeadline: new Date(validatedData.courseUploadDeadline),
-        isActive: validatedData.isActive,
+        name,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        isActive,
+        registrationDeadline: registrationDeadline ? new Date(registrationDeadline) : undefined,
+        courseUploadDeadline: courseUploadDeadline ? new Date(courseUploadDeadline) : undefined,
       },
     })
 
-    return NextResponse.json(semester, { status: 201 })
+    return NextResponse.json({ success: true, semester })
   } catch (error) {
-    console.error("Error creating semester:", error)
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ message: "Validation error", errors: error.errors }, { status: 400 })
-    }
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
+    console.error("Semester creation error:", error)
+    return NextResponse.json({ success: false, message: "An error occurred during semester creation" }, { status: 500 })
   }
 }

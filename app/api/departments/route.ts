@@ -1,121 +1,68 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
+import { db } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { z } from "zod"
-import { userRoles } from "@/lib/utils"
-
-// Schema for creating departments
-const departmentSchema = z.object({
-  name: z.string().min(2),
-  code: z.string().min(2),
-  description: z.string().optional(),
-})
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
-
-    const { searchParams } = new URL(req.url)
-    const search = searchParams.get("search")
-
-    const whereClause: any = {}
-
-    if (search) {
-      whereClause.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { code: { contains: search, mode: "insensitive" } },
-      ]
-    }
-
-    const departments = await prisma.department.findMany({
-      where: whereClause,
-      orderBy: {
-        name: "asc",
-      },
+    const departments = await db.department.findMany({
       include: {
-        _count: {
-          select: {
-            courses: true,
-            departmentStaff: true,
+        courses: true,
+        departmentStaff: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
           },
         },
       },
     })
 
-    // Transform the response to match the expected format
-    const formattedDepartments = departments.map((dept) => ({
-      ...dept,
-      _count: {
-        courses: dept._count.courses,
-        staff: dept._count.departmentStaff,
-      },
-    }))
-
-    return NextResponse.json(formattedDepartments)
+    return NextResponse.json({ success: true, departments })
   } catch (error) {
     console.error("Error fetching departments:", error)
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
+    return NextResponse.json(
+      { success: false, message: "An error occurred while fetching departments" },
+      { status: 500 },
+    )
   }
 }
 
 export async function POST(req: Request) {
   try {
+    // Check if user is authenticated and is a registrar
     const session = await getServerSession(authOptions)
-
-    if (!session || session.user.role !== userRoles.REGISTRAR) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    if (!session || session.user.role !== "REGISTRAR") {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
     const body = await req.json()
-    const validatedData = departmentSchema.parse(body)
+    const { name, code } = body
 
-    // Check if department code already exists
-    const existingDepartment = await prisma.department.findFirst({
-      where: {
-        OR: [{ code: validatedData.code }, { name: validatedData.name }],
-      },
+    // Check if department with same code already exists
+    const existingDepartment = await db.department.findUnique({
+      where: { code },
     })
 
     if (existingDepartment) {
-      return NextResponse.json({ message: "Department with this code or name already exists" }, { status: 409 })
+      return NextResponse.json({ success: false, message: "Department with this code already exists" }, { status: 400 })
     }
 
-    const department = await prisma.department.create({
+    const department = await db.department.create({
       data: {
-        name: validatedData.name,
-        code: validatedData.code,
-        description: validatedData.description || null,
-      },
-      include: {
-        _count: {
-          select: {
-            courses: true,
-            departmentStaff: true,
-          },
-        },
+        name,
+        code,
       },
     })
 
-    // Transform the response to match the expected format
-    const formattedDepartment = {
-      ...department,
-      _count: {
-        courses: department._count.courses,
-        staff: department._count.departmentStaff,
-      },
-    }
-
-    return NextResponse.json(formattedDepartment, { status: 201 })
+    return NextResponse.json({ success: true, department })
   } catch (error) {
-    console.error("Error creating department:", error)
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ message: "Validation error", errors: error.errors }, { status: 400 })
-    }
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
+    console.error("Department creation error:", error)
+    return NextResponse.json(
+      { success: false, message: "An error occurred during department creation" },
+      { status: 500 },
+    )
   }
 }

@@ -1,17 +1,17 @@
 import type React from "react"
-import type { Metadata } from "next/types"
+import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
-import { SessionProvider } from "@/components/session-provider"
+import { AuthProvider } from "@/lib/auth-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Bugema University - Course Registration System",
-  description: "Online course registration system for Bugema University",
-  generator: "v0.dev",
+  title: "Bugema University",
+  description: "A Chartered Seventh-Day Adventist Institution of Higher Learning",
+    generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -22,18 +22,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <SessionProvider>
+        <AuthProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             {children}
             <Toaster />
           </ThemeProvider>
-        </SessionProvider>
+        </AuthProvider>
       </body>
     </html>
   )
 }
-
-import "./globals.css"
-
-
-import './globals.css'
