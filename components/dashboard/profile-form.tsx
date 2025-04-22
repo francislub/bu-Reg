@@ -45,25 +45,29 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>
 
-export function ProfileForm() {
+interface ProfileFormProps {
+  initialData?: any
+}
+
+export function ProfileForm({ initialData }: ProfileFormProps) {
   const { data: session } = useSession()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
 
   // This would come from the database in a real application
   const defaultValues: Partial<ProfileFormValues> = {
-    firstName: "John",
-    middleName: "",
-    lastName: "Doe",
-    dateOfBirth: new Date("1995-05-15"),
-    gender: "Male",
-    nationality: "uganda",
-    maritalStatus: "Single",
-    religion: "seventh-day-adventist",
-    church: "Central SDA Church",
-    responsibility: "youth-leader",
-    referralSource: "friend",
-    physicallyDisabled: false,
+    firstName: initialData?.firstName || "John",
+    middleName: initialData?.middleName || "",
+    lastName: initialData?.lastName || "Doe",
+    dateOfBirth: initialData?.dateOfBirth ? new Date(initialData.dateOfBirth) : new Date("1995-05-15"),
+    gender: initialData?.gender || "Male",
+    nationality: initialData?.nationality || "uganda",
+    maritalStatus: initialData?.maritalStatus || "Single",
+    religion: initialData?.religion || "seventh-day-adventist",
+    church: initialData?.church || "Central SDA Church",
+    responsibility: initialData?.responsibility || "youth-leader",
+    referralSource: initialData?.referralSource || "friend",
+    physicallyDisabled: initialData?.physicallyDisabled || false,
   }
 
   const form = useForm<ProfileFormValues>({

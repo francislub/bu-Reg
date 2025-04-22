@@ -7,10 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-export function AttendanceTable() {
+interface AttendanceTableProps {
+  initialData?: any[]
+}
+
+export function AttendanceTable({ initialData = [] }: AttendanceTableProps) {
   const { data: session } = useSession()
   const userRole = session?.user?.role || "STUDENT"
   const [selectedCourse, setSelectedCourse] = useState("all")
+  const [attendanceRecords, setAttendanceRecords] = useState(initialData)
 
   const studentAttendance = [
     {

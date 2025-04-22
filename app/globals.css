@@ -73,3 +73,23 @@
 .badge-warning {
   @apply bg-warning text-warning-foreground;
 }
+
+/* Custom sidebar styling */
+[data-sidebar="sidebar"] {
+  background-color: black;
+  color: white;
+}
+
+[data-sidebar="menu-button"] {
+  color: #d1d5db; /* text-gray-300 */
+}
+
+[data-sidebar="menu-button"]:hover {
+  background-color: #1f2937; /* bg-gray-800 */
+  color: white;
+}
+
+[data-sidebar="menu-button"][data-active="true"] {
+  background-color: #374151; /* bg-gray-700 */
+  color: white;
+}

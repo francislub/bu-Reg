@@ -1,112 +1,106 @@
-"use client"
-
-import { useSession } from "next-auth/react"
 import Link from "next/link"
-import { BookOpen, Calendar, CheckSquare, ClipboardList, GraduationCap, Users } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { BookOpen, Calendar, Clock, GraduationCap } from "lucide-react"
 
-export function DashboardCards() {
-  const { data: session } = useSession()
-  const userRole = session?.user?.role || "STUDENT"
+interface DashboardCardsProps {
+  user: any
+}
 
-  const studentCards = [
-    {
-      title: "Registered Courses",
-      value: "5",
-      icon: <BookOpen className="h-5 w-5 text-blue-600" />,
-      link: "/dashboard/courses",
-    },
-    {
-      title: "Attendance Rate",
-      value: "92%",
-      icon: <CheckSquare className="h-5 w-5 text-green-600" />,
-      link: "/dashboard/attendance",
-    },
-    {
-      title: "Registration Status",
-      value: "Approved",
-      icon: <ClipboardList className="h-5 w-5 text-yellow-600" />,
-      link: "/dashboard/registration",
-    },
-    {
-      title: "Upcoming Classes",
-      value: "3",
-      icon: <Calendar className="h-5 w-5 text-purple-600" />,
-      link: "/dashboard/timetable",
-    },
-  ]
+export function DashboardCards({ user }: DashboardCardsProps) {
+  // Calculate attendance percentage
+  const attendanceRecords = user?.attendanceRecords || []
+  const totalSessions = attendanceRecords.length
+  const presentSessions = attendanceRecords.filter((record: any) => record.status === "PRESENT").length
+  const attendancePercentage = totalSessions > 0 ? Math.round((presentSessions / totalSessions) * 100) : 0
 
-  const staffCards = [
-    {
-      title: "Courses Teaching",
-      value: "3",
-      icon: <BookOpen className="h-5 w-5 text-blue-600" />,
-      link: "/dashboard/courses",
-    },
-    {
-      title: "Students",
-      value: "87",
-      icon: <Users className="h-5 w-5 text-green-600" />,
-      link: "/dashboard/students",
-    },
-    {
-      title: "Pending Approvals",
-      value: "12",
-      icon: <ClipboardList className="h-5 w-5 text-yellow-600" />,
-      link: "/dashboard/approvals",
-    },
-    {
-      title: "Upcoming Classes",
-      value: "4",
-      icon: <Calendar className="h-5 w-5 text-purple-600" />,
-      link: "/dashboard/timetable",
-    },
-  ]
+  // Get current semester
+  const currentSemester = user?.registrations?.[0]?.semester
 
-  const registrarCards = [
-    {
-      title: "Total Students",
-      value: "1,245",
-      icon: <Users className="h-5 w-5 text-blue-600" />,
-      link: "/dashboard/students",
-    },
-    {
-      title: "Departments",
-      value: "8",
-      icon: <GraduationCap className="h-5 w-5 text-green-600" />,
-      link: "/dashboard/departments",
-    },
-    {
-      title: "Pending Registrations",
-      value: "32",
-      icon: <ClipboardList className="h-5 w-5 text-yellow-600" />,
-      link: "/dashboard/approvals",
-    },
-    {
-      title: "Active Courses",
-      value: "124",
-      icon: <BookOpen className="h-5 w-5 text-purple-600" />,
-      link: "/dashboard/courses",
-    },
-  ]
-
-  const cards = userRole === "STUDENT" ? studentCards : userRole === "REGISTRAR" ? registrarCards : staffCards
+  // Get registered courses
+  const registeredCourses = user?.registrations?.[0]?.courseUploads || []
+  const approvedCourses = registeredCourses.filter((upload: any) => upload.status === "APPROVED")
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {cards.map((card, index) => (
-        <Link key={index} href={card.link}>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-              {card.icon}
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{card.value}</div>
-            </CardContent>
-          </Card>
-        </Link>
-      ))}
+      <Card className="border-primary/20 shadow-md">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Current Semester</CardTitle>
+          <Calendar className="h-4 w-4 text-primary" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-primary">{currentSemester?.name || "Not Registered"}</div>
+          <p className="text-xs text-muted-foreground">
+            {currentSemester
+              ? `${new Date(currentSemester.startDate).toLocaleDateString()} - ${new Date(
+                  currentSemester.endDate,
+                ).toLocaleDateString()}`
+              : "Please register for a semester"}
+          </p>
+        </CardContent>
+        <CardFooter className="p-2">
+          <Link href="/dashboard/semester-registration" className="text-xs text-primary hover:underline">
+            View Registration Status
+          </Link>
+        </CardFooter>
+      </Card>
+
+      <Card className="border-success/20 shadow-md">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Registered Courses</CardTitle>
+          <BookOpen className="h-4 w-4 text-success" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-success">
+            {approvedCourses.length} / {registeredCourses.length}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {approvedCourses.length === registeredCourses.length
+              ? "All courses approved"
+              : `${registeredCourses.length - approvedCourses.length} pending approval`}
+          </p>
+        </CardContent>
+        <CardFooter className="p-2">
+          <Link href="/dashboard/courses" className="text-xs text-success hover:underline">
+            View Courses
+          </Link>
+        </CardFooter>
+      </Card>
+
+      <Card className="border-warning/20 shadow-md">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
+          <Clock className="h-4 w-4 text-warning" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-warning">{attendancePercentage}%</div>
+          <p className="text-xs text-muted-foreground">
+            {totalSessions > 0
+              ? `Present in ${presentSessions} out of ${totalSessions} sessions`
+              : "No attendance records yet"}
+          </p>
+        </CardContent>
+        <CardFooter className="p-2">
+          <Link href="/dashboard/attendance" className="text-xs text-warning hover:underline">
+            View Attendance
+          </Link>
+        </CardFooter>
+      </Card>
+
+      <Card className="border-destructive/20 shadow-md">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Academic Status</CardTitle>
+          <GraduationCap className="h-4 w-4 text-destructive" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-destructive">Good Standing</div>
+          <p className="text-xs text-muted-foreground">Current GPA: Not Available</p>
+        </CardContent>
+        <CardFooter className="p-2">
+          <Link href="/dashboard/profile" className="text-xs text-destructive hover:underline">
+            View Academic Record
+          </Link>
+        </CardFooter>
+      </Card>
     </div>
   )
 }

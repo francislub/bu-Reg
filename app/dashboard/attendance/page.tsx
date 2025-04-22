@@ -6,12 +6,64 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { AttendanceTable } from "@/components/dashboard/attendance-table"
 import { Button } from "@/components/ui/button"
 import { PlusCircle } from "lucide-react"
+import { db } from "@/lib/db"
 
 export default async function AttendancePage() {
   const session = await getServerSession(authOptions)
 
   if (!session) {
     redirect("/auth/login")
+  }
+
+  // Fetch attendance data based on user role
+  let attendanceData = []
+
+  if (session.user.role === "STUDENT") {
+    // For students, fetch their attendance records
+    attendanceData = await db.attendanceRecord.findMany({
+      where: {
+        studentId: session.user.id,
+      },
+      include: {
+        session: {
+          include: {
+            course: true,
+            lecturer: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        session: {
+          date: "desc",
+        },
+      },
+    })
+  } else if (session.user.role === "STAFF") {
+    // For staff, fetch sessions they've created
+    attendanceData = await db.attendanceSession.findMany({
+      where: {
+        lecturerId: session.user.id,
+      },
+      include: {
+        course: true,
+        records: {
+          include: {
+            student: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        date: "desc",
+      },
+    })
   }
 
   return (
@@ -24,7 +76,7 @@ export default async function AttendancePage() {
           </Button>
         )}
       </DashboardHeader>
-      <AttendanceTable />
+      <AttendanceTable initialData={attendanceData} userRole={session.user.role} />
     </DashboardShell>
   )
 }
