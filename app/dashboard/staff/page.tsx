@@ -108,7 +108,7 @@ export default function StaffPage() {
 
   useEffect(() => {
     if (session?.user.role !== "REGISTRAR") {
-      router.push("/dashboard")
+      router.push("/dashboard/staff")
     }
 
     const fetchData = async () => {

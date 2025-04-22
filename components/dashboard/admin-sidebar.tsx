@@ -99,12 +99,12 @@ export function AdminSidebar() {
           icon: <BarChart className="h-5 w-5" />,
           isActive: pathname === "/dashboard/reports",
         },
-        {
-          title: "Security",
-          href: "/dashboard/security",
-          icon: <Shield className="h-5 w-5" />,
-          isActive: pathname === "/dashboard/security",
-        },
+        // {
+        //   title: "Security",
+        //   href: "/dashboard/security",
+        //   icon: <Shield className="h-5 w-5" />,
+        //   isActive: pathname === "/dashboard/security",
+        // },
         {
           title: "Settings",
           href: "/dashboard/settings",

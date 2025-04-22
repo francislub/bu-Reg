@@ -126,9 +126,9 @@ export function StaffPerformanceChart({ userId }: StaffPerformanceChartProps) {
   }
 
   return (
-    <Card className="border-green-200 shadow-md">
-      <CardHeader className="bg-green-50 rounded-t-lg">
-        <CardTitle className="text-green-700">Course Performance</CardTitle>
+    <Card className="shadow-sm">
+      <CardHeader>
+        <CardTitle>Course Performance</CardTitle>
         <CardDescription>Student attendance and performance in your courses</CardDescription>
       </CardHeader>
       <CardContent className="pt-6">

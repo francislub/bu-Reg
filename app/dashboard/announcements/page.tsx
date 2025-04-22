@@ -10,7 +10,8 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Textarea } from "@/components/ui/textarea"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
@@ -25,61 +26,58 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { FileEdit, Loader2, PlusCircle, Trash2 } from "lucide-react"
 import {
-  createDepartment,
-  deleteDepartment,
-  getAllDepartments,
-  updateDepartment,
-} from "@/lib/actions/department-actions"
+  createAnnouncement,
+  deleteAnnouncement,
+  getAllAnnouncements,
+  updateAnnouncement,
+} from "@/lib/actions/announcement-actions"
 
-const departmentSchema = z.object({
-  name: z.string().min(2, "Department name must be at least 2 characters"),
-  code: z
-    .string()
-    .min(2, "Department code must be at least 2 characters")
-    .max(10, "Department code must be at most 10 characters"),
+const announcementSchema = z.object({
+  title: z.string().min(2, "Title must be at least 2 characters"),
+  content: z.string().min(10, "Content must be at least 10 characters"),
 })
 
-type DepartmentFormValues = z.infer<typeof departmentSchema>
+type AnnouncementFormValues = z.infer<typeof announcementSchema>
 
-export default function DepartmentsPage() {
+export default function AnnouncementsPage() {
   const router = useRouter()
   const { data: session } = useSession()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [departments, setDepartments] = useState<any[]>([])
+  const [announcements, setAnnouncements] = useState<any[]>([])
   const [isEditing, setIsEditing] = useState(false)
-  const [currentDepartmentId, setCurrentDepartmentId] = useState<string | null>(null)
+  const [currentAnnouncementId, setCurrentAnnouncementId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [departmentToDelete, setDepartmentToDelete] = useState<string | null>(null)
+  const [announcementToDelete, setAnnouncementToDelete] = useState<string | null>(null)
 
-  const form = useForm<DepartmentFormValues>({
-    resolver: zodResolver(departmentSchema),
+  const form = useForm<AnnouncementFormValues>({
+    resolver: zodResolver(announcementSchema),
     defaultValues: {
-      name: "",
-      code: "",
+      title: "",
+      content: "",
     },
   })
 
   useEffect(() => {
-    if (session?.user.role !== "REGISTRAR") {
-      router.push("/dashboard/departments")
+    if (!session || session.user.role !== "REGISTRAR") {
+      router.push("/dashboard/announcements")
     }
 
-    const fetchDepartments = async () => {
+    const fetchAnnouncements = async () => {
       try {
-        const result = await getAllDepartments()
+        const result = await getAllAnnouncements()
         if (result.success) {
-          setDepartments(result.departments)
+          setAnnouncements(result.announcements)
         } else {
           toast({
             title: "Error",
-            description: result.message || "Failed to fetch departments",
+            description: result.message || "Failed to fetch announcements",
             variant: "destructive",
           })
         }
       } catch (error) {
-        console.error("Error fetching departments:", error)
+        console.error("Error fetching announcements:", error)
         toast({
           title: "Error",
           description: "An unexpected error occurred. Please try again.",
@@ -89,46 +87,46 @@ export default function DepartmentsPage() {
     }
 
     if (session) {
-      fetchDepartments()
+      fetchAnnouncements()
     }
   }, [session, router, toast])
 
-  async function onSubmit(data: DepartmentFormValues) {
+  async function onSubmit(data: AnnouncementFormValues) {
     setIsLoading(true)
     try {
       let result
-      if (isEditing && currentDepartmentId) {
-        result = await updateDepartment(currentDepartmentId, data)
+      if (isEditing && currentAnnouncementId) {
+        result = await updateAnnouncement(currentAnnouncementId, data)
       } else {
-        result = await createDepartment(data)
+        result = await createAnnouncement(data)
       }
 
       if (result.success) {
         toast({
-          title: isEditing ? "Department Updated" : "Department Created",
+          title: isEditing ? "Announcement Updated" : "Announcement Created",
           description: isEditing
-            ? "Department has been updated successfully."
-            : "Department has been created successfully.",
+            ? "Announcement has been updated successfully."
+            : "Announcement has been created successfully.",
         })
         form.reset()
         setIsDialogOpen(false)
         setIsEditing(false)
-        setCurrentDepartmentId(null)
+        setCurrentAnnouncementId(null)
 
-        // Refresh departments list
-        const deptResult = await getAllDepartments()
-        if (deptResult.success) {
-          setDepartments(deptResult.departments)
+        // Refresh announcements list
+        const announcementsResult = await getAllAnnouncements()
+        if (announcementsResult.success) {
+          setAnnouncements(announcementsResult.announcements)
         }
       } else {
         toast({
           title: "Error",
-          description: result.message || `Failed to ${isEditing ? "update" : "create"} department. Please try again.`,
+          description: result.message || `Failed to ${isEditing ? "update" : "create"} announcement. Please try again.`,
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error(`Error ${isEditing ? "updating" : "creating"} department:`, error)
+      console.error(`Error ${isEditing ? "updating" : "creating"} announcement:`, error)
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",
@@ -139,37 +137,37 @@ export default function DepartmentsPage() {
     }
   }
 
-  function handleEdit(department: any) {
+  function handleEdit(announcement: any) {
     setIsEditing(true)
-    setCurrentDepartmentId(department.id)
+    setCurrentAnnouncementId(announcement.id)
     form.reset({
-      name: department.name,
-      code: department.code,
+      title: announcement.title,
+      content: announcement.content,
     })
     setIsDialogOpen(true)
   }
 
-  async function handleDeleteDepartment(departmentId: string) {
+  async function handleDeleteAnnouncement(announcementId: string) {
     setIsDeleting(true)
     try {
-      const result = await deleteDepartment(departmentId)
+      const result = await deleteAnnouncement(announcementId)
       if (result.success) {
         toast({
-          title: "Department Deleted",
-          description: "Department has been deleted successfully.",
+          title: "Announcement Deleted",
+          description: "Announcement has been deleted successfully.",
         })
 
         // Update local state
-        setDepartments(departments.filter((dept) => dept.id !== departmentId))
+        setAnnouncements(announcements.filter((announcement) => announcement.id !== announcementId))
       } else {
         toast({
           title: "Error",
-          description: result.message || "Failed to delete department. Please try again.",
+          description: result.message || "Failed to delete announcement. Please try again.",
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("Error deleting department:", error)
+      console.error("Error deleting announcement:", error)
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",
@@ -177,54 +175,53 @@ export default function DepartmentsPage() {
       })
     } finally {
       setIsDeleting(false)
-      setDepartmentToDelete(null)
+      setAnnouncementToDelete(null)
     }
   }
 
-  if (session?.user.role !== "REGISTRAR") {
+  if (!session || session.user.role !== "REGISTRAR") {
     return null
   }
 
   return (
     <DashboardShell>
-      <DashboardHeader heading="Departments" text="Manage university departments.">
+      <DashboardHeader heading="Announcements" text="Manage university announcements.">
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button
               onClick={() => {
                 setIsEditing(false)
-                setCurrentDepartmentId(null)
+                setCurrentAnnouncementId(null)
                 form.reset({
-                  name: "",
-                  code: "",
+                  title: "",
+                  content: "",
                 })
               }}
             >
               <PlusCircle className="mr-2 h-4 w-4" />
-              Add Department
+              Add Announcement
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{isEditing ? "Edit Department" : "Add New Department"}</DialogTitle>
+              <DialogTitle>{isEditing ? "Edit Announcement" : "Add New Announcement"}</DialogTitle>
               <DialogDescription>
-                {isEditing ? "Update the department details below." : "Enter the details for the new department."}
+                {isEditing ? "Update the announcement details below." : "Enter the details for the new announcement."}
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
                   control={form.control}
-                  name="name"
+                  name="title"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Department Name <span className="text-red-500">*</span>
+                        Title <span className="text-red-500">*</span>
                       </FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter department name" {...field} />
+                        <Input placeholder="Enter announcement title" {...field} />
                       </FormControl>
-                      <FormDescription>The full name of the department (e.g., Computer Science)</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -232,16 +229,15 @@ export default function DepartmentsPage() {
 
                 <FormField
                   control={form.control}
-                  name="code"
+                  name="content"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Department Code <span className="text-red-500">*</span>
+                        Content <span className="text-red-500">*</span>
                       </FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter department code" {...field} />
+                        <Textarea placeholder="Enter announcement content" className="min-h-[150px]" {...field} />
                       </FormControl>
-                      <FormDescription>A short code for the department (e.g., CS, ENG)</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -258,9 +254,9 @@ export default function DepartmentsPage() {
                         {isEditing ? "Updating..." : "Creating..."}
                       </>
                     ) : isEditing ? (
-                      "Update Department"
+                      "Update Announcement"
                     ) : (
-                      "Create Department"
+                      "Create Announcement"
                     )}
                   </Button>
                 </DialogFooter>
@@ -272,34 +268,32 @@ export default function DepartmentsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Department List</CardTitle>
-          <CardDescription>View and manage all university departments.</CardDescription>
+          <CardTitle>Announcement List</CardTitle>
+          <CardDescription>View and manage all university announcements.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Code</TableHead>
-                <TableHead>Courses</TableHead>
-                <TableHead>Staff</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Content</TableHead>
+                <TableHead>Date</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {departments.length > 0 ? (
-                departments.map((department) => (
-                  <TableRow key={department.id}>
-                    <TableCell className="font-medium">{department.name}</TableCell>
-                    <TableCell>{department.code}</TableCell>
-                    <TableCell>{department.courses?.length || 0}</TableCell>
-                    <TableCell>{department.departmentStaff?.length || 0}</TableCell>
+              {announcements.length > 0 ? (
+                announcements.map((announcement) => (
+                  <TableRow key={announcement.id}>
+                    <TableCell className="font-medium">{announcement.title}</TableCell>
+                    <TableCell className="max-w-md truncate">{announcement.content}</TableCell>
+                    <TableCell>{new Date(announcement.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(department)}>
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(announcement)}>
                           <FileEdit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => setDepartmentToDelete(department.id)}>
+                        <Button variant="ghost" size="icon" onClick={() => setAnnouncementToDelete(announcement.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -308,8 +302,8 @@ export default function DepartmentsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                    No departments found.
+                  <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                    No announcements found.
                   </TableCell>
                 </TableRow>
               )}
@@ -319,22 +313,21 @@ export default function DepartmentsPage() {
       </Card>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={!!departmentToDelete} onOpenChange={(open) => !open && setDepartmentToDelete(null)}>
+      <Dialog open={!!announcementToDelete} onOpenChange={(open) => !open && setAnnouncementToDelete(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Deletion</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this department? This action cannot be undone and will affect all
-              associated courses and staff.
+              Are you sure you want to delete this announcement? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDepartmentToDelete(null)}>
+            <Button variant="outline" onClick={() => setAnnouncementToDelete(null)}>
               Cancel
             </Button>
             <Button
               variant="destructive"
-              onClick={() => departmentToDelete && handleDeleteDepartment(departmentToDelete)}
+              onClick={() => announcementToDelete && handleDeleteAnnouncement(announcementToDelete)}
               disabled={isDeleting}
             >
               {isDeleting ? (

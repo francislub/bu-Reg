@@ -29,6 +29,8 @@ export async function registerForSemester(userId: string, semesterId: string) {
     })
 
     revalidatePath("/dashboard/registration")
+    revalidatePath("/dashboard")
+    revalidatePath("/dashboard/students")
     return { success: true, registration }
   } catch (error) {
     console.error("Error registering for semester:", error)
@@ -123,6 +125,7 @@ export async function uploadCourses(registrationId: string, userId: string, seme
     )
 
     revalidatePath("/dashboard/registration")
+    revalidatePath("/dashboard")
     return { success: true, courseUploads }
   } catch (error) {
     console.error("Error uploading courses:", error)
@@ -137,6 +140,7 @@ export async function removeCourseUpload(courseUploadId: string) {
     })
 
     revalidatePath("/dashboard/registration")
+    revalidatePath("/dashboard")
     return { success: true, message: "Course removed successfully" }
   } catch (error) {
     console.error("Error removing course upload:", error)
@@ -201,6 +205,8 @@ export async function approveRegistration(registrationId: string) {
     })
 
     revalidatePath("/dashboard/approvals")
+    revalidatePath("/dashboard/students")
+    revalidatePath("/dashboard")
     return { success: true, registration }
   } catch (error) {
     console.error("Error approving registration:", error)
@@ -216,6 +222,8 @@ export async function rejectRegistration(registrationId: string) {
     })
 
     revalidatePath("/dashboard/approvals")
+    revalidatePath("/dashboard/students")
+    revalidatePath("/dashboard")
     return { success: true, registration }
   } catch (error) {
     console.error("Error rejecting registration:", error)
@@ -242,6 +250,7 @@ export async function approveCourseUpload(courseUploadId: string, approverId: st
     })
 
     revalidatePath("/dashboard/approvals")
+    revalidatePath("/dashboard")
     return { success: true, courseUpload }
   } catch (error) {
     console.error("Error approving course upload:", error)
@@ -268,6 +277,7 @@ export async function rejectCourseUpload(courseUploadId: string, approverId: str
     })
 
     revalidatePath("/dashboard/approvals")
+    revalidatePath("/dashboard")
     return { success: true, courseUpload }
   } catch (error) {
     console.error("Error rejecting course upload:", error)
