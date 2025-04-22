@@ -13,46 +13,60 @@ export default async function CoursesPage() {
     redirect("/auth/login")
   }
 
-  // Fetch all courses
-  const courses = await db.course.findMany({
-    include: {
-      department: true,
-      semesterCourses: {
-        include: {
-          semester: true,
+  // Initialize variables
+  let courses = []
+  let departments = []
+  let studentCourses = []
+
+  try {
+    // Fetch all departments for the form
+    departments = await db.department.findMany()
+
+    // Fetch all courses with proper error handling for null departmentId
+    courses = await db.course.findMany({
+      where: {
+        departmentId: {
+          not: null, // Ensure departmentId is not null
         },
       },
-    },
-  })
-
-  // Fetch all departments for the form
-  const departments = await db.department.findMany()
-
-  // For students, fetch their registered courses
-  let studentCourses = []
-  if (session.user.role === "STUDENT") {
-    const currentSemester = await db.semester.findFirst({
-      where: {
-        isActive: true,
+      include: {
+        department: true,
+        semesterCourses: {
+          include: {
+            semester: true,
+          },
+        },
       },
     })
 
-    if (currentSemester) {
-      studentCourses = await db.courseUpload.findMany({
+    // For students, fetch their registered courses
+    if (session.user.role === "STUDENT") {
+      const currentSemester = await db.semester.findFirst({
         where: {
-          userId: session.user.id,
-          semesterId: currentSemester.id,
-        },
-        include: {
-          course: {
-            include: {
-              department: true,
-            },
-          },
-          semester: true,
+          isActive: true,
         },
       })
+
+      if (currentSemester) {
+        studentCourses = await db.courseUpload.findMany({
+          where: {
+            userId: session.user.id,
+            semesterId: currentSemester.id,
+          },
+          include: {
+            course: {
+              include: {
+                department: true,
+              },
+            },
+            semester: true,
+          },
+        })
+      }
     }
+  } catch (error) {
+    console.error("Error fetching courses data:", error)
+    // Keep empty arrays if there's an error
   }
 
   return (

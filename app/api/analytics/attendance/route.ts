@@ -12,64 +12,126 @@ export async function GET(req: Request) {
     }
 
     const url = new URL(req.url)
-    const userId = url.searchParams.get("userId") || session.user.id
+    const lecturerId = url.searchParams.get("lecturerId")
+    const studentId = url.searchParams.get("studentId")
 
-    // Get current semester
-    const currentSemester = await db.semester.findFirst({
+    // Get active semester
+    const activeSemester = await db.semester.findFirst({
       where: { isActive: true },
-      orderBy: { createdAt: "desc" },
     })
 
-    if (!currentSemester) {
+    if (!activeSemester) {
       return NextResponse.json({ success: false, message: "No active semester found" }, { status: 404 })
     }
 
-    // Get attendance records for the user in the current semester
-    const attendanceRecords = await db.attendanceRecord.findMany({
-      where: {
-        userId,
-        semesterId: currentSemester.id,
-      },
-      include: {
-        course: true,
-      },
-    })
+    if (lecturerId) {
+      // Get attendance data for lecturer's courses
+      const attendanceSessions = await db.attendanceSession.findMany({
+        where: {
+          lecturerId,
+          semesterId: activeSemester.id,
+        },
+        include: {
+          course: true,
+          records: true,
+        },
+      })
 
-    // Group attendance by course
-    const courseAttendance = attendanceRecords.reduce((acc: any, record) => {
-      const courseId = record.courseId
-      const courseName = record.course.code
+      // Group by course and calculate statistics
+      const courseMap = new Map()
 
-      if (!acc[courseId]) {
-        acc[courseId] = {
-          course: courseName,
-          present: 0,
-          absent: 0,
-          total: 0,
-          rate: 0,
+      attendanceSessions.forEach((session) => {
+        const courseId = session.courseId
+        const courseCode = session.course.code
+
+        if (!courseMap.has(courseId)) {
+          courseMap.set(courseId, {
+            code: courseCode,
+            presentCount: 0,
+            absentCount: 0,
+            lateCount: 0,
+            totalCount: 0,
+          })
         }
-      }
 
-      if (record.status === "PRESENT") {
-        acc[courseId].present += 1
-      } else if (record.status === "ABSENT") {
-        acc[courseId].absent += 1
-      }
+        const courseStats = courseMap.get(courseId)
 
-      acc[courseId].total += 1
-      acc[courseId].rate = Number.parseFloat(((acc[courseId].present / acc[courseId].total) * 100).toFixed(1))
+        session.records.forEach((record) => {
+          courseStats.totalCount++
 
-      return acc
-    }, {})
+          if (record.status === "PRESENT") {
+            courseStats.presentCount++
+          } else if (record.status === "ABSENT") {
+            courseStats.absentCount++
+          } else if (record.status === "LATE") {
+            courseStats.lateCount++
+          }
+        })
+      })
 
-    // Convert to array
-    const data = Object.values(courseAttendance)
+      const courses = Array.from(courseMap.values())
 
-    return NextResponse.json({ success: true, data })
+      return NextResponse.json({ success: true, courses })
+    } else if (studentId) {
+      // Get attendance data for student
+      const attendanceRecords = await db.attendanceRecord.findMany({
+        where: {
+          studentId,
+          session: {
+            semesterId: activeSemester.id,
+          },
+        },
+        include: {
+          session: {
+            include: {
+              course: true,
+            },
+          },
+        },
+      })
+
+      // Group by course and calculate statistics
+      const courseMap = new Map()
+
+      attendanceRecords.forEach((record) => {
+        const courseId = record.session.courseId
+        const courseCode = record.session.course.code
+
+        if (!courseMap.has(courseId)) {
+          courseMap.set(courseId, {
+            code: courseCode,
+            present: 0,
+            absent: 0,
+            late: 0,
+            total: 0,
+          })
+        }
+
+        const courseStats = courseMap.get(courseId)
+        courseStats.total++
+
+        if (record.status === "PRESENT") {
+          courseStats.present++
+        } else if (record.status === "ABSENT") {
+          courseStats.absent++
+        } else if (record.status === "LATE") {
+          courseStats.late++
+        }
+      })
+
+      const courses = Array.from(courseMap.values()).map((course) => ({
+        ...course,
+        rate: course.total > 0 ? Math.round((course.present / course.total) * 100 * 10) / 10 : 0,
+      }))
+
+      return NextResponse.json({ success: true, courses })
+    } else {
+      return NextResponse.json({ success: false, message: "Missing required parameters" }, { status: 400 })
+    }
   } catch (error) {
-    console.error("Error fetching attendance analytics:", error)
+    console.error("Error fetching attendance data:", error)
     return NextResponse.json(
-      { success: false, message: "An error occurred while fetching attendance analytics" },
+      { success: false, message: "An error occurred while fetching attendance data" },
       { status: 500 },
     )
   }

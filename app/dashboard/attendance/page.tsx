@@ -18,52 +18,58 @@ export default async function AttendancePage() {
   // Fetch attendance data based on user role
   let attendanceData = []
 
-  if (session.user.role === "STUDENT") {
-    // For students, fetch their attendance records
-    attendanceData = await db.attendanceRecord.findMany({
-      where: {
-        studentId: session.user.id,
-      },
-      include: {
-        session: {
-          include: {
-            course: true,
-            lecturer: {
-              include: {
-                profile: true,
+  try {
+    if (session.user.role === "STUDENT") {
+      // For students, fetch their attendance records
+      attendanceData = await db.attendanceRecord.findMany({
+        where: {
+          studentId: session.user.id,
+        },
+        include: {
+          session: {
+            include: {
+              course: true,
+              lecturer: {
+                include: {
+                  profile: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: {
-        session: {
+        orderBy: {
+          session: {
+            date: "desc",
+          },
+        },
+      })
+    } else if (session.user.role === "STAFF") {
+      // For staff, fetch sessions they've created
+      attendanceData = await db.attendanceSession.findMany({
+        where: {
+          lecturerId: session.user.id,
+        },
+        include: {
+          course: true,
+          records: {
+            include: {
+              student: {
+                include: {
+                  profile: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
           date: "desc",
         },
-      },
-    })
-  } else if (session.user.role === "STAFF") {
-    // For staff, fetch sessions they've created
-    attendanceData = await db.attendanceSession.findMany({
-      where: {
-        lecturerId: session.user.id,
-      },
-      include: {
-        course: true,
-        records: {
-          include: {
-            student: {
-              include: {
-                profile: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        date: "desc",
-      },
-    })
+      })
+    }
+  } catch (error) {
+    console.error("Error fetching attendance data:", error)
+    // Return empty array if there's an error
+    attendanceData = []
   }
 
   return (

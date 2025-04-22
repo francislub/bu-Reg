@@ -363,22 +363,44 @@ export function ChartTooltipComponent({ className, ...props }: ChartTooltipProps
   )
 }
 
+// export {
+//   ChartContainer,
+//   ChartTooltip,
+//   ChartTooltipContent,
+//   ChartLegend,
+//   ChartLegendContent,
+//   ChartStyle,
+//   Area,
+//   Bar,
+//   CartesianGrid,
+//   Cell,
+//   ComposedChart,
+//   Legend,
+//   Line,
+//   Pie,
+//   PieChart,
+//   XAxis,
+//   YAxis,
+// }
+
 export {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
-  ChartStyle,
-  Area,
-  Bar,
-  CartesianGrid,
-  Cell,
+  ResponsiveContainer,
   ComposedChart,
-  Legend,
-  Line,
-  Pie,
+  BarChart,
+  LineChart,
   PieChart,
+  Pie,
+  Cell,
+  Bar,
+  Line,
   XAxis,
   YAxis,
-}
+  CartesianGrid,
+  Tooltip as ChartTooltip,
+  Legend,
+  Area,
+  AreaChart,
+  Scatter,
+  ScatterChart,
+} from "recharts"
+

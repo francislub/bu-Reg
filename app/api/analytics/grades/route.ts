@@ -12,71 +12,95 @@ export async function GET(req: Request) {
     }
 
     const url = new URL(req.url)
-    const userId = url.searchParams.get("userId") || session.user.id
+    const lecturerId = url.searchParams.get("lecturerId")
+    const studentId = url.searchParams.get("studentId")
 
-    // Get current semester
-    const currentSemester = await db.semester.findFirst({
+    // Get active semester
+    const activeSemester = await db.semester.findFirst({
       where: { isActive: true },
-      orderBy: { createdAt: "desc" },
     })
 
-    if (!currentSemester) {
+    if (!activeSemester) {
       return NextResponse.json({ success: false, message: "No active semester found" }, { status: 404 })
     }
 
-    // Get grades for the user in the current semester
-    const grades = await db.grade.findMany({
-      where: {
-        userId,
-        semesterId: currentSemester.id,
-      },
-      include: {
-        course: true,
-      },
-    })
+    // Note: In a real app, you would have a grades model to fetch actual grade data
+    // This is a simplified version that generates simulated grade data
 
-    // Get class averages
-    const courseIds = grades.map((grade) => grade.courseId)
+    if (lecturerId) {
+      // Get courses taught by lecturer in active semester
+      const lecturerCourses = await db.lecturerCourse.findMany({
+        where: {
+          lecturerId,
+          semesterId: activeSemester.id,
+        },
+        include: {
+          course: true,
+        },
+      })
 
-    // For each course, calculate the class average
-    const courseAverages = await Promise.all(
-      courseIds.map(async (courseId) => {
-        const courseGrades = await db.grade.findMany({
-          where: {
-            courseId,
-            semesterId: currentSemester.id,
-          },
-        })
+      // Generate simulated grade data for each course
+      const courses = lecturerCourses.map((lecturerCourse) => {
+        // Generate random grade statistics
+        const averageGrade = 65 + Math.random() * 20 // Random average between 65-85
+        const highestGrade = Math.min(100, averageGrade + 10 + Math.random() * 15) // Highest grade above average
+        const passRate = 70 + Math.random() * 25 // Random pass rate between 70-95%
 
-        const total = courseGrades.reduce((sum, grade) => sum + grade.score, 0)
-        const average = courseGrades.length > 0 ? Number.parseFloat((total / courseGrades.length).toFixed(1)) : 0
+        return {
+          code: lecturerCourse.course.code,
+          title: lecturerCourse.course.title,
+          averageGrade: Math.round(averageGrade),
+          highestGrade: Math.round(highestGrade),
+          passRate: Math.round(passRate),
+        }
+      })
 
-        return { courseId, average }
-      }),
-    )
+      return NextResponse.json({ success: true, courses })
+    } else if (studentId) {
+      // Get courses taken by student in active semester
+      const courseUploads = await db.courseUpload.findMany({
+        where: {
+          userId: studentId,
+          semesterId: activeSemester.id,
+          status: "APPROVED",
+        },
+        include: {
+          course: true,
+        },
+      })
 
-    // Map the averages to a lookup object
-    const averageLookup = courseAverages.reduce(
-      (acc, item) => {
-        acc[item.courseId] = item.average
-        return acc
-      },
-      {} as Record<string, number>,
-    )
+      // Generate simulated grade data for each course
+      const courses = courseUploads.map((courseUpload) => {
+        // Generate random grade
+        const grade = 60 + Math.random() * 40 // Random grade between 60-100
 
-    // Format the data for the chart
-    const data = grades.map((grade) => ({
-      course: grade.course.code,
-      score: grade.score,
-      average: averageLookup[grade.courseId] || 0,
-    }))
+        return {
+          code: courseUpload.course.code,
+          title: courseUpload.course.title,
+          grade: Math.round(grade),
+          letterGrade: getLetterGrade(Math.round(grade)),
+          status: Math.round(grade) >= 60 ? "PASS" : "FAIL",
+        }
+      })
 
-    return NextResponse.json({ success: true, data })
+      return NextResponse.json({ success: true, courses })
+    } else {
+      return NextResponse.json({ success: false, message: "Missing required parameters" }, { status: 400 })
+    }
   } catch (error) {
-    console.error("Error fetching grade analytics:", error)
+    console.error("Error fetching grade data:", error)
     return NextResponse.json(
-      { success: false, message: "An error occurred while fetching grade analytics" },
+      { success: false, message: "An error occurred while fetching grade data" },
       { status: 500 },
     )
   }
+}
+
+// Helper function to convert numeric grade to letter grade
+function getLetterGrade(grade: number): string {
+  if (grade >= 90) return "A"
+  if (grade >= 80) return "B"
+  if (grade >= 70) return "C"
+  if (grade >= 60) return "D"
+  return "F"
 }

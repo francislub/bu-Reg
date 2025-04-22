@@ -136,7 +136,7 @@ export function CoursesClient({
       title: course.title,
       credits: course.credits,
       description: course.description || "",
-      departmentId: course.departmentId,
+      departmentId: course.departmentId || departments[0]?.id || "",
     })
     setIsDialogOpen(true)
   }

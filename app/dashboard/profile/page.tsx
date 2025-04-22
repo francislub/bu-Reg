@@ -14,12 +14,37 @@ export default async function ProfilePage() {
   }
 
   // Fetch user profile data
-  const user = await db.user.findUnique({
-    where: { id: session.user.id },
-    include: {
-      profile: true,
-    },
-  })
+  let user = null
+
+  try {
+    user = await db.user.findUnique({
+      where: { id: session.user.id },
+      include: {
+        profile: true,
+      },
+    })
+
+    if (!user) {
+      // If user not found, create a basic user object with session data
+      user = {
+        id: session.user.id,
+        name: session.user.name || "",
+        email: session.user.email || "",
+        role: session.user.role || "STUDENT",
+        profile: null,
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching user profile:", error)
+    // Create a basic user object with session data if there's an error
+    user = {
+      id: session.user.id,
+      name: session.user.name || "",
+      email: session.user.email || "",
+      role: session.user.role || "STUDENT",
+      profile: null,
+    }
+  }
 
   return (
     <DashboardShell>

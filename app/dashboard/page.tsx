@@ -5,10 +5,9 @@ import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
-import { DashboardCards } from "@/components/dashboard/dashboard-cards"
-import { RecentAnnouncements } from "@/components/dashboard/recent-announcements"
-import { UpcomingEvents } from "@/components/dashboard/upcoming-events"
-import { DashboardCharts } from "@/components/dashboard/dashboard-charts"
+import { StudentDashboard } from "@/components/dashboard/student-dashboard"
+import { StaffDashboard } from "@/components/dashboard/staff-dashboard"
+import { AdminDashboard } from "@/components/dashboard/admin-dashboard"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default async function DashboardPage() {
@@ -18,9 +17,7 @@ export default async function DashboardPage() {
     redirect("/auth/login")
   }
 
-  // Get date 30 days ago for filtering
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const userRole = session.user.role || "STUDENT"
 
   // Fetch user data with related information
   const user = await db.user.findUnique({
@@ -41,7 +38,6 @@ export default async function DashboardPage() {
         },
         take: 1,
       },
-      // Correctly query attendance records through the session relationship
       attendanceRecords: {
         include: {
           session: {
@@ -53,7 +49,7 @@ export default async function DashboardPage() {
         where: {
           session: {
             date: {
-              gte: thirtyDaysAgo,
+              gte: new Date(new Date().setDate(new Date().getDate() - 30)),
             },
           },
         },
@@ -149,42 +145,163 @@ export default async function DashboardPage() {
     ]
   }
 
+  // Fetch additional data for staff and admin dashboards
+  let staffData = {}
+  let adminData = {}
+
+  if (userRole === "STAFF") {
+    try {
+      const coursesCount = await db.course.count({
+        where: {
+          lecturers: {
+            some: {
+              id: session.user.id
+            }
+          }
+        }
+      })
+
+      const studentsCount = await db.attendanceRecord.count({
+        distinct: ['studentId'],
+        where: {
+          session: {
+            lecturerId: session.user.id
+          }
+        }
+      })
+
+      const sessionsCount = await db.attendanceSession.count({
+        where: {
+          lecturerId: session.user.id
+        }
+      })
+
+      staffData = {
+        coursesCount,
+        studentsCount,
+        sessionsCount
+      }
+    } catch (error) {
+      console.error("Error fetching staff data:", error)
+      staffData = {
+        coursesCount: 0,
+        studentsCount: 0,
+        sessionsCount: 0
+      }
+    }
+  } else if (userRole === "REGISTRAR") {
+    try {
+      const studentsCount = await db.user.count({
+        where: {
+          role: "STUDENT"
+        }
+      })
+
+      const staffCount = await db.user.count({
+        where: {
+          role: "STAFF"
+        }
+      })
+
+      const departmentsCount = await db.department.count()
+      const coursesCount = await db.course.count()
+      const pendingApprovalsCount = await db.courseUpload.count({
+        where: {
+          status: "PENDING"
+        }
+      })
+
+      adminData = {
+        studentsCount,
+        staffCount,
+        departmentsCount,
+        coursesCount,
+        pendingApprovalsCount
+      }
+    } catch (error) {
+      console.error("Error fetching admin data:", error)
+      adminData = {
+        studentsCount: 0,
+        staffCount: 0,
+        departmentsCount: 0,
+        coursesCount: 0,
+        pendingApprovalsCount: 0
+      }
+    }
+  }
+
   return (
     <DashboardShell>
       <DashboardHeader
         heading={`Welcome, ${user?.profile?.firstName || session.user.name}`}
         text="Here's an overview of your academic progress and activities."
       />
-      <div className="grid gap-6">
-        <DashboardCards user={user} />
-        <Suspense fallback={<ChartSkeleton />}>
-          <DashboardCharts userId={session.user.id} />
-        </Suspense>
-        <div className="grid gap-6 md:grid-cols-2">
-          <RecentAnnouncements announcements={announcements} />
-          <UpcomingEvents events={events} />
-        </div>
-      </div>
+      <Suspense fallback={<DashboardSkeleton />}>
+        {userRole === "STUDENT" && (
+          <StudentDashboard 
+            user={user} 
+            announcements={announcements} 
+            events={events} 
+          />
+        )}
+        {userRole === "STAFF" && (
+          <StaffDashboard 
+            user={user} 
+            announcements={announcements} 
+            events={events} 
+            staffData={staffData}
+          />
+        )}
+        {userRole === "REGISTRAR" && (
+          <AdminDashboard 
+            user={user} 
+            announcements={announcements} 
+            events={events} 
+            adminData={adminData}
+          />
+        )}
+      </Suspense>
     </DashboardShell>
   )
 }
 
-function ChartSkeleton() {
+function DashboardSkeleton() {
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <div className="rounded-xl border bg-card p-6">
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-6 w-1/3" />
-          <Skeleton className="h-4 w-1/2" />
-        </div>
-        <Skeleton className="h-[300px] w-full mt-6" />
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="rounded-xl border bg-card p-6">
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-6 w-1/3" />
+              <Skeleton className="h-10 w-1/2" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          </div>
+        ))}
       </div>
-      <div className="rounded-xl border bg-card p-6">
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-6 w-1/3" />
-          <Skeleton className="h-4 w-1/2" />
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="rounded-xl border bg-card p-6">
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-6 w-1/3" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+          <div className="mt-4 space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full" />
+            ))}
+          </div>
         </div>
-        <Skeleton className="h-[300px] w-full mt-6" />
+        <div className="rounded-xl border bg-card p-6">
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-6 w-1/3" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+          <div className="mt-4 space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full" />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
