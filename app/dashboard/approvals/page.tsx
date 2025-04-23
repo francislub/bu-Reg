@@ -24,13 +24,31 @@ export default async function ApprovalsPage() {
 
   // Check if user has permission to view approvals
   const { user } = session
-  if (user.role !== "REGISTRAR" && user.role !== "ADMIN") {
+  if (user.role !== "REGISTRAR" && user.role !== "ADMIN" && user.role !== "STAFF") {
     redirect("/dashboard/approvals")
   }
 
   try {
     // Fetch all pending registrations
     const pendingRegistrations = await getAllPendingRegistrations()
+
+    // Format the data for the client component
+    const formattedRegistrations = pendingRegistrations.map((reg) => ({
+      id: reg.id,
+      studentId: reg.student.id,
+      studentName:
+        `${reg.student.profile?.firstName || ""} ${reg.student.profile?.lastName || ""}`.trim() ||
+        reg.student.name ||
+        "Unknown Student",
+      courseId: reg.course.id,
+      courseName: reg.course.title,
+      courseCode: reg.course.code,
+      status: reg.status,
+      createdAt: reg.createdAt,
+      updatedAt: reg.updatedAt,
+      semesterId: reg.semester.id,
+      semesterName: reg.semester.name,
+    }))
 
     return (
       <DashboardShell>
@@ -50,7 +68,7 @@ export default async function ApprovalsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {pendingRegistrations.filter((r) => r.status === "PENDING").length}
+                  {formattedRegistrations.filter((r) => r.status === "PENDING").length}
                 </div>
                 <p className="text-xs text-muted-foreground">Awaiting your review</p>
               </CardContent>
@@ -62,7 +80,7 @@ export default async function ApprovalsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {pendingRegistrations.filter((r) => r.status === "APPROVED").length}
+                  {formattedRegistrations.filter((r) => r.status === "APPROVED").length}
                 </div>
                 <p className="text-xs text-muted-foreground">Registrations approved</p>
               </CardContent>
@@ -74,14 +92,14 @@ export default async function ApprovalsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {pendingRegistrations.filter((r) => r.status === "REJECTED").length}
+                  {formattedRegistrations.filter((r) => r.status === "REJECTED").length}
                 </div>
                 <p className="text-xs text-muted-foreground">Registrations rejected</p>
               </CardContent>
             </Card>
           </div>
 
-          {pendingRegistrations.length === 0 ? (
+          {formattedRegistrations.length === 0 ? (
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>No registrations found</AlertTitle>
@@ -90,7 +108,7 @@ export default async function ApprovalsPage() {
               </AlertDescription>
             </Alert>
           ) : (
-            <ApprovalsClient pendingRegistrations={pendingRegistrations} />
+            <ApprovalsClient pendingRegistrations={formattedRegistrations} />
           )}
         </div>
       </DashboardShell>

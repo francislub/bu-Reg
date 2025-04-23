@@ -6,8 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, Clock } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
+import { CheckCircle, XCircle, Clock, Loader2, User, BookOpen, Calendar } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 type Registration = {
   id: string
@@ -19,6 +19,8 @@ type Registration = {
   status: "PENDING" | "APPROVED" | "REJECTED"
   createdAt: Date
   updatedAt: Date
+  semesterId: string
+  semesterName: string
 }
 
 type ApprovalsClientProps = {
@@ -27,10 +29,11 @@ type ApprovalsClientProps = {
 
 export function ApprovalsClient({ pendingRegistrations }: ApprovalsClientProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [isLoading, setIsLoading] = useState<Record<string, boolean>>({})
   const [registrations, setRegistrations] = useState<Registration[]>(pendingRegistrations || [])
 
-  const handleApproval = async (id: string, approved: boolean) => {
+  const handleApproval = async (id: string, action: "approve" | "reject") => {
     setIsLoading((prev) => ({ ...prev, [id]: true }))
 
     try {
@@ -41,29 +44,31 @@ export function ApprovalsClient({ pendingRegistrations }: ApprovalsClientProps) 
         },
         body: JSON.stringify({
           registrationId: id,
-          approved,
+          action,
         }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error("Failed to update registration status")
+        throw new Error(data.message || "Failed to update registration status")
       }
 
       // Update the local state
       setRegistrations((prev) =>
-        prev.map((reg) => (reg.id === id ? { ...reg, status: approved ? "APPROVED" : "REJECTED" } : reg)),
+        prev.map((reg) => (reg.id === id ? { ...reg, status: action === "approve" ? "APPROVED" : "REJECTED" } : reg)),
       )
 
       toast({
-        title: approved ? "Registration Approved" : "Registration Rejected",
-        description: `The course registration has been ${approved ? "approved" : "rejected"} successfully.`,
-        variant: approved ? "default" : "destructive",
+        title: action === "approve" ? "Registration Approved" : "Registration Rejected",
+        description: `The course registration has been ${action === "approve" ? "approved" : "rejected"} successfully.`,
+        variant: action === "approve" ? "default" : "destructive",
       })
     } catch (error) {
       console.error("Error updating registration:", error)
       toast({
         title: "Error",
-        description: "Failed to update registration status. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to update registration status. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -100,7 +105,7 @@ export function ApprovalsClient({ pendingRegistrations }: ApprovalsClientProps) 
               <p className="text-muted-foreground">There are no pending course registrations to approve.</p>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {pendingRegs.map((registration) => (
                 <Card key={registration.id} className="overflow-hidden">
                   <CardHeader className="bg-muted/50 pb-4">
@@ -113,14 +118,28 @@ export function ApprovalsClient({ pendingRegistrations }: ApprovalsClientProps) 
                     <CardDescription>Course Code: {registration.courseCode}</CardDescription>
                   </CardHeader>
                   <CardContent className="pt-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Student:</span>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">{registration.studentName}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Requested:</span>
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{registration.semesterName}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">{new Date(registration.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <div className="mt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => router.push(`/dashboard/students/${registration.studentId}`)}
+                        >
+                          View Student Profile
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -128,20 +147,28 @@ export function ApprovalsClient({ pendingRegistrations }: ApprovalsClientProps) 
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleApproval(registration.id, false)}
+                      onClick={() => handleApproval(registration.id, "reject")}
                       disabled={isLoading[registration.id]}
                       className="text-red-500 hover:text-red-600 hover:bg-red-50"
                     >
-                      <XCircle className="mr-2 h-4 w-4" />
+                      {isLoading[registration.id] ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <XCircle className="mr-2 h-4 w-4" />
+                      )}
                       Reject
                     </Button>
                     <Button
                       size="sm"
-                      onClick={() => handleApproval(registration.id, true)}
+                      onClick={() => handleApproval(registration.id, "approve")}
                       disabled={isLoading[registration.id]}
                       className="bg-green-600 hover:bg-green-700"
                     >
-                      <CheckCircle className="mr-2 h-4 w-4" />
+                      {isLoading[registration.id] ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                      )}
                       Approve
                     </Button>
                   </CardFooter>
@@ -159,7 +186,7 @@ export function ApprovalsClient({ pendingRegistrations }: ApprovalsClientProps) 
               <p className="text-muted-foreground">There are no approved course registrations yet.</p>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {approvedRegs.map((registration) => (
                 <Card key={registration.id} className="overflow-hidden">
                   <CardHeader className="bg-green-50 pb-4">
@@ -172,14 +199,28 @@ export function ApprovalsClient({ pendingRegistrations }: ApprovalsClientProps) 
                     <CardDescription>Course Code: {registration.courseCode}</CardDescription>
                   </CardHeader>
                   <CardContent className="pt-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Student:</span>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">{registration.studentName}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Approved on:</span>
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{registration.semesterName}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">{new Date(registration.updatedAt).toLocaleDateString()}</span>
+                      </div>
+                      <div className="mt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => router.push(`/dashboard/students/${registration.studentId}`)}
+                        >
+                          View Student Profile
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -197,7 +238,7 @@ export function ApprovalsClient({ pendingRegistrations }: ApprovalsClientProps) 
               <p className="text-muted-foreground">There are no rejected course registrations.</p>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {rejectedRegs.map((registration) => (
                 <Card key={registration.id} className="overflow-hidden">
                   <CardHeader className="bg-red-50 pb-4">
@@ -210,14 +251,28 @@ export function ApprovalsClient({ pendingRegistrations }: ApprovalsClientProps) 
                     <CardDescription>Course Code: {registration.courseCode}</CardDescription>
                   </CardHeader>
                   <CardContent className="pt-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Student:</span>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">{registration.studentName}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">Rejected on:</span>
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{registration.semesterName}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">{new Date(registration.updatedAt).toLocaleDateString()}</span>
+                      </div>
+                      <div className="mt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => router.push(`/dashboard/students/${registration.studentId}`)}
+                        >
+                          View Student Profile
+                        </Button>
                       </div>
                     </div>
                   </CardContent>

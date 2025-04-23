@@ -15,7 +15,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/hooks/use-toast"
-import { CalendarIcon, ChevronLeft, Loader2 } from "lucide-react"
+import { CalendarIcon, ChevronLeft, Loader2 } from 'lucide-react'
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 
@@ -109,11 +109,37 @@ export default function RegisterPage() {
   async function onSubmit(data: RegisterFormValues) {
     setIsLoading(true)
     try {
-      // API call would go here
-      console.log("Form data:", data)
+      const response = await fetch("/api/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: `${data.firstName} ${data.lastName}`,
+          email: data.email,
+          password: data.password,
+          role: "STUDENT",
+          profileData: {
+            firstName: data.firstName,
+            middleName: data.middleName,
+            lastName: data.lastName,
+            dateOfBirth: data.dateOfBirth,
+            gender: data.gender,
+            nationality: data.nationality,
+            maritalStatus: data.maritalStatus,
+            religion: data.religion,
+            church: data.church,
+            responsibility: data.responsibility,
+            referralSource: data.referralSource,
+            physicallyDisabled: data.physicallyDisabled,
+          },
+        }),
+      })
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Registration failed")
+      }
 
       toast({
         title: "Registration Successful",
@@ -121,10 +147,10 @@ export default function RegisterPage() {
       })
 
       router.push("/auth/login")
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Registration Failed",
-        description: "There was a problem with your registration. Please try again.",
+        description: error.message || "There was a problem with your registration. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -685,3 +711,4 @@ export default function RegisterPage() {
     </div>
   )
 }
+

@@ -11,7 +11,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, CheckCircle, Loader2, XCircle } from "lucide-react"
+import {
+  ArrowLeft,
+  CheckCircle,
+  Loader2,
+  XCircle,
+  Calendar,
+  GraduationCap,
+  Mail,
+  Phone,
+  MapPin,
+  User,
+} from "lucide-react"
 import { getUserProfile } from "@/lib/actions/user-actions"
 import { getStudentCourses } from "@/lib/actions/course-actions"
 import { approveRegistration, rejectRegistration } from "@/lib/actions/registration-actions"
@@ -23,12 +34,15 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const [student, setStudent] = useState<any>(null)
   const [courses, setCourses] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isApproving, setIsApproving] = useState(false)
-  const [isRejecting, setIsRejecting] = useState(false)
+  const [isApproving, setIsApproving] = useState<Record<string, boolean>>({})
+  const [isRejecting, setIsRejecting] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
-    if (!session || (session.user.role !== "STAFF" && session.user.role !== "REGISTRAR")) {
-      router.push("/dashboard")
+    if (
+      !session ||
+      (session.user.role !== "STAFF" && session.user.role !== "REGISTRAR" && session.user.role !== "ADMIN")
+    ) {
+      router.push("/dashboard/students/$[id]")
       return
     }
 
@@ -74,7 +88,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   }, [session, router, params.id, toast])
 
   const handleApprove = async (registrationId: string) => {
-    setIsApproving(true)
+    setIsApproving((prev) => ({ ...prev, [registrationId]: true }))
     try {
       const result = await approveRegistration(registrationId, session?.user.id || "")
       if (result.success) {
@@ -103,12 +117,13 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         variant: "destructive",
       })
     } finally {
-      setIsApproving(false)
+      setIsApproving((prev) => ({ ...prev, [registrationId]: false }))
+      router.refresh()
     }
   }
 
   const handleReject = async (registrationId: string) => {
-    setIsRejecting(true)
+    setIsRejecting((prev) => ({ ...prev, [registrationId]: true }))
     try {
       const result = await rejectRegistration(registrationId, session?.user.id || "")
       if (result.success) {
@@ -137,13 +152,17 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         variant: "destructive",
       })
     } finally {
-      setIsRejecting(false)
+      setIsRejecting((prev) => ({ ...prev, [registrationId]: false }))
+      router.refresh()
     }
   }
 
-  // if (!session || (session.user.role !== "STAFF" && session.user.role !== "REGISTRAR")) {
-  //   return null
-  // }
+  if (
+    !session ||
+    (session.user.role !== "STAFF" && session.user.role !== "REGISTRAR" && session.user.role !== "ADMIN")
+  ) {
+    return null
+  }
 
   return (
     <DashboardShell>
@@ -172,36 +191,57 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                 <CardTitle>Personal Information</CardTitle>
                 <CardDescription>Student's personal details and contact information.</CardDescription>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Full Name</h3>
-                  <p className="text-base">
-                    {student.profile?.firstName} {student.profile?.middleName} {student.profile?.lastName}
-                  </p>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <User className="h-4 w-4 mr-2" /> Full Name
+                    </span>
+                    <span className="text-base font-medium">
+                      {student.profile?.firstName} {student.profile?.middleName} {student.profile?.lastName}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <Mail className="h-4 w-4 mr-2" /> Email
+                    </span>
+                    <span className="text-base">{student.email}</span>
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <Calendar className="h-4 w-4 mr-2" /> Date of Birth
+                    </span>
+                    <span className="text-base">
+                      {student.profile?.dateOfBirth
+                        ? new Date(student.profile.dateOfBirth).toLocaleDateString()
+                        : "Not specified"}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Email</h3>
-                  <p className="text-base">{student.email}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Gender</h3>
-                  <p className="text-base">{student.profile?.gender || "Not specified"}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Date of Birth</h3>
-                  <p className="text-base">
-                    {student.profile?.dateOfBirth
-                      ? new Date(student.profile.dateOfBirth).toLocaleDateString()
-                      : "Not specified"}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Nationality</h3>
-                  <p className="text-base">{student.profile?.nationality || "Not specified"}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Religion</h3>
-                  <p className="text-base">{student.profile?.religion || "Not specified"}</p>
+
+                <div className="space-y-4">
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <GraduationCap className="h-4 w-4 mr-2" /> Student ID
+                    </span>
+                    <span className="text-base">{student.id}</span>
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <MapPin className="h-4 w-4 mr-2" /> Nationality
+                    </span>
+                    <span className="text-base">{student.profile?.nationality || "Not specified"}</span>
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <Phone className="h-4 w-4 mr-2" /> Contact
+                    </span>
+                    <span className="text-base">{student.profile?.phone || "Not specified"}</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -222,6 +262,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                       <TableHead>Department</TableHead>
                       <TableHead>Credits</TableHead>
                       <TableHead>Semester</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -233,11 +274,20 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                           <TableCell>{courseUpload.course.department.name}</TableCell>
                           <TableCell>{courseUpload.course.credits}</TableCell>
                           <TableCell>{courseUpload.semester.name}</TableCell>
+                          <TableCell>
+                            {courseUpload.status === "APPROVED" ? (
+                              <Badge className="bg-green-100 text-green-800">Approved</Badge>
+                            ) : courseUpload.status === "REJECTED" ? (
+                              <Badge className="bg-red-100 text-red-800">Rejected</Badge>
+                            ) : (
+                              <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                           No courses found for this student.
                         </TableCell>
                       </TableRow>
@@ -267,70 +317,63 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                   </TableHeader>
                   <TableBody>
                     {courses.length > 0 ? (
-                      courses.map((courseUpload) => (
-                        <TableRow key={courseUpload.id}>
-                          <TableCell>
-                            {courseUpload.course.code} - {courseUpload.course.title}
-                          </TableCell>
-                          <TableCell>{courseUpload.semester.name}</TableCell>
-                          <TableCell>
-                            {courseUpload.approvals && courseUpload.approvals.length > 0 ? (
-                              courseUpload.approvals[0].status === "APPROVED" ? (
-                                <Badge className="bg-green-500">Approved</Badge>
-                              ) : courseUpload.approvals[0].status === "REJECTED" ? (
-                                <Badge className="bg-red-500">Rejected</Badge>
-                              ) : (
-                                <Badge className="bg-yellow-500">Pending</Badge>
-                              )
-                            ) : (
-                              <Badge className="bg-yellow-500">Pending</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>{new Date(courseUpload.createdAt).toLocaleDateString()}</TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              {(!courseUpload.approvals ||
-                                courseUpload.approvals.length === 0 ||
-                                courseUpload.approvals[0].status === "PENDING") && (
-                                <>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 text-green-600 border-green-600 hover:bg-green-50"
-                                    onClick={() => handleApprove(courseUpload.id)}
-                                    disabled={isApproving}
-                                  >
-                                    {isApproving ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <CheckCircle className="h-4 w-4 mr-1" />
-                                    )}
-                                    Approve
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 text-red-600 border-red-600 hover:bg-red-50"
-                                    onClick={() => handleReject(courseUpload.id)}
-                                    disabled={isRejecting}
-                                  >
-                                    {isRejecting ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <XCircle className="h-4 w-4 mr-1" />
-                                    )}
-                                    Reject
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
+                      courses
+                        .filter((c) => c.status === "PENDING")
+                        .map((courseUpload) => (
+                          <TableRow key={courseUpload.id}>
+                            <TableCell>
+                              {courseUpload.course.code} - {courseUpload.course.title}
+                            </TableCell>
+                            <TableCell>{courseUpload.semester.name}</TableCell>
+                            <TableCell>
+                              <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+                            </TableCell>
+                            <TableCell>{new Date(courseUpload.createdAt).toLocaleDateString()}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-green-600 border-green-600 hover:bg-green-50"
+                                  onClick={() => handleApprove(courseUpload.id)}
+                                  disabled={isApproving[courseUpload.id]}
+                                >
+                                  {isApproving[courseUpload.id] ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                  ) : (
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                  )}
+                                  Approve
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-red-600 border-red-600 hover:bg-red-50"
+                                  onClick={() => handleReject(courseUpload.id)}
+                                  disabled={isRejecting[courseUpload.id]}
+                                >
+                                  {isRejecting[courseUpload.id] ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                  ) : (
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                  )}
+                                  Reject
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
                     ) : (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
                           No registration requests found for this student.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {courses.length > 0 && courses.filter((c) => c.status === "PENDING").length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                          No pending registration requests for this student.
                         </TableCell>
                       </TableRow>
                     )}

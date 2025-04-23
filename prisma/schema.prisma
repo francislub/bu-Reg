@@ -29,6 +29,7 @@ model User {
   attendanceRecords AttendanceRecord[] @relation("StudentAttendance")
   lecturedCourses   LecturerCourse[]
   attendanceTaken   AttendanceSession[] @relation("LecturerAttendance")
+  announcements     Announcement[]     // Added relation to announcements
 }
 
 model Profile {
@@ -49,6 +50,18 @@ model Profile {
   updatedAt       DateTime @updatedAt
 
   users User[]
+}
+
+// Add the Announcement model
+model Announcement {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  content   String
+  authorId  String?  @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
 }
 
 model Department {

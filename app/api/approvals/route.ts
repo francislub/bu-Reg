@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { registrationId, action, approverId } = body
+    const { registrationId, action } = body
 
     if (!registrationId) {
       return NextResponse.json({ success: false, message: "Registration ID is required" }, { status: 400 })
@@ -35,9 +35,9 @@ export async function POST(request: NextRequest) {
 
     let result
     if (action === "approve") {
-      result = await approveRegistration(registrationId, approverId || session.user.id)
+      result = await approveRegistration(registrationId, session.user.id)
     } else {
-      result = await rejectRegistration(registrationId, approverId || session.user.id)
+      result = await rejectRegistration(registrationId, session.user.id)
     }
 
     if (!result.success) {
