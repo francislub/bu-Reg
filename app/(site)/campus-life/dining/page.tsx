@@ -477,7 +477,7 @@ const weeklyMenuItems = [
     date: "April 23",
     breakfast: ["Breakfast Burritos", "Hash Browns", "Yogurt Parfait"],
     lunch: ["Vegetable Curry", "Naan Bread", "Cucumber Salad"],
-    dinner: ["Roast Chicken", "Mashed Potatoes", "Green Beans", "Chocolate Cake"],
+    dinner: ["Roast Chicken", "Mashed Potatoes", "Green Beans", "Chocolate Cakes"],
   },
   {
     day: "Wednesday",
