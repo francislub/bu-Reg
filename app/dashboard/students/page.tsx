@@ -1,377 +1,182 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
-import { DashboardHeader } from "@/components/dashboard/dashboard-header"
+import { getServerSession } from "next-auth"
+import { redirect } from "next/navigation"
+import type { Metadata } from "next"
+import { authOptions } from "@/lib/auth"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { useToast } from "@/hooks/use-toast"
-import { CheckCircle, Eye, Loader2, Search, Trash2, XCircle } from "lucide-react"
-import { deleteUser, getAllUsers } from "@/lib/actions/user-actions"
-import { approveRegistration, rejectRegistration } from "@/lib/actions/registration-actions"
+import { Button } from "@/components/ui/button"
+import { Search, UserPlus, Download, Filter, GraduationCap } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { db } from "@/lib/db"
 
-export default function StudentsPage() {
-  const router = useRouter()
-  const { data: session } = useSession()
-  const { toast } = useToast()
-  const [students, setStudents] = useState<any[]>([])
-  const [filteredStudents, setFilteredStudents] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [studentToDelete, setStudentToDelete] = useState<string | null>(null)
-  const [isApproving, setIsApproving] = useState(false)
-  const [isRejecting, setIsRejecting] = useState(false)
-  const [studentRegistrations, setStudentRegistrations] = useState<Record<string, any[]>>({})
+export const metadata: Metadata = {
+  title: "Students | Bugema University",
+  description: "Manage university students",
+}
 
-  useEffect(() => {
-    if (!session || (session.user.role !== "STAFF" && session.user.role !== "REGISTRAR")) {
-      router.push("/dashboard")
-      return
-    }
+async function getStudents() {
+  try {
+    const students = await db.user.findMany({
+      where: {
+        role: "STUDENT",
+      },
+      include: {
+        profile: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+    return students
+  } catch (error) {
+    console.error("Error fetching students:", error)
+    return []
+  }
+}
 
-    const fetchStudents = async () => {
-      setIsLoading(true)
-      try {
-        const result = await getAllUsers("STUDENT")
-        if (result.success) {
-          setStudents(result.users)
-          setFilteredStudents(result.users)
+export default async function StudentsPage() {
+  const session = await getServerSession(authOptions)
 
-          // Fetch registrations for each student
-          const registrationsMap: Record<string, any[]> = {}
-          for (const student of result.users) {
-            const response = await fetch(`/api/student-registrations?studentId=${student.id}`)
-            const data = await response.json()
-            if (data.success) {
-              registrationsMap[student.id] = data.registrations
-            }
-          }
-          setStudentRegistrations(registrationsMap)
-        } else {
-          toast({
-            title: "Error",
-            description: result.message || "Failed to fetch students",
-            variant: "destructive",
-          })
-        }
-      } catch (error) {
-        console.error("Error fetching students:", error)
-        toast({
-          title: "Error",
-          description: "An unexpected error occurred. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchStudents()
-  }, [session, router, toast])
-
-  useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredStudents(students)
-    } else {
-      const query = searchQuery.toLowerCase()
-      const filtered = students.filter(
-        (student) =>
-          student.name.toLowerCase().includes(query) ||
-          student.email.toLowerCase().includes(query) ||
-          (student.profile &&
-            (student.profile.firstName.toLowerCase().includes(query) ||
-              student.profile.lastName.toLowerCase().includes(query))),
-      )
-      setFilteredStudents(filtered)
-    }
-  }, [searchQuery, students])
-
-  const handleViewStudent = (studentId: string) => {
-    router.push(`/dashboard/students/${studentId}`)
+  if (!session) {
+    redirect("/auth/login")
   }
 
-  const handleDeleteStudent = async (studentId: string) => {
-    setIsDeleting(true)
-    try {
-      const result = await deleteUser(studentId)
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: "Student deleted successfully",
-        })
-        setStudents(students.filter((student) => student.id !== studentId))
-        setFilteredStudents(filteredStudents.filter((student) => student.id !== studentId))
-      } else {
-        toast({
-          title: "Error",
-          description: result.message || "Failed to delete student",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error deleting student:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsDeleting(false)
-      setStudentToDelete(null)
-    }
+  // Check if user has permission to view students
+  const { user } = session
+  if (user.role !== "ADMIN" && user.role !== "REGISTRAR" && user.role !== "LECTURER") {
+    redirect("/dashboard/students")
   }
 
-  const handleApproveRegistration = async (studentId: string, registrationId: string) => {
-    setIsApproving(true)
-    try {
-      const result = await approveRegistration(registrationId, session?.user.id || "")
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: "Registration approved successfully",
-        })
-
-        // Update the local state
-        const response = await fetch(`/api/student-registrations?studentId=${studentId}`)
-        const data = await response.json()
-        if (data.success) {
-          setStudentRegistrations({
-            ...studentRegistrations,
-            [studentId]: data.registrations,
-          })
-        }
-      } else {
-        toast({
-          title: "Error",
-          description: result.message || "Failed to approve registration",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error approving registration:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsApproving(false)
-    }
-  }
-
-  const handleRejectRegistration = async (studentId: string, registrationId: string) => {
-    setIsRejecting(true)
-    try {
-      const result = await rejectRegistration(registrationId, session?.user.id || "")
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: "Registration rejected successfully",
-        })
-
-        // Update the local state
-        const response = await fetch(`/api/student-registrations?studentId=${studentId}`)
-        const data = await response.json()
-        if (data.success) {
-          setStudentRegistrations({
-            ...studentRegistrations,
-            [studentId]: data.registrations,
-          })
-        }
-      } else {
-        toast({
-          title: "Error",
-          description: result.message || "Failed to reject registration",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error rejecting registration:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsRejecting(false)
-    }
-  }
-
-  const getPendingRegistrationsCount = (studentId: string) => {
-    if (!studentRegistrations[studentId]) return 0
-    return studentRegistrations[studentId].filter(
-      (reg) => !reg.approvals || reg.approvals.length === 0 || reg.approvals[0].status === "PENDING",
-    ).length
-  }
-
-  if (!session || (session.user.role !== "STAFF" && session.user.role !== "REGISTRAR")) {
-    return null
-  }
+  const students = await getStudents()
 
   return (
     <DashboardShell>
-      <DashboardHeader heading="Students" text="Manage university students."></DashboardHeader>
+      <div className="flex flex-col space-y-6">
+        <div className="flex flex-col space-y-2">
+          <h2 className="text-2xl font-bold tracking-tight">Students</h2>
+          <p className="text-muted-foreground">Manage and view all students enrolled at Bugema University.</p>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Student List</CardTitle>
-          <CardDescription>View and manage all university students.</CardDescription>
-          <div className="flex items-center gap-2 mt-2">
-            <div className="relative flex-1">
+        <div className="flex flex-col space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="relative w-full sm:w-96">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search students..."
-                className="pl-8"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+              <Input type="search" placeholder="Search students..." className="w-full pl-8 bg-background" />
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button variant="outline" size="sm" className="h-9">
+                <Filter className="mr-2 h-4 w-4" />
+                Filter
+              </Button>
+              <Button variant="outline" size="sm" className="h-9">
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+              {(user.role === "ADMIN" || user.role === "REGISTRAR") && (
+                <Button size="sm" className="h-9">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add Student
+                </Button>
+              )}
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Gender</TableHead>
-                  <TableHead>Nationality</TableHead>
-                  <TableHead>Pending Registrations</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredStudents.length > 0 ? (
-                  filteredStudents.map((student) => {
-                    const pendingCount = getPendingRegistrationsCount(student.id)
-                    return (
-                      <TableRow key={student.id}>
-                        <TableCell className="font-medium">
-                          {student.profile ? `${student.profile.firstName} ${student.profile.lastName}` : student.name}
-                        </TableCell>
-                        <TableCell>{student.email}</TableCell>
-                        <TableCell>{student.profile?.gender || "Not specified"}</TableCell>
-                        <TableCell>{student.profile?.nationality || "Not specified"}</TableCell>
-                        <TableCell>
-                          {pendingCount > 0 ? (
-                            <Badge className="bg-yellow-500">{pendingCount} pending</Badge>
-                          ) : (
-                            <Badge className="bg-green-500">None</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleViewStudent(student.id)}
-                              title="View student details"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {pendingCount > 0 && (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 text-green-600 border-green-600 hover:bg-green-50"
-                                  onClick={() => handleViewStudent(student.id)}
-                                  title="Approve registrations"
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Approve
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 text-red-600 border-red-600 hover:bg-red-50"
-                                  onClick={() => handleViewStudent(student.id)}
-                                  title="Reject registrations"
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-                            {session.user.role === "REGISTRAR" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setStudentToDelete(student.id)}
-                                title="Delete student"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                      {searchQuery ? "No students match your search." : "No students found."}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!studentToDelete} onOpenChange={(open) => !open && setStudentToDelete(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Deletion</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this student? This action cannot be undone and will remove all associated
-              data including course registrations and attendance records.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStudentToDelete(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => studentToDelete && handleDeleteStudent(studentToDelete)}
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+            <div className="p-0">
+              <div className="relative w-full overflow-auto">
+                <table className="w-full caption-bottom text-sm">
+                  <thead className="[&_tr]:border-b bg-muted/50">
+                    <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Name</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">ID</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Email</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Program</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
+                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="[&_tr:last-child]:border-0">
+                    {students.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="h-24 text-center">
+                          <div className="flex flex-col items-center justify-center text-muted-foreground">
+                            <GraduationCap className="h-8 w-8 mb-2" />
+                            <p>No students found</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      students.map((student) => (
+                        <tr
+                          key={student.id}
+                          className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
+                        >
+                          <td className="p-4 align-middle">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-9 w-9">
+                                <AvatarImage src={student.profile?.avatar || ""} alt={student.name} />
+                                <AvatarFallback>{student.name?.substring(0, 2).toUpperCase() || "ST"}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{student.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {student.profile?.firstName} {student.profile?.lastName}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4 align-middle">
+                            <span className="font-mono text-xs">{student.profile?.studentId || "N/A"}</span>
+                          </td>
+                          <td className="p-4 align-middle">{student.email}</td>
+                          <td className="p-4 align-middle">
+                            <span className="text-sm">{student.profile?.program || "Not specified"}</span>
+                          </td>
+                          <td className="p-4 align-middle">
+                            <Badge
+                              variant="outline"
+                              className={
+                                student.profile?.status === "ACTIVE"
+                                  ? "bg-green-100 text-green-800 hover:bg-green-100"
+                                  : student.profile?.status === "SUSPENDED"
+                                    ? "bg-red-100 text-red-800 hover:bg-red-100"
+                                    : "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                              }
+                            >
+                              {student.profile?.status || "PENDING"}
+                            </Badge>
+                          </td>
+                          <td className="p-4 align-middle">
+                            <div className="flex items-center gap-2">
+                              <Button variant="ghost" size="sm" asChild>
+                                <a href={`/dashboard/students/${student.id}`}>View</a>
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="flex items-center justify-between px-4 py-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing <strong>{students.length}</strong> of <strong>{students.length}</strong> students
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" disabled>
+                  Previous
+                </Button>
+                <Button variant="outline" size="sm" disabled>
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </DashboardShell>
   )
 }

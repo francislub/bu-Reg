@@ -1,10 +1,19 @@
-import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
+import { redirect } from "next/navigation"
+import type { Metadata } from "next"
+
 import { authOptions } from "@/lib/auth"
-import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
-import { ApprovalsList } from "@/components/dashboard/approvals-list"
-import { db } from "@/lib/db"
+import { ApprovalsClient } from "@/components/dashboard/approvals-client"
+import { getAllPendingRegistrations } from "@/lib/actions/registration-actions"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle, CheckCircle, Clock } from "lucide-react"
+
+export const metadata: Metadata = {
+  title: "Course Approvals",
+  description: "Manage student course registration approvals",
+}
 
 export default async function ApprovalsPage() {
   const session = await getServerSession(authOptions)
@@ -13,92 +22,91 @@ export default async function ApprovalsPage() {
     redirect("/auth/login")
   }
 
-  if (session.user.role === "STUDENT") {
-    redirect("/dashboard")
+  // Check if user has permission to view approvals
+  const { user } = session
+  if (user.role !== "REGISTRAR" && user.role !== "ADMIN") {
+    redirect("/dashboard/approvals")
   }
-
-  // Fetch approvals data based on user role
-  let approvalsData = []
 
   try {
-    if (session.user.role === "REGISTRAR") {
-      // For registrar, fetch all pending course uploads
-      approvalsData = await db.courseUpload.findMany({
-        where: {
-          status: "PENDING",
-        },
-        include: {
-          course: {
-            include: {
-              department: true,
-            },
-          },
-          user: {
-            include: {
-              profile: true,
-            },
-          },
-          semester: true,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      })
-    } else if (session.user.role === "STAFF") {
-      // For staff, fetch course uploads for their department
-      const staffDepartment = await db.departmentStaff.findUnique({
-        where: {
-          userId: session.user.id,
-        },
-        include: {
-          department: true,
-        },
-      })
+    // Fetch all pending registrations
+    const pendingRegistrations = await getAllPendingRegistrations()
 
-      if (staffDepartment) {
-        approvalsData = await db.courseUpload.findMany({
-          where: {
-            status: "PENDING",
-            course: {
-              departmentId: staffDepartment.departmentId,
-            },
-          },
-          include: {
-            course: {
-              include: {
-                department: true,
-              },
-            },
-            user: {
-              include: {
-                profile: true,
-              },
-            },
-            semester: true,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-        })
-      }
-    }
+    return (
+      <DashboardShell>
+        <div className="flex flex-col space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Course Approvals</h2>
+              <p className="text-muted-foreground">Review and manage student course registration requests</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
+                <Clock className="h-4 w-4 text-yellow-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {pendingRegistrations.filter((r) => r.status === "PENDING").length}
+                </div>
+                <p className="text-xs text-muted-foreground">Awaiting your review</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Approved</CardTitle>
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {pendingRegistrations.filter((r) => r.status === "APPROVED").length}
+                </div>
+                <p className="text-xs text-muted-foreground">Registrations approved</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+                <AlertCircle className="h-4 w-4 text-red-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {pendingRegistrations.filter((r) => r.status === "REJECTED").length}
+                </div>
+                <p className="text-xs text-muted-foreground">Registrations rejected</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {pendingRegistrations.length === 0 ? (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>No registrations found</AlertTitle>
+              <AlertDescription>
+                There are currently no course registrations that require your approval.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <ApprovalsClient pendingRegistrations={pendingRegistrations} />
+          )}
+        </div>
+      </DashboardShell>
+    )
   } catch (error) {
-    console.error("Error fetching approvals data:", error)
-    // Return empty array if there's an error
-    approvalsData = []
+    console.error("Error fetching approvals:", error)
+    return (
+      <DashboardShell>
+        <div className="flex h-full items-center justify-center">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>There was an error loading approvals. Please try again later.</AlertDescription>
+          </Alert>
+        </div>
+      </DashboardShell>
+    )
   }
-
-  return (
-    <DashboardShell>
-      <DashboardHeader
-        heading="Approvals"
-        text={
-          session.user.role === "REGISTRAR"
-            ? "Manage registration and course approvals."
-            : "Manage course approvals for your department."
-        }
-      />
-      <ApprovalsList initialData={approvalsData} />
-    </DashboardShell>
-  )
 }

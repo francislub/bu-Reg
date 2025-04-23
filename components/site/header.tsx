@@ -20,7 +20,7 @@ export function Header() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center space-x-2">
-          <Image src="/logo.png" alt="Bugema University Logo" width={40} height={40} className="h-10 w-auto" />
+          <Image src="/images/bugema.png" alt="Bugema University Logo" width={40} height={40} className="h-10 w-auto" />
           <div className="hidden md:block">
             <h1 className="text-xl font-bold">Bugema University</h1>
             <p className="text-xs">Excellence in Service</p>

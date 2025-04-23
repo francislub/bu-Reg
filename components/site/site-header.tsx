@@ -68,7 +68,7 @@ export function SiteHeader() {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2">
-              <Image src="/logo.png" alt="Bugema University Logo" width={50} height={50} className="rounded-full" />
+              <Image src="/images/bugema.png" alt="Bugema University Logo" width={50} height={50} className="rounded-full" />
               <div className="hidden md:block">
                 <h1 className="text-xl font-bold text-[#1e3a8a]">BUGEMA UNIVERSITY</h1>
                 <p className="text-xs text-gray-600">Excellence in Service</p>

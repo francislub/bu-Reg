@@ -11,17 +11,25 @@ interface AdminDashboardProps {
   user: any
   announcements: any[]
   events: any[]
-  adminData: any
+  adminData: {
+    studentsCount: number
+    staffCount: number
+    departmentsCount: number
+    coursesCount: number
+    pendingApprovalsCount: number
+    departmentStats?: any[]
+  }
 }
 
 export function AdminDashboard({ user, announcements, events, adminData }: AdminDashboardProps) {
+  // Ensure adminData is defined with default values
   const {
     studentsCount = 0,
     staffCount = 0,
     departmentsCount = 0,
     coursesCount = 0,
     pendingApprovalsCount = 0,
-  } = adminData
+  } = adminData || { studentsCount: 0, staffCount: 0, departmentsCount: 0, coursesCount: 0, pendingApprovalsCount: 0 }
 
   return (
     <div className="grid gap-6">

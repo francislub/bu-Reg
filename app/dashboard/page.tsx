@@ -1,14 +1,26 @@
-import { Suspense } from "react"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
+
+import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { DashboardHeader } from "@/components/dashboard/dashboard-header"
-import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { StudentDashboard } from "@/components/dashboard/student-dashboard"
 import { StaffDashboard } from "@/components/dashboard/staff-dashboard"
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard"
-import { Skeleton } from "@/components/ui/skeleton"
+import { DashboardShell } from "@/components/dashboard/dashboard-shell"
+
+export const metadata = {
+  title: "Dashboard",
+}
+
+// Helper function to safely check if a table exists
+async function safeQuery(queryFn) {
+  try {
+    return await queryFn()
+  } catch (error) {
+    console.error("Error executing query:", error.message)
+    return []
+  }
+}
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
@@ -17,91 +29,24 @@ export default async function DashboardPage() {
     redirect("/auth/login")
   }
 
-  const userRole = session.user.role || "STUDENT"
+  const { user } = session
+  const userRole = user.role
 
-  // Fetch user data with related information
-  const user = await db.user.findUnique({
-    where: { id: session.user.id },
-    include: {
-      profile: true,
-      registrations: {
-        include: {
-          semester: true,
-          courseUploads: {
-            include: {
-              course: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        take: 1,
-      },
-      attendanceRecords: {
-        include: {
-          session: {
-            include: {
-              course: true,
-            },
-          },
-        },
-        where: {
-          session: {
-            date: {
-              gte: new Date(new Date().setDate(new Date().getDate() - 30)),
-            },
-          },
-        },
-      },
-    },
-  })
-
-  // Check if announcement model exists in the schema
-  let announcements = []
-  try {
-    // Fetch announcements if the model exists
-    if (db.announcement) {
-      announcements = await db.announcement.findMany({
-        orderBy: {
-          createdAt: "desc",
-        },
+  // Safely fetch common data
+  const announcements = await safeQuery(
+    () =>
+      db.announcement?.findMany({
         take: 5,
-      })
-    } else if (db.notification) {
-      // Try using notification model as a fallback
-      announcements = await db.notification.findMany({
         orderBy: {
           createdAt: "desc",
         },
-        take: 5,
-      })
-    }
-  } catch (error) {
-    console.error("Error fetching announcements:", error)
-    // Provide fallback data
-    announcements = [
-      {
-        id: "1",
-        title: "Welcome to the new semester",
-        content: "We hope you have a great academic year ahead!",
-        createdAt: new Date(),
-      },
-      {
-        id: "2",
-        title: "Registration deadline approaching",
-        content: "Please complete your course registration by the end of this week.",
-        createdAt: new Date(Date.now() - 86400000), // 1 day ago
-      },
-    ]
-  }
+      }) || [],
+  )
 
-  // Check if event model exists in the schema
-  let events = []
-  try {
-    // Fetch events if the model exists
-    if (db.event) {
-      events = await db.event.findMany({
+  const events = await safeQuery(
+    () =>
+      db.event?.findMany({
+        take: 5,
         where: {
           date: {
             gte: new Date(),
@@ -110,199 +55,323 @@ export default async function DashboardPage() {
         orderBy: {
           date: "asc",
         },
-        take: 5,
-      })
-    } else if (db.calendar) {
-      // Try using calendar model as a fallback
-      events = await db.calendar.findMany({
-        where: {
-          date: {
-            gte: new Date(),
-          },
-        },
-        orderBy: {
-          date: "asc",
-        },
-        take: 5,
-      })
+      }) || [],
+  )
+
+  // Student Dashboard Data
+  if (userRole === "STUDENT") {
+    try {
+      // Get student's courses
+      const studentCourses = await safeQuery(
+        () =>
+          db.courseRegistration?.findMany({
+            where: {
+              studentId: user.id,
+              status: "APPROVED",
+            },
+            include: {
+              course: true,
+            },
+          }) || [],
+      )
+
+      // Get student's pending approvals
+      const pendingApprovals = await safeQuery(
+        () =>
+          db.courseRegistration?.findMany({
+            where: {
+              studentId: user.id,
+              status: "PENDING",
+            },
+            include: {
+              course: true,
+            },
+          }) || [],
+      )
+
+      // Get student's attendance records
+      const attendanceRecords = await safeQuery(
+        () =>
+          db.attendance?.findMany({
+            where: {
+              studentId: user.id,
+            },
+            include: {
+              session: {
+                include: {
+                  course: true,
+                },
+              },
+            },
+            take: 10,
+            orderBy: {
+              createdAt: "desc",
+            },
+          }) || [],
+      )
+
+      // Calculate attendance percentage
+      const totalSessions = await safeQuery(
+        () =>
+          db.attendanceSession?.count({
+            where: {
+              course: {
+                courseRegistrations: {
+                  some: {
+                    studentId: user.id,
+                    status: "APPROVED",
+                  },
+                },
+              },
+            },
+          }) || 0,
+      )
+
+      const attendedSessions = await safeQuery(
+        () =>
+          db.attendance?.count({
+            where: {
+              studentId: user.id,
+              status: "PRESENT",
+            },
+          }) || 0,
+      )
+
+      const attendancePercentage = totalSessions > 0 ? Math.round((attendedSessions / totalSessions) * 100) : 0
+
+      return (
+        <DashboardShell>
+          <StudentDashboard
+            user={user}
+            announcements={announcements}
+            events={events}
+            courses={studentCourses}
+            pendingApprovals={pendingApprovals}
+            attendanceRecords={attendanceRecords}
+            attendancePercentage={attendancePercentage}
+          />
+        </DashboardShell>
+      )
+    } catch (error) {
+      console.error("Error fetching student dashboard data:", error)
+      return (
+        <DashboardShell>
+          <div className="flex h-full items-center justify-center">
+            <p className="text-red-500">Error loading dashboard data. Please try again later.</p>
+          </div>
+        </DashboardShell>
+      )
     }
-  } catch (error) {
-    console.error("Error fetching events:", error)
-    // Provide fallback data
-    events = [
-      {
-        id: "1",
-        title: "Mid-term Examinations",
-        description: "Mid-term examinations for all courses",
-        date: new Date(Date.now() + 7 * 86400000), // 7 days from now
-      },
-      {
-        id: "2",
-        title: "Career Fair",
-        description: "Annual university career fair with industry representatives",
-        date: new Date(Date.now() + 14 * 86400000), // 14 days from now
-      },
-    ]
   }
 
-  // Fetch additional data for staff and admin dashboards
-  let staffData = {}
-  let adminData = {}
-
+  // Staff Dashboard Data
   if (userRole === "STAFF") {
     try {
-      const coursesCount = await db.course.count({
-        where: {
-          lecturers: {
-            some: {
-              id: session.user.id
-            }
+      // Get courses taught by this staff
+      const staffCourses = await safeQuery(
+        () =>
+          db.lecturerCourse?.findMany({
+            where: {
+              lecturerId: user.id,
+            },
+            include: {
+              course: true,
+            },
+          }) || [],
+      )
+
+      const coursesCount = await safeQuery(
+        () =>
+          db.lecturerCourse?.count({
+            where: {
+              lecturerId: user.id,
+            },
+          }) || 0,
+      )
+
+      // Get students in staff's courses
+      const studentCount = await safeQuery(
+        () =>
+          db.courseRegistration?.count({
+            where: {
+              course: {
+                lecturerCourses: {
+                  some: {
+                    lecturerId: user.id,
+                  },
+                },
+              },
+              status: "APPROVED",
+            },
+            distinct: ["studentId"],
+          }) || 0,
+      )
+
+      // Get attendance sessions created by staff
+      const attendanceSessionsCount = await safeQuery(
+        () =>
+          db.attendanceSession?.count({
+            where: {
+              createdById: user.id,
+            },
+          }) || 0,
+      )
+
+      // Get performance data for charts
+      const performanceData = await Promise.all(
+        staffCourses.map(async ({ course }) => {
+          const totalStudents = await safeQuery(
+            () =>
+              db.courseRegistration?.count({
+                where: {
+                  courseId: course.id,
+                  status: "APPROVED",
+                },
+              }) || 0,
+          )
+
+          const passedStudents = await safeQuery(
+            () =>
+              db.grade?.count({
+                where: {
+                  courseId: course.id,
+                  score: {
+                    gte: 50, // Assuming 50% is passing
+                  },
+                },
+              }) || 0,
+          )
+
+          const passRate = totalStudents > 0 ? (passedStudents / totalStudents) * 100 : 0
+
+          return {
+            name: course.title,
+            passRate: Math.round(passRate),
+            totalStudents,
           }
-        }
-      })
+        }),
+      )
 
-      const studentsCount = await db.attendanceRecord.count({
-        distinct: ['studentId'],
-        where: {
-          session: {
-            lecturerId: session.user.id
-          }
-        }
-      })
-
-      const sessionsCount = await db.attendanceSession.count({
-        where: {
-          lecturerId: session.user.id
-        }
-      })
-
-      staffData = {
-        coursesCount,
-        studentsCount,
-        sessionsCount
-      }
+      return (
+        <DashboardShell>
+          <StaffDashboard
+            user={user}
+            announcements={announcements}
+            events={events}
+            coursesCount={coursesCount}
+            studentCount={studentCount}
+            attendanceSessionsCount={attendanceSessionsCount}
+            performanceData={performanceData}
+          />
+        </DashboardShell>
+      )
     } catch (error) {
-      console.error("Error fetching staff data:", error)
-      staffData = {
-        coursesCount: 0,
-        studentsCount: 0,
-        sessionsCount: 0
-      }
+      console.error("Error fetching staff dashboard data:", error)
+      return (
+        <DashboardShell>
+          <div className="flex h-full items-center justify-center">
+            <p className="text-red-500">Error loading dashboard data. Please try again later.</p>
+          </div>
+        </DashboardShell>
+      )
     }
-  } else if (userRole === "REGISTRAR") {
+  }
+
+  // Admin/Registrar Dashboard Data
+  if (userRole === "REGISTRAR" || userRole === "ADMIN") {
     try {
-      const studentsCount = await db.user.count({
-        where: {
-          role: "STUDENT"
-        }
-      })
+      const studentsCount = await safeQuery(() =>
+        db.user?.count({
+          where: {
+            role: "STUDENT",
+          },
+        }),
+      )
 
-      const staffCount = await db.user.count({
-        where: {
-          role: "STAFF"
-        }
-      })
+      const staffCount = await safeQuery(() =>
+        db.user?.count({
+          where: {
+            role: "STAFF",
+          },
+        }),
+      )
 
-      const departmentsCount = await db.department.count()
-      const coursesCount = await db.course.count()
-      const pendingApprovalsCount = await db.courseUpload.count({
-        where: {
-          status: "PENDING"
-        }
-      })
+      const departmentsCount = await safeQuery(() => db.department?.count())
 
-      adminData = {
-        studentsCount,
-        staffCount,
-        departmentsCount,
-        coursesCount,
-        pendingApprovalsCount
+      const coursesCount = await safeQuery(() => db.course?.count())
+
+      const pendingApprovalsCount = await safeQuery(() =>
+        db.courseRegistration?.count({
+          where: {
+            status: "PENDING",
+          },
+        }),
+      )
+
+      // Get department statistics for charts
+      const departments = await safeQuery(() => db.department?.findMany() || [])
+
+      const departmentStats = await Promise.all(
+        departments.map(async (dept) => {
+          // Check if department has students without using departmentId
+          // This might need to be adjusted based on your actual schema
+          const studentCount = await safeQuery(() =>
+            db.user?.count({
+              where: {
+                role: "STUDENT",
+                // Remove departmentId filter as it's not in the schema
+              },
+            }),
+          )
+
+          const courseCount = await safeQuery(() =>
+            db.course?.count({
+              where: {
+                departmentId: dept.id,
+              },
+            }),
+          )
+
+          return {
+            name: dept.name,
+            students: studentCount || 0,
+            courses: courseCount || 0,
+          }
+        }),
+      )
+
+      // Create adminData object with all required properties
+      const adminData = {
+        studentsCount: studentsCount || 0,
+        staffCount: staffCount || 0,
+        departmentsCount: departmentsCount || 0,
+        coursesCount: coursesCount || 0,
+        pendingApprovalsCount: pendingApprovalsCount || 0,
+        departmentStats: departmentStats || [],
       }
+
+      return (
+        <DashboardShell>
+          <AdminDashboard user={user} announcements={announcements} events={events} adminData={adminData} />
+        </DashboardShell>
+      )
     } catch (error) {
-      console.error("Error fetching admin data:", error)
-      adminData = {
-        studentsCount: 0,
-        staffCount: 0,
-        departmentsCount: 0,
-        coursesCount: 0,
-        pendingApprovalsCount: 0
-      }
+      console.error("Error fetching admin dashboard data:", error)
+      return (
+        <DashboardShell>
+          <div className="flex h-full items-center justify-center">
+            <p className="text-red-500">Error loading dashboard data. Please try again later.</p>
+          </div>
+        </DashboardShell>
+      )
     }
   }
 
   return (
     <DashboardShell>
-      <DashboardHeader
-        heading={`Welcome, ${user?.profile?.firstName || session.user.name}`}
-        text="Here's an overview of your academic progress and activities."
-      />
-      <Suspense fallback={<DashboardSkeleton />}>
-        {userRole === "STUDENT" && (
-          <StudentDashboard 
-            user={user} 
-            announcements={announcements} 
-            events={events} 
-          />
-        )}
-        {userRole === "STAFF" && (
-          <StaffDashboard 
-            user={user} 
-            announcements={announcements} 
-            events={events} 
-            staffData={staffData}
-          />
-        )}
-        {userRole === "REGISTRAR" && (
-          <AdminDashboard 
-            user={user} 
-            announcements={announcements} 
-            events={events} 
-            adminData={adminData}
-          />
-        )}
-      </Suspense>
+      <div className="flex h-full items-center justify-center">
+        <p>Welcome to your dashboard!</p>
+      </div>
     </DashboardShell>
-  )
-}
-
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-xl border bg-card p-6">
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-6 w-1/3" />
-              <Skeleton className="h-10 w-1/2" />
-              <Skeleton className="h-4 w-3/4" />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-xl border bg-card p-6">
-          <div className="flex flex-col gap-2">
-            <Skeleton className="h-6 w-1/3" />
-            <Skeleton className="h-4 w-1/2" />
-          </div>
-          <div className="mt-4 space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-20 w-full" />
-            ))}
-          </div>
-        </div>
-        <div className="rounded-xl border bg-card p-6">
-          <div className="flex flex-col gap-2">
-            <Skeleton className="h-6 w-1/3" />
-            <Skeleton className="h-4 w-1/2" />
-          </div>
-          <div className="mt-4 space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-20 w-full" />
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
   )
 }

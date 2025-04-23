@@ -30,7 +30,7 @@ export default function Home() {
           </div>
           <div className="hidden md:block">
             <Image
-              src="/campus.jpg"
+              src="/images/chancellor_banner2.jpg"
               alt="Bugema University Campus"
               width={600}
               height={400}
@@ -44,9 +44,9 @@ export default function Home() {
       <div className="bg-yellow-500 text-[#1e3a8a] py-3">
         <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
           <p className="font-medium">
-            <span className="font-bold">Announcement:</span> Applications for the Fall 2023 semester are now open!
+            <span className="font-bold">Announcement:</span> Applications for the Fall 2025 semester are now open!
           </p>
-          <Link href="/admissions/apply" className="mt-2 md:mt-0 flex items-center hover:underline">
+          <Link href="/auth/register" className="mt-2 md:mt-0 flex items-center hover:underline">
             Learn more <ChevronRight className="h-4 w-4 ml-1" />
           </Link>
         </div>

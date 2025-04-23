@@ -9,10 +9,10 @@ export async function registerUser(data: {
   email: string
   password: string
   role: string
-  profileData: {
-    firstName: string
+  profileData?: {
+    firstName?: string
     middleName?: string
-    lastName: string
+    lastName?: string
     dateOfBirth?: Date
     gender?: string
     nationality?: string
@@ -21,7 +21,7 @@ export async function registerUser(data: {
     church?: string
     responsibility?: string
     referralSource?: string
-    physicallyDisabled: boolean
+    physicallyDisabled?: boolean
   }
 }) {
   try {
@@ -34,21 +34,30 @@ export async function registerUser(data: {
       return { success: false, message: "User with this email already exists" }
     }
 
-    // Create profile first
+    // Validate role - only allow specific roles
+    const validRole =
+      data.role === "ADMIN" || data.role === "REGISTRAR" || data.role === "STAFF" || data.role === "STUDENT"
+    const assignedRole = validRole ? data.role : "STUDENT" // Default to STUDENT if invalid role
+
+    // Extract first and last name from full name if not provided
+    const firstName = data.profileData?.firstName || data.name.split(" ")[0] || "New"
+    const lastName = data.profileData?.lastName || data.name.split(" ").slice(1).join(" ") || "User"
+
+    // Create profile first with safe defaults
     const profile = await db.profile.create({
       data: {
-        firstName: data.profileData.firstName,
-        middleName: data.profileData.middleName,
-        lastName: data.profileData.lastName,
-        dateOfBirth: data.profileData.dateOfBirth,
-        gender: data.profileData.gender,
-        nationality: data.profileData.nationality,
-        maritalStatus: data.profileData.maritalStatus,
-        religion: data.profileData.religion,
-        church: data.profileData.church,
-        responsibility: data.profileData.responsibility,
-        referralSource: data.profileData.referralSource,
-        physicallyDisabled: data.profileData.physicallyDisabled,
+        firstName,
+        middleName: data.profileData?.middleName,
+        lastName,
+        dateOfBirth: data.profileData?.dateOfBirth,
+        gender: data.profileData?.gender,
+        nationality: data.profileData?.nationality,
+        maritalStatus: data.profileData?.maritalStatus,
+        religion: data.profileData?.religion,
+        church: data.profileData?.church,
+        responsibility: data.profileData?.responsibility,
+        referralSource: data.profileData?.referralSource,
+        physicallyDisabled: data.profileData?.physicallyDisabled || false,
       },
     })
 
@@ -61,7 +70,7 @@ export async function registerUser(data: {
         name: data.name,
         email: data.email,
         password: hashedPassword,
-        role: data.role,
+        role: assignedRole, // Use the validated role
         profileId: profile.id,
       },
     })
@@ -222,10 +231,10 @@ export async function createStaffAccount(data: {
   password: string
   departmentId: string
   isHead: boolean
-  profileData: {
-    firstName: string
+  profileData?: {
+    firstName?: string
     middleName?: string
-    lastName: string
+    lastName?: string
     dateOfBirth?: Date
     gender?: string
     nationality?: string
@@ -234,7 +243,7 @@ export async function createStaffAccount(data: {
     church?: string
     responsibility?: string
     referralSource?: string
-    physicallyDisabled: boolean
+    physicallyDisabled?: boolean
   }
 }) {
   try {
@@ -247,21 +256,21 @@ export async function createStaffAccount(data: {
       return { success: false, message: "User with this email already exists" }
     }
 
-    // Create profile first
+    // Create profile first with safe defaults
     const profile = await db.profile.create({
       data: {
-        firstName: data.profileData.firstName,
-        middleName: data.profileData.middleName,
-        lastName: data.profileData.lastName,
-        dateOfBirth: data.profileData.dateOfBirth,
-        gender: data.profileData.gender,
-        nationality: data.profileData.nationality,
-        maritalStatus: data.profileData.maritalStatus,
-        religion: data.profileData.religion,
-        church: data.profileData.church,
-        responsibility: data.profileData.responsibility,
-        referralSource: data.profileData.referralSource,
-        physicallyDisabled: data.profileData.physicallyDisabled,
+        firstName: data.profileData?.firstName || "New",
+        middleName: data.profileData?.middleName,
+        lastName: data.profileData?.lastName || "Staff",
+        dateOfBirth: data.profileData?.dateOfBirth,
+        gender: data.profileData?.gender,
+        nationality: data.profileData?.nationality,
+        maritalStatus: data.profileData?.maritalStatus,
+        religion: data.profileData?.religion,
+        church: data.profileData?.church,
+        responsibility: data.profileData?.responsibility,
+        referralSource: data.profileData?.referralSource,
+        physicallyDisabled: data.profileData?.physicallyDisabled || false,
       },
     })
 

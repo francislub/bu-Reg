@@ -1,172 +1,157 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { db } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { db } from "@/lib/db"
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
-    // Check if user is authenticated and is a registrar
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "REGISTRAR") {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+
+    if (!session || (session.user.role !== "REGISTRAR" && session.user.role !== "ADMIN")) {
+      return new NextResponse(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+      })
     }
 
     const url = new URL(req.url)
-    const reportType = url.searchParams.get("type") || "enrollment"
-    const timeframe = url.searchParams.get("timeframe") || "weekly"
+    const reportType = url.searchParams.get("type") || "weekly"
+    const startDate = url.searchParams.get("startDate")
+    const endDate = url.searchParams.get("endDate")
 
-    let reportData = {}
+    let start: Date
+    let end: Date = new Date()
 
-    if (reportType === "enrollment") {
-      // Get enrollment data
-      const semesters = await db.semester.findMany({
-        orderBy: {
-          startDate: "asc",
-        },
-        include: {
-          registrations: true,
-        },
-      })
-
-      // Calculate enrollment data
-      const enrollmentData = semesters.map((semester, index) => {
-        const previousSemester = index > 0 ? semesters[index - 1] : null
-        const students = semester.registrations.length
-        const previousStudents = previousSemester ? previousSemester.registrations.length : 0
-
-        // Calculate new students
-        const newStudents = Math.max(0, students - previousStudents)
-
-        // Calculate growth rate
-        const growthRate =
-          previousStudents > 0 ? Math.round(((students - previousStudents) / previousStudents) * 100 * 10) / 10 : 0
-
-        return {
-          semester: semester.name,
-          students,
-          newStudents,
-          growthRate,
-        }
-      })
-
-      reportData = { semesters: enrollmentData }
-    } else if (reportType === "department") {
-      // Get active semester
-      const activeSemester = await db.semester.findFirst({
-        where: { isActive: true },
-      })
-
-      if (!activeSemester) {
-        return NextResponse.json({ success: false, message: "No active semester found" }, { status: 404 })
+    // Calculate date range based on report type
+    if (startDate && endDate) {
+      start = new Date(startDate)
+      end = new Date(endDate)
+    } else {
+      switch (reportType) {
+        case "weekly":
+          start = new Date()
+          start.setDate(start.getDate() - 7)
+          break
+        case "monthly":
+          start = new Date()
+          start.setMonth(start.getMonth() - 1)
+          break
+        case "yearly":
+          start = new Date()
+          start.setFullYear(start.getFullYear() - 1)
+          break
+        default:
+          start = new Date()
+          start.setDate(start.getDate() - 7)
       }
-
-      // Get all departments with course uploads for the active semester
-      const departments = await db.department.findMany({
-        include: {
-          courses: {
-            include: {
-              courseUploads: {
-                where: {
-                  semesterId: activeSemester.id,
-                },
-              },
-            },
-          },
-        },
-      })
-
-      // Calculate student count per department
-      const departmentData = departments.map((department) => {
-        // Count unique students across all courses in the department
-        const studentIds = new Set()
-
-        department.courses.forEach((course) => {
-          course.courseUploads.forEach((upload) => {
-            studentIds.add(upload.userId)
-          })
-        })
-
-        return {
-          name: department.name,
-          students: studentIds.size,
-        }
-      })
-
-      // Filter out departments with no students
-      const filteredData = departmentData.filter((dept) => dept.students > 0)
-
-      reportData = { departments: filteredData }
-    } else if (reportType === "performance") {
-      // Get active semester
-      const activeSemester = await db.semester.findFirst({
-        where: { isActive: true },
-      })
-
-      if (!activeSemester) {
-        return NextResponse.json({ success: false, message: "No active semester found" }, { status: 404 })
-      }
-
-      // Get all departments
-      const departments = await db.department.findMany({
-        include: {
-          courses: {
-            include: {
-              attendanceSessions: {
-                where: {
-                  semesterId: activeSemester.id,
-                },
-                include: {
-                  records: true,
-                },
-              },
-            },
-          },
-        },
-      })
-
-      // Calculate performance metrics per department
-      const performanceData = departments.map((department) => {
-        // Calculate attendance rate
-        let totalRecords = 0
-        let presentRecords = 0
-
-        department.courses.forEach((course) => {
-          course.attendanceSessions.forEach((session) => {
-            session.records.forEach((record) => {
-              totalRecords++
-              if (record.status === "PRESENT") {
-                presentRecords++
-              }
-            })
-          })
-        })
-
-        const attendanceRate = totalRecords > 0 ? Math.round((presentRecords / totalRecords) * 100) : 0
-
-        // Simulate GPA and pass rate
-        const gpa = 2 + Math.random() * 2 // Random GPA between 2.0 and 4.0
-        const passRate = 70 + Math.random() * 30 // Random pass rate between 70% and 100%
-
-        return {
-          department: department.name,
-          gpa: Math.round(gpa * 10) / 10, // Round to 1 decimal place
-          attendance: attendanceRate,
-          passRate: Math.round(passRate),
-        }
-      })
-
-      // Filter out departments with no data
-      const filteredData = performanceData.filter((dept) => dept.attendance > 0)
-
-      reportData = { departments: filteredData }
     }
 
-    return NextResponse.json({ success: true, ...reportData })
+    // Get student registrations within the date range
+    const registrations = await db.courseRegistration.findMany({
+      where: {
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+      },
+      include: {
+        student: true,
+        course: true,
+        semester: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+
+    // Get attendance records within the date range
+    const attendance = await db.attendance.findMany({
+      where: {
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+      },
+      include: {
+        student: true,
+        session: {
+          include: {
+            course: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+
+    // Get new students within the date range
+    const newStudents = await db.user.findMany({
+      where: {
+        role: "STUDENT",
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+
+    // Get new staff within the date range
+    const newStaff = await db.user.findMany({
+      where: {
+        role: "STAFF",
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+
+    // Calculate summary statistics
+    const totalNewStudents = newStudents.length
+    const totalNewStaff = newStaff.length
+    const totalRegistrations = registrations.length
+    const approvedRegistrations = registrations.filter((r) => r.status === "APPROVED").length
+    const pendingRegistrations = registrations.filter((r) => r.status === "PENDING").length
+    const rejectedRegistrations = registrations.filter((r) => r.status === "REJECTED").length
+
+    const totalAttendance = attendance.length
+    const presentAttendance = attendance.filter((a) => a.status === "PRESENT").length
+    const absentAttendance = attendance.filter((a) => a.status === "ABSENT").length
+
+    const attendanceRate = totalAttendance > 0 ? Math.round((presentAttendance / totalAttendance) * 100) : 0
+
+    return NextResponse.json({
+      reportType,
+      dateRange: {
+        start: start.toISOString(),
+        end: end.toISOString(),
+      },
+      summary: {
+        totalNewStudents,
+        totalNewStaff,
+        totalRegistrations,
+        approvedRegistrations,
+        pendingRegistrations,
+        rejectedRegistrations,
+        attendanceRate,
+      },
+      data: {
+        registrations,
+        attendance,
+        newStudents,
+        newStaff,
+      },
+    })
   } catch (error) {
     console.error("Error generating report:", error)
-    return NextResponse.json(
-      { success: false, message: "An error occurred while generating the report" },
-      { status: 500 },
-    )
+    return new NextResponse(JSON.stringify({ error: "Failed to generate report" }), {
+      status: 500,
+    })
   }
 }

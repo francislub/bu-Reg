@@ -141,9 +141,9 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     }
   }
 
-  if (!session || (session.user.role !== "STAFF" && session.user.role !== "REGISTRAR")) {
-    return null
-  }
+  // if (!session || (session.user.role !== "STAFF" && session.user.role !== "REGISTRAR")) {
+  //   return null
+  // }
 
   return (
     <DashboardShell>
