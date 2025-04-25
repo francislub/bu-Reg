@@ -8,7 +8,7 @@ import { ApprovalsClient } from "@/components/dashboard/approvals-client"
 import { getAllPendingRegistrations } from "@/lib/actions/registration-actions"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle, Clock } from "lucide-react"
+import { CheckCircle, Clock, AlertCircle } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "Course Approvals",

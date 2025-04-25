@@ -223,6 +223,8 @@ export async function approveCourseRegistration(courseUploadId: string, approver
       where: { id: courseUploadId },
       include: {
         course: true,
+        user: true,
+        semester: true,
       },
     })
 
@@ -243,12 +245,6 @@ export async function approveCourseRegistration(courseUploadId: string, approver
             status: "APPROVED",
           },
         },
-      },
-      include: {
-        course: true,
-        user: true,
-        semester: true,
-        approvals: true,
       },
     })
 
@@ -310,42 +306,3 @@ export async function rejectCourseRegistration(courseUploadId: string, approverI
   }
 }
 
-export async function getPendingCourseRegistrations() {
-  try {
-    const pendingCourseUploads = await db.courseUpload.findMany({
-      where: {
-        status: "PENDING",
-      },
-      include: {
-        course: {
-          include: {
-            department: true,
-          },
-        },
-        user: {
-          include: {
-            profile: true,
-          },
-        },
-        semester: true,
-        approvals: {
-          include: {
-            approver: {
-              include: {
-                profile: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    })
-
-    return { success: true, pendingCourseUploads }
-  } catch (error) {
-    console.error("Error fetching pending course registrations:", error)
-    return { success: false, message: "Failed to fetch pending course registrations" }
-  }
-}

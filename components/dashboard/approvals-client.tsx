@@ -6,8 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, Clock, Loader2, User, BookOpen, Calendar } from "lucide-react"
+import { CheckCircle, XCircle, Clock, Loader2, User, BookOpen, Calendar } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
+import { approveCourseRegistration, rejectCourseRegistration } from "@/lib/actions/course-registration-actions"
 
 type Registration = {
   id: string
@@ -37,21 +38,15 @@ export function ApprovalsClient({ pendingRegistrations }: ApprovalsClientProps) 
     setIsLoading((prev) => ({ ...prev, [id]: true }))
 
     try {
-      const response = await fetch(`/api/approvals`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          registrationId: id,
-          action,
-        }),
-      })
+      let result;
+      if (action === "approve") {
+        result = await approveCourseRegistration(id, "someApproverId"); // Replace "someApproverId" with actual approver ID
+      } else {
+        result = await rejectCourseRegistration(id, "someApproverId"); // Replace "someApproverId" with actual approver ID
+      }
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to update registration status")
+      if (!result.success) {
+        throw new Error(result.message || "Failed to update registration status")
       }
 
       // Update the local state
@@ -285,3 +280,4 @@ export function ApprovalsClient({ pendingRegistrations }: ApprovalsClientProps) 
     </div>
   )
 }
+

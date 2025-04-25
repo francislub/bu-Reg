@@ -26,7 +26,7 @@ export default async function CoursesPage() {
     courses = await db.course.findMany({
       where: {
         NOT: {
-          departmentId: null,
+          departmentId: { equals: null },
         },
       },
       include: {

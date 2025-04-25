@@ -1,49 +1,61 @@
-import { redirect } from "next/navigation"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+"use client"
+
+import { useState } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { ProfileForm } from "@/components/dashboard/profile-form"
-import { db } from "@/lib/db"
+import { useEffect } from "react"
 
-export default async function ProfilePage() {
-  const session = await getServerSession(authOptions)
+export default function ProfilePage() {
+  const { data: session } = useSession()
+  const [user, setUser] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
 
-  if (!session) {
-    redirect("/auth/login")
-  }
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!session?.user?.id) return
 
-  // Fetch user profile data
-  let user = null
-
-  try {
-    user = await db.user.findUnique({
-      where: { id: session.user.id },
-      include: {
-        profile: true,
-      },
-    })
-
-    if (!user) {
-      // If user not found, create a basic user object with session data
-      user = {
-        id: session.user.id,
-        name: session.user.name || "",
-        email: session.user.email || "",
-        role: session.user.role || "STUDENT",
-        profile: null,
+      setIsLoading(true)
+      try {
+        const response = await fetch(`/api/users/${session.user.id}`)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch user profile: ${response.status}`)
+        }
+        const data = await response.json()
+        if (data.success) {
+          setUser(data.user)
+        } else {
+          console.error("Error fetching user profile:", data.message)
+        }
+      } catch (error: any) {
+        console.error("Error fetching user profile:", error)
+      } finally {
+        setIsLoading(false)
       }
     }
-  } catch (error) {
-    console.error("Error fetching user profile:", error)
-    // Create a basic user object with session data if there's an error
-    user = {
-      id: session.user.id,
-      name: session.user.name || "",
-      email: session.user.email || "",
-      role: session.user.role || "STUDENT",
-      profile: null,
-    }
+
+    fetchProfile()
+  }, [session])
+
+  if (isLoading) {
+    return (
+      <DashboardShell>
+        <DashboardHeader heading="Profile" text="Loading your profile..." />
+        <div>Loading...</div>
+      </DashboardShell>
+    )
+  }
+
+  if (!user) {
+    return (
+      <DashboardShell>
+        <DashboardHeader heading="Profile" text="Error loading your profile." />
+        <div>Error loading profile. Please try again later.</div>
+      </DashboardShell>
+    )
   }
 
   return (

@@ -259,3 +259,4 @@ export async function removeCourseFromSemester(semesterId: string, courseId: str
     return { success: false, message: "Failed to remove course from semester" }
   }
 }
+
