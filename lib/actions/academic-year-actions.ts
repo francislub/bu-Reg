@@ -6,9 +6,6 @@ import { revalidatePath } from "next/cache"
 export async function getAllAcademicYears() {
   try {
     const academicYears = await db.academicYear.findMany({
-      include: {
-        semesters: true,
-      },
       orderBy: {
         startDate: "desc",
       },
@@ -25,13 +22,6 @@ export async function getActiveAcademicYear() {
   try {
     const academicYear = await db.academicYear.findFirst({
       where: { isActive: true },
-      include: {
-        semesters: {
-          orderBy: {
-            startDate: "asc",
-          },
-        },
-      },
     })
 
     if (!academicYear) {
@@ -50,11 +40,7 @@ export async function getAcademicYearById(academicYearId: string) {
     const academicYear = await db.academicYear.findUnique({
       where: { id: academicYearId },
       include: {
-        semesters: {
-          orderBy: {
-            startDate: "asc",
-          },
-        },
+        semesters: true,
       },
     })
 

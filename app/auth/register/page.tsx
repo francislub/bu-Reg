@@ -15,7 +15,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/hooks/use-toast"
-import { CalendarIcon, ChevronLeft, Loader2 } from 'lucide-react'
+import { CalendarIcon, ChevronLeft, Loader2 } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 
@@ -44,6 +44,9 @@ const registerSchema = z
     responsibility: z.string().optional(),
     referralSource: z.string().optional(),
     physicallyDisabled: z.boolean().default(false),
+    programId: z.string({
+      required_error: "Please select a program",
+    }),
     password: z
       .string()
       .min(8, "Password must be at least 8 characters")
@@ -65,6 +68,8 @@ export default function RegisterPage() {
   const { toast } = useToast()
   const [step, setStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
+  const [programs, setPrograms] = useState<any[]>([])
+  const [isLoadingPrograms, setIsLoadingPrograms] = useState(true)
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -81,16 +86,42 @@ export default function RegisterPage() {
       responsibility: "",
       referralSource: "",
       physicallyDisabled: false,
+      programId: "",
       password: "",
       confirmPassword: "",
     },
+  })
+
+  // Fetch programs on component mount
+  useState(() => {
+    const fetchPrograms = async () => {
+      try {
+        setIsLoadingPrograms(true)
+        const response = await fetch("/api/programs")
+        const data = await response.json()
+
+        if (data.success) {
+          setPrograms(data.programs)
+        } else {
+          console.error("Failed to fetch programs:", data.message)
+        }
+      } catch (error) {
+        console.error("Error fetching programs:", error)
+      } finally {
+        setIsLoadingPrograms(false)
+      }
+    }
+
+    fetchPrograms()
   })
 
   function nextStep() {
     const fieldsToValidate =
       step === 1
         ? ["firstName", "lastName", "email", "dateOfBirth", "gender", "nationality"]
-        : ["password", "confirmPassword"]
+        : step === 2
+          ? ["programId", "maritalStatus", "religion"]
+          : ["password", "confirmPassword"]
 
     const isValid = fieldsToValidate.every((field) => {
       const result = form.trigger(field as any)
@@ -132,6 +163,7 @@ export default function RegisterPage() {
             responsibility: data.responsibility,
             referralSource: data.referralSource,
             physicallyDisabled: data.physicallyDisabled,
+            programId: data.programId,
           },
         }),
       })
@@ -205,11 +237,20 @@ export default function RegisterPage() {
                   >
                     3
                   </div>
+                  <div className={`h-1 w-16 ${step >= 4 ? "bg-blue-600" : "bg-gray-200"}`}></div>
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      step >= 4 ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600"
+                    }`}
+                  >
+                    4
+                  </div>
                 </div>
-                <div className="text-sm text-gray-500">Step {step} of 3</div>
+                <div className="text-sm text-gray-500">Step {step} of 4</div>
               </div>
               <div className="flex justify-between mt-2 text-sm">
                 <span>Personal Details</span>
+                <span>Program Selection</span>
                 <span>Account Setup</span>
                 <span>Review & Submit</span>
               </div>
@@ -383,6 +424,52 @@ export default function RegisterPage() {
                           </FormItem>
                         )}
                       />
+                    </div>
+                  </div>
+                )}
+
+                {step === 2 && (
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold border-b pb-2">Program Selection</h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField
+                        control={form.control}
+                        name="programId"
+                        render={({ field }) => (
+                          <FormItem className="col-span-2">
+                            <FormLabel>
+                              Select Program <span className="text-red-500">*</span>
+                            </FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select a program" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {isLoadingPrograms ? (
+                                  <SelectItem value="" disabled>
+                                    Loading programs...
+                                  </SelectItem>
+                                ) : programs.length > 0 ? (
+                                  programs.map((program) => (
+                                    <SelectItem key={program.id} value={program.id}>
+                                      {program.name} ({program.code})
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <SelectItem value="" disabled>
+                                    No programs available
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>Choose the academic program you wish to enroll in</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
                       <FormField
                         control={form.control}
@@ -541,7 +628,7 @@ export default function RegisterPage() {
                   </div>
                 )}
 
-                {step === 2 && (
+                {step === 3 && (
                   <div className="space-y-6">
                     <h3 className="text-lg font-semibold border-b pb-2">Account Setup</h3>
 
@@ -584,7 +671,7 @@ export default function RegisterPage() {
                   </div>
                 )}
 
-                {step === 3 && (
+                {step === 4 && (
                   <div className="space-y-6">
                     <h3 className="text-lg font-semibold border-b pb-2">Review Your Information</h3>
 
@@ -641,13 +728,11 @@ export default function RegisterPage() {
                         </div>
 
                         <div className="space-y-1">
-                          <p className="text-sm font-medium text-gray-500">Responsibility</p>
-                          <p>{form.getValues("responsibility") || "N/A"}</p>
-                        </div>
-
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-gray-500">Referral Source</p>
-                          <p>{form.getValues("referralSource") || "N/A"}</p>
+                          <p className="text-sm font-medium text-gray-500">Program</p>
+                          <p>
+                            {programs.find((p) => p.id === form.getValues("programId"))?.name ||
+                              form.getValues("programId")}
+                          </p>
                         </div>
 
                         <div className="space-y-1">
@@ -680,7 +765,7 @@ export default function RegisterPage() {
                     </Link>
                   )}
 
-                  {step < 3 ? (
+                  {step < 4 ? (
                     <Button type="button" onClick={nextStep}>
                       Next
                     </Button>
@@ -711,4 +796,3 @@ export default function RegisterPage() {
     </div>
   )
 }
-

@@ -6,17 +6,8 @@ import { revalidatePath } from "next/cache"
 export async function getAllDepartments() {
   try {
     const departments = await db.department.findMany({
-      include: {
-        courses: true,
-        departmentStaff: {
-          include: {
-            user: {
-              include: {
-                profile: true,
-              },
-            },
-          },
-        },
+      orderBy: {
+        name: "asc",
       },
     })
 
@@ -33,6 +24,7 @@ export async function getDepartmentById(departmentId: string) {
       where: { id: departmentId },
       include: {
         courses: true,
+        programs: true,
         departmentStaff: {
           include: {
             user: {
@@ -56,7 +48,10 @@ export async function getDepartmentById(departmentId: string) {
   }
 }
 
-export async function createDepartment(data: { name: string; code: string }) {
+export async function createDepartment(data: {
+  name: string
+  code: string
+}) {
   try {
     // Check if department with same code already exists
     const existingDepartment = await db.department.findUnique({
@@ -82,7 +77,13 @@ export async function createDepartment(data: { name: string; code: string }) {
   }
 }
 
-export async function updateDepartment(departmentId: string, data: { name: string; code: string }) {
+export async function updateDepartment(
+  departmentId: string,
+  data: {
+    name: string
+    code: string
+  },
+) {
   try {
     // Check if another department with same code already exists
     const existingDepartment = await db.department.findFirst({
@@ -128,48 +129,82 @@ export async function deleteDepartment(departmentId: string) {
   }
 }
 
-export async function assignDepartmentHead(departmentId: string, userId: string) {
+export async function getDepartmentStaff(departmentId: string) {
   try {
-    // First, remove any existing department head
-    await db.departmentStaff.updateMany({
-      where: {
-        departmentId,
-        isHead: true,
-      },
-      data: {
-        isHead: false,
+    const departmentStaff = await db.departmentStaff.findMany({
+      where: { departmentId },
+      include: {
+        user: {
+          include: {
+            profile: true,
+          },
+        },
       },
     })
 
-    // Check if user is already in department
+    return { success: true, departmentStaff }
+  } catch (error) {
+    console.error("Error fetching department staff:", error)
+    return { success: false, message: "Failed to fetch department staff" }
+  }
+}
+
+export async function addStaffToDepartment(data: {
+  userId: string
+  departmentId: string
+  isHead: boolean
+}) {
+  try {
+    // Check if staff is already in department
     const existingStaff = await db.departmentStaff.findFirst({
       where: {
-        departmentId,
-        userId,
+        userId: data.userId,
       },
     })
 
     if (existingStaff) {
-      // Update existing staff to be head
-      await db.departmentStaff.update({
-        where: { id: existingStaff.id },
-        data: { isHead: true },
-      })
-    } else {
-      // Create new department staff entry
-      await db.departmentStaff.create({
-        data: {
-          departmentId,
-          userId,
+      return { success: false, message: "Staff is already assigned to a department" }
+    }
+
+    // If setting as head, remove current head if exists
+    if (data.isHead) {
+      await db.departmentStaff.updateMany({
+        where: {
+          departmentId: data.departmentId,
           isHead: true,
+        },
+        data: {
+          isHead: false,
         },
       })
     }
 
+    const departmentStaff = await db.departmentStaff.create({
+      data: {
+        userId: data.userId,
+        departmentId: data.departmentId,
+        isHead: data.isHead,
+      },
+    })
+
     revalidatePath("/dashboard/departments")
-    return { success: true, message: "Department head assigned successfully" }
+    return { success: true, departmentStaff }
   } catch (error) {
-    console.error("Error assigning department head:", error)
-    return { success: false, message: "Failed to assign department head" }
+    console.error("Error adding staff to department:", error)
+    return { success: false, message: "Failed to add staff to department" }
+  }
+}
+
+export async function removeStaffFromDepartment(departmentStaffId: string) {
+  try {
+    await db.departmentStaff.delete({
+      where: { id: departmentStaffId },
+    })
+
+    revalidatePath("/dashboard/departments")
+    return { success: true, message: "Staff removed from department successfully" }
+  } catch (error) {
+    console.error("Error removing staff from department:", error)
+    return { success: false, message: "Failed to remove staff from department" }
   }
 }
