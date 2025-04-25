@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Calendar } from "lucide-react"
+import { format } from "date-fns"
 
 interface Event {
   id: string
@@ -99,13 +100,15 @@ export function UpcomingEvents({ events: initialEvents }: UpcomingEventsProps) {
             {events.map((event) => (
               <div key={event.id} className="space-y-2 p-3 rounded-lg hover:bg-muted/50 transition-colors">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-medium text-success">{event.title}</h3>
+                  <h3 className="font-semibold text-foreground transition-colors hover:text-primary">{event.title}</h3>
                   <Badge variant="outline" className="bg-success/10">
                     {getDaysUntil(event.date)}
                   </Badge>
                 </div>
                 <div className="flex items-center text-xs text-muted-foreground">
-                  <span className="font-medium">{formatDate(event.date)}</span>
+                  <div className="rounded bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                    {format(new Date(event.date), "MMM d, yyyy")}
+                  </div>
                   {event.location && (
                     <span className="ml-2 pl-2 border-l border-muted-foreground/30">{event.location}</span>
                   )}

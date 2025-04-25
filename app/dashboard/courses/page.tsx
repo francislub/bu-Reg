@@ -25,8 +25,8 @@ export default async function CoursesPage() {
     // Fetch all courses with proper error handling for null departmentId
     courses = await db.course.findMany({
       where: {
-        departmentId: {
-          not: null, // Ensure departmentId is not null
+        NOT: {
+          departmentId: null,
         },
       },
       include: {

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
 import { ChevronRight, AlertCircle } from "lucide-react"
+import { format } from "date-fns"
 
 type Announcement = {
   id: string
@@ -107,12 +108,18 @@ export function RecentAnnouncements() {
         ) : announcements.length > 0 ? (
           // Announcements list
           announcements.map((announcement) => (
-            <div key={announcement.id} className="border-b pb-4 last:border-0 last:pb-0">
-              <h3 className="font-medium">{announcement.title}</h3>
+            <div key={announcement.id} className="rounded-lg border p-4 transition-all duration-200 hover:bg-muted/50">
+              <h3 className="font-semibold text-foreground transition-colors hover:text-primary">
+                {announcement.title}
+              </h3>
               <p className="text-sm text-muted-foreground mt-1">{truncateContent(announcement.content)}</p>
-              <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground">
-                <span>{formatDate(announcement.createdAt)}</span>
-                {announcement.author && <span>By: {announcement.author.name}</span>}
+              <div className="flex justify-between items-center mt-2">
+                <div className="text-xs text-muted-foreground">
+                  {format(new Date(announcement.createdAt), "MMM d, yyyy")}
+                </div>
+                {announcement.author && (
+                  <span className="text-xs text-muted-foreground">By: {announcement.author.name}</span>
+                )}
               </div>
             </div>
           ))

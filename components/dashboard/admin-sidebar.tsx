@@ -1,8 +1,22 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BookOpen, Building, Calendar, CheckSquare, ClipboardList, FileText, GraduationCap, Home, Settings, User, Users, BarChart, Bell, Shield } from 'lucide-react'
+import {
+  BookOpen,
+  Building,
+  CheckSquare,
+  GraduationCap,
+  Home,
+  Settings,
+  User,
+  Users,
+  BarChart,
+  Bell,
+  Calendar,
+} from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -53,17 +67,29 @@ export function AdminSidebar() {
       title: "Management",
       items: [
         {
+          title: "Academic Years",
+          href: "/dashboard/academic-years",
+          icon: <Calendar className="h-5 w-5" />,
+          isActive: pathname.startsWith("/dashboard/academic-years"),
+        },
+        {
+          title: "Programs",
+          href: "/dashboard/programs",
+          icon: <GraduationCap className="h-5 w-5" />,
+          isActive: pathname === "/dashboard/programs",
+        },
+        {
           title: "Students",
           href: "/dashboard/students",
           icon: <Users className="h-5 w-5" />,
           isActive: pathname === "/dashboard/students",
         },
-        {
-          title: "Staff",
-          href: "/dashboard/staff",
-          icon: <User className="h-5 w-5" />,
-          isActive: pathname === "/dashboard/staff",
-        },
+        // {
+        //   title: "Staff",
+        //   href: "/dashboard/staff",
+        //   icon: <User className="h-5 w-5" />,
+        //   isActive: pathname === "/dashboard/staff",
+        // },
         {
           title: "Departments",
           href: "/dashboard/departments",
@@ -75,6 +101,12 @@ export function AdminSidebar() {
           href: "/dashboard/courses",
           icon: <BookOpen className="h-5 w-5" />,
           isActive: pathname === "/dashboard/courses",
+        },
+        {
+          title: "Semesters",
+          href: "/dashboard/semesters",
+          icon: <Calendar className="h-5 w-5" />,
+          isActive: pathname === "/dashboard/semesters",
         },
       ],
     },
@@ -94,17 +126,11 @@ export function AdminSidebar() {
           isActive: pathname === "/dashboard/announcements",
         },
         {
-          title: "Reports",
-          href: "/dashboard/reports",
+          title: "Registration Reports",
+          href: "/dashboard/registration-reports",
           icon: <BarChart className="h-5 w-5" />,
-          isActive: pathname === "/dashboard/reports",
+          isActive: pathname === "/dashboard/registration-reports",
         },
-        // {
-        //   title: "Security",
-        //   href: "/dashboard/security",
-        //   icon: <Shield className="h-5 w-5" />,
-        //   isActive: pathname === "/dashboard/security",
-        // },
         {
           title: "Settings",
           href: "/dashboard/settings",

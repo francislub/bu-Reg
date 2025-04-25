@@ -5,29 +5,61 @@ import { authOptions } from "@/lib/auth"
 
 export async function GET(req: Request) {
   try {
-    // Check if user is authenticated and is staff or registrar
     const session = await getServerSession(authOptions)
-    if (!session || (session.user.role !== "STAFF" && session.user.role !== "REGISTRAR")) {
+    if (!session) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
     const url = new URL(req.url)
+    const semesterId = url.searchParams.get("semesterId")
+    const userId = url.searchParams.get("userId") || session.user.id
     const status = url.searchParams.get("status")
 
+    // Build where clause based on parameters
+    const whereClause: any = {}
+
+    if (semesterId) {
+      whereClause.semesterId = semesterId
+    }
+
+    if (userId) {
+      whereClause.userId = userId
+    }
+
+    if (status) {
+      whereClause.status = status
+    }
+
+    // Check if user has permission to view registrations
+    if (session.user.role !== "REGISTRAR" && session.user.id !== userId) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 })
+    }
+
     const registrations = await db.registration.findMany({
-      where: status ? { status: status.toUpperCase() } : undefined,
+      where: whereClause,
       include: {
         user: {
           include: {
             profile: true,
           },
         },
-        semester: true,
-        courseUploads: {
+        semester: {
           include: {
-            course: true,
+            academicYear: true,
           },
         },
+        courseUploads: {
+          include: {
+            course: {
+              include: {
+                department: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     })
 
@@ -43,7 +75,6 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    // Check if user is authenticated
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
@@ -52,7 +83,12 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { userId, semesterId } = body
 
-    // Check if user is already registered for this semester
+    // Validate required fields
+    if (!userId || !semesterId) {
+      return NextResponse.json({ success: false, message: "User ID and semester ID are required" }, { status: 400 })
+    }
+
+    // Check if registration already exists
     const existingRegistration = await db.registration.findUnique({
       where: {
         userId_semesterId: {
@@ -63,10 +99,7 @@ export async function POST(req: Request) {
     })
 
     if (existingRegistration) {
-      return NextResponse.json(
-        { success: false, message: "User is already registered for this semester" },
-        { status: 400 },
-      )
+      return NextResponse.json({ success: false, message: "Registration already exists" }, { status: 400 })
     }
 
     // Create registration
@@ -80,7 +113,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, registration })
   } catch (error) {
-    console.error("Registration error:", error)
-    return NextResponse.json({ success: false, message: "An error occurred during registration" }, { status: 500 })
+    console.error("Registration creation error:", error)
+    return NextResponse.json(
+      { success: false, message: "An error occurred during registration creation" },
+      { status: 500 },
+    )
   }
 }

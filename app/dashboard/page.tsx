@@ -17,7 +17,7 @@ async function safeQuery(queryFn) {
   try {
     return await queryFn()
   } catch (error) {
-    console.error("Error executing query:", error.message)
+    console.error("Error executing query:", error?.message)
     return []
   }
 }
@@ -115,6 +115,7 @@ export default async function DashboardPage() {
         () =>
           db.attendanceSession?.count({
             where: {
+              lecturerId: user.id,
               course: {
                 courseRegistrations: {
                   some: {
@@ -156,8 +157,11 @@ export default async function DashboardPage() {
       console.error("Error fetching student dashboard data:", error)
       return (
         <DashboardShell>
-          <div className="flex h-full items-center justify-center">
-            <p className="text-red-500">Error loading dashboard data. Please try again later.</p>
+          <div className="flex h-full items-center justify-center p-6">
+            <div className="rounded-lg bg-destructive/10 p-6 text-destructive shadow-lg">
+              <h3 className="mb-2 text-lg font-semibold">Error loading dashboard data</h3>
+              <p>We encountered an issue while loading your data. Please try again later.</p>
+            </div>
           </div>
         </DashboardShell>
       )
@@ -212,7 +216,7 @@ export default async function DashboardPage() {
         () =>
           db.attendanceSession?.count({
             where: {
-              createdById: user.id,
+              lecturerId: user.id,
             },
           }) || 0,
       )
@@ -252,25 +256,27 @@ export default async function DashboardPage() {
         }),
       )
 
+      const staffData = {
+        coursesCount,
+        studentCount,
+        attendanceSessionsCount,
+        performanceData,
+      }
+
       return (
         <DashboardShell>
-          <StaffDashboard
-            user={user}
-            announcements={announcements}
-            events={events}
-            coursesCount={coursesCount}
-            studentCount={studentCount}
-            attendanceSessionsCount={attendanceSessionsCount}
-            performanceData={performanceData}
-          />
+          <StaffDashboard user={user} announcements={announcements} events={events} staffData={staffData} />
         </DashboardShell>
       )
     } catch (error) {
       console.error("Error fetching staff dashboard data:", error)
       return (
         <DashboardShell>
-          <div className="flex h-full items-center justify-center">
-            <p className="text-red-500">Error loading dashboard data. Please try again later.</p>
+          <div className="flex h-full items-center justify-center p-6">
+            <div className="rounded-lg bg-destructive/10 p-6 text-destructive shadow-lg">
+              <h3 className="mb-2 text-lg font-semibold">Error loading dashboard data</h3>
+              <p>We encountered an issue while loading your data. Please try again later.</p>
+            </div>
           </div>
         </DashboardShell>
       )
@@ -359,8 +365,11 @@ export default async function DashboardPage() {
       console.error("Error fetching admin dashboard data:", error)
       return (
         <DashboardShell>
-          <div className="flex h-full items-center justify-center">
-            <p className="text-red-500">Error loading dashboard data. Please try again later.</p>
+          <div className="flex h-full items-center justify-center p-6">
+            <div className="rounded-lg bg-destructive/10 p-6 text-destructive shadow-lg">
+              <h3 className="mb-2 text-lg font-semibold">Error loading dashboard data</h3>
+              <p>We encountered an issue while loading your data. Please try again later.</p>
+            </div>
           </div>
         </DashboardShell>
       )
@@ -369,8 +378,12 @@ export default async function DashboardPage() {
 
   return (
     <DashboardShell>
-      <div className="flex h-full items-center justify-center">
-        <p>Welcome to your dashboard!</p>
+      <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+        <div className="mb-6 rounded-full bg-primary/10 p-6">
+          <span className="text-4xl text-primary">👋</span>
+        </div>
+        <h2 className="mb-2 text-2xl font-bold">Welcome to your dashboard!</h2>
+        <p className="text-muted-foreground">Your university management portal is ready to use.</p>
       </div>
     </DashboardShell>
   )

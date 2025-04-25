@@ -22,7 +22,7 @@ export function DashboardCards({ user }: DashboardCardsProps) {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card className="border-primary/20 shadow-md">
+      <Card className="border-primary/20 shadow-md transition-all duration-200 hover:shadow-md hover:translate-y-[-2px] bg-gradient-to-br from-primary/5 to-primary/10">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Current Semester</CardTitle>
           <Calendar className="h-4 w-4 text-primary" />
@@ -44,7 +44,7 @@ export function DashboardCards({ user }: DashboardCardsProps) {
         </CardFooter>
       </Card>
 
-      <Card className="border-success/20 shadow-md">
+      <Card className="border-success/20 shadow-md transition-all duration-200 hover:shadow-md hover:translate-y-[-2px] bg-gradient-to-br from-success/5 to-success/10">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Registered Courses</CardTitle>
           <BookOpen className="h-4 w-4 text-success" />
@@ -66,7 +66,7 @@ export function DashboardCards({ user }: DashboardCardsProps) {
         </CardFooter>
       </Card>
 
-      <Card className="border-warning/20 shadow-md">
+      <Card className="border-warning/20 shadow-md transition-all duration-200 hover:shadow-md hover:translate-y-[-2px] bg-gradient-to-br from-warning/5 to-warning/10">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
           <Clock className="h-4 w-4 text-warning" />
@@ -86,7 +86,7 @@ export function DashboardCards({ user }: DashboardCardsProps) {
         </CardFooter>
       </Card>
 
-      <Card className="border-destructive/20 shadow-md">
+      <Card className="border-destructive/20 shadow-md transition-all duration-200 hover:shadow-md hover:translate-y-[-2px] bg-gradient-to-br from-destructive/5 to-destructive/10">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Academic Status</CardTitle>
           <GraduationCap className="h-4 w-4 text-destructive" />

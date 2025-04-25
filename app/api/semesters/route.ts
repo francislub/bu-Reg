@@ -5,8 +5,15 @@ import { authOptions } from "@/lib/auth"
 
 export async function GET(req: Request) {
   try {
+    const url = new URL(req.url)
+    const academicYearId = url.searchParams.get("academicYearId")
+
+    const whereClause = academicYearId ? { academicYearId } : {}
+
     const semesters = await db.semester.findMany({
+      where: whereClause,
       include: {
+        academicYear: true,
         semesterCourses: {
           include: {
             course: true,
@@ -34,7 +41,15 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { name, startDate, endDate, isActive, registrationDeadline, courseUploadDeadline } = body
+    const { name, academicYearId, startDate, endDate, isActive, registrationDeadline, courseUploadDeadline } = body
+
+    // Validate required fields
+    if (!name || !academicYearId || !startDate || !endDate) {
+      return NextResponse.json(
+        { success: false, message: "Name, academic year, start date, and end date are required" },
+        { status: 400 },
+      )
+    }
 
     // If setting this semester as active, deactivate all other semesters
     if (isActive) {
@@ -47,9 +62,10 @@ export async function POST(req: Request) {
     const semester = await db.semester.create({
       data: {
         name,
+        academicYearId,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
-        isActive,
+        isActive: isActive || false,
         registrationDeadline: registrationDeadline ? new Date(registrationDeadline) : undefined,
         courseUploadDeadline: courseUploadDeadline ? new Date(courseUploadDeadline) : undefined,
       },

@@ -1,8 +1,4 @@
 "use client"
-
-import Link from "next/link"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, User, Building, BookOpen, ClipboardList, BarChart } from "lucide-react"
 import { RecentAnnouncements } from "@/components/dashboard/recent-announcements"
 import { UpcomingEvents } from "@/components/dashboard/upcoming-events"
 import { AdminStatsChart } from "@/components/dashboard/admin-stats-chart"
@@ -33,107 +29,41 @@ export function AdminDashboard({ user, announcements, events, adminData }: Admin
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="shadow-sm overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Students</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{studentsCount}</div>
-            <p className="text-xs text-muted-foreground">Total registered students</p>
-          </CardContent>
-          <CardFooter className="p-2">
-            <Link href="/dashboard/students" className="text-xs hover:underline">
-              Manage Students
-            </Link>
-          </CardFooter>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-6 shadow-sm transition-all duration-200 hover:shadow-md">
+          <h3 className="mb-1 text-sm font-medium text-muted-foreground">Students</h3>
+          <p className="text-3xl font-bold text-primary">{studentsCount}</p>
+        </div>
 
-        <Card className="shadow-sm overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Staff</CardTitle>
-            <User className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{staffCount}</div>
-            <p className="text-xs text-muted-foreground">Total university staff</p>
-          </CardContent>
-          <CardFooter className="p-2">
-            <Link href="/dashboard/staff" className="text-xs hover:underline">
-              Manage Staff
-            </Link>
-          </CardFooter>
-        </Card>
+        <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-6 shadow-sm transition-all duration-200 hover:shadow-md">
+          <h3 className="mb-1 text-sm font-medium text-muted-foreground">Staff</h3>
+          <p className="text-3xl font-bold text-primary">{staffCount}</p>
+        </div>
 
-        <Card className="shadow-sm overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Departments</CardTitle>
-            <Building className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{departmentsCount}</div>
-            <p className="text-xs text-muted-foreground">Academic departments</p>
-          </CardContent>
-          <CardFooter className="p-2">
-            <Link href="/dashboard/departments" className="text-xs hover:underline">
-              Manage Departments
-            </Link>
-          </CardFooter>
-        </Card>
+        <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-6 shadow-sm transition-all duration-200 hover:shadow-md">
+          <h3 className="mb-1 text-sm font-medium text-muted-foreground">Departments</h3>
+          <p className="text-3xl font-bold text-primary">{departmentsCount}</p>
+        </div>
 
-        <Card className="shadow-sm overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Courses</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{coursesCount}</div>
-            <p className="text-xs text-muted-foreground">Total courses offered</p>
-          </CardContent>
-          <CardFooter className="p-2">
-            <Link href="/dashboard/courses" className="text-xs hover:underline">
-              Manage Courses
-            </Link>
-          </CardFooter>
-        </Card>
+        <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-6 shadow-sm transition-all duration-200 hover:shadow-md">
+          <h3 className="mb-1 text-sm font-medium text-muted-foreground">Courses</h3>
+          <p className="text-3xl font-bold text-primary">{coursesCount}</p>
+        </div>
+
+        <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-6 shadow-sm transition-all duration-200 hover:shadow-md">
+          <h3 className="mb-1 text-sm font-medium text-muted-foreground">Pending Approvals</h3>
+          <p className="text-3xl font-bold text-primary">{pendingApprovalsCount}</p>
+        </div>
+
+        <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-6 shadow-sm transition-all duration-200 hover:shadow-md">
+          <h3 className="mb-1 text-sm font-medium text-muted-foreground">Reports</h3>
+          <p className="text-3xl font-bold text-primary">5</p>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="shadow-sm overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
-            <ClipboardList className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{pendingApprovalsCount}</div>
-            <p className="text-xs text-muted-foreground">Course registrations awaiting approval</p>
-          </CardContent>
-          <CardFooter className="p-2">
-            <Link href="/dashboard/approvals" className="text-xs hover:underline">
-              View Approvals
-            </Link>
-          </CardFooter>
-        </Card>
-
-        <Card className="shadow-sm overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Reports</CardTitle>
-            <BarChart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">5</div>
-            <p className="text-xs text-muted-foreground">Available system reports</p>
-          </CardContent>
-          <CardFooter className="p-2">
-            <Link href="/dashboard/reports" className="text-xs hover:underline">
-              View Reports
-            </Link>
-          </CardFooter>
-        </Card>
+      <div className="rounded-lg border bg-gradient-to-br from-blue-50 to-indigo-50 p-4 dark:from-blue-900/20 dark:to-indigo-900/20">
+        <AdminStatsChart />
       </div>
-
-      <AdminStatsChart />
 
       <div className="grid gap-6 md:grid-cols-2">
         <RecentAnnouncements announcements={announcements} />

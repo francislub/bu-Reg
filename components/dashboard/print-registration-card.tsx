@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Printer, Download } from "lucide-react"
 import Image from "next/image"
+import { formatDate } from "@/lib/utils"
 
 interface RegistrationCardProps {
   registrationCard: {
     cardNumber: string
-    createdAt: string | Date
+    issuedDate: string | Date
     user: {
       name: string
       email: string
@@ -20,12 +21,17 @@ interface RegistrationCardProps {
         middleName?: string
         gender?: string
         dateOfBirth?: string | Date
+        studentId?: string
+        program?: string
       }
     }
     semester: {
       name: string
       startDate: string | Date
       endDate: string | Date
+      academicYear: {
+        name: string
+      }
     }
   }
   courses: Array<{
@@ -59,6 +65,7 @@ export function PrintRegistrationCard({ registrationCard, courses }: Registratio
   })
 
   const totalCredits = courses.reduce((sum, course) => sum + course.course.credits, 0)
+  const approvedCourses = courses.filter((course) => course.status === "APPROVED")
 
   return (
     <div className="space-y-4">
@@ -90,95 +97,88 @@ export function PrintRegistrationCard({ registrationCard, courses }: Registratio
                   </div>
                   <div>
                     <h1 className="text-2xl font-bold">BUGEMA UNIVERSITY</h1>
-                    <p className="text-sm">Excellence in Service</p>
-                    <p className="text-xs">A Chartered Seventh-Day Adventist Institution of Higher Learning</p>
+                    <p className="text-sm">P.O. Box 6529 Kampala - Uganda, Tel: +256-312-351-400</p>
+                    <p className="text-xs">MAIN CAMPUS</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="font-bold">Registration Card</p>
-                  <p className="text-sm">Card #: {registrationCard.cardNumber}</p>
-                  <p className="text-sm">Issue Date: {new Date(registrationCard.createdAt).toLocaleDateString()}</p>
+                  <p className="text-sm">Printed: {formatDate(new Date())}</p>
                 </div>
               </div>
 
-              <div className="border-t-2 border-b-2 border-gray-800 py-4 mb-6">
-                <h2 className="text-xl font-bold text-center">{registrationCard.semester.name} Registration</h2>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div>
-                  <p className="text-sm font-bold">Student Information</p>
-                  <p className="text-sm">
-                    Name: {registrationCard.user.profile.firstName} {registrationCard.user.profile.middleName || ""}{" "}
-                    {registrationCard.user.profile.lastName}
-                  </p>
-                  <p className="text-sm">Email: {registrationCard.user.email}</p>
-                  {registrationCard.user.profile.gender && (
-                    <p className="text-sm">Gender: {registrationCard.user.profile.gender}</p>
-                  )}
-                  {registrationCard.user.profile.dateOfBirth && (
-                    <p className="text-sm">
-                      Date of Birth: {new Date(registrationCard.user.profile.dateOfBirth).toLocaleDateString()}
+              <div className="grid grid-cols-2 gap-4 mb-6 border border-gray-300">
+                <div className="p-3 border-r border-gray-300">
+                  <h3 className="text-sm font-bold mb-2">Student Details</h3>
+                  <div className="grid grid-cols-[auto_1fr] gap-x-2 text-sm">
+                    <p className="font-semibold">Student ID:</p>
+                    <p>{registrationCard.user.profile?.studentId || "N/A"}</p>
+                    <p className="font-semibold">Student Name:</p>
+                    <p>
+                      {registrationCard.user.profile?.firstName} {registrationCard.user.profile?.lastName}
                     </p>
-                  )}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold">Semester Information</p>
-                  <p className="text-sm">Semester: {registrationCard.semester.name}</p>
+                <div className="p-3">
+                  <h3 className="text-sm font-bold mb-2">Academic Period</h3>
+                  <div className="grid grid-cols-[auto_1fr] gap-x-2 text-sm">
+                    <p className="font-semibold">Semester:</p>
+                    <p>{registrationCard.semester.name}</p>
+                    <p className="font-semibold">Year:</p>
+                    <p>{registrationCard.semester.academicYear.name}</p>
+                    <p className="font-semibold">Reg. Status:</p>
+                    <p>Day Scholar</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <div className="border border-gray-300 p-3">
+                  <p className="font-bold uppercase">AWARD(S): {registrationCard.user.profile?.program || "N/A"}</p>
                   <p className="text-sm">
-                    Start Date: {new Date(registrationCard.semester.startDate).toLocaleDateString()}
-                  </p>
-                  <p className="text-sm">
-                    End Date: {new Date(registrationCard.semester.endDate).toLocaleDateString()}
+                    <span className="font-semibold">Major 1:</span>{" "}
+                    {registrationCard.user.profile?.program?.split(" ").slice(3).join(" ") || "N/A"}
                   </p>
                 </div>
               </div>
 
               <div className="mb-6">
-                <p className="text-sm font-bold mb-2">Registered Courses</p>
                 <table className="w-full border-collapse">
                   <thead>
-                    <tr className="bg-gray-100">
-                      <th className="border border-gray-300 p-2 text-left text-sm">Course Code</th>
-                      <th className="border border-gray-300 p-2 text-left text-sm">Course Title</th>
-                      <th className="border border-gray-300 p-2 text-left text-sm">Department</th>
-                      <th className="border border-gray-300 p-2 text-center text-sm">Credits</th>
-                      <th className="border border-gray-300 p-2 text-center text-sm">Status</th>
+                    <tr>
+                      <th className="border border-gray-300 p-2 text-left text-sm">Subject ID</th>
+                      <th className="border border-gray-300 p-2 text-left text-sm">Subject Name</th>
+                      <th className="border border-gray-300 p-2 text-center text-sm">Credits Hours</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {courses.map((course) => (
+                    {approvedCourses.map((course) => (
                       <tr key={course.id}>
                         <td className="border border-gray-300 p-2 text-sm">{course.course.code}</td>
                         <td className="border border-gray-300 p-2 text-sm">{course.course.title}</td>
-                        <td className="border border-gray-300 p-2 text-sm">{course.course.department.name}</td>
                         <td className="border border-gray-300 p-2 text-center text-sm">{course.course.credits}</td>
-                        <td className="border border-gray-300 p-2 text-center text-sm">{course.status}</td>
                       </tr>
                     ))}
                     <tr className="font-bold">
-                      <td colSpan={3} className="border border-gray-300 p-2 text-right text-sm">
-                        Total Credits:
+                      <td colSpan={2} className="border border-gray-300 p-2 text-right text-sm">
+                        TOTAL
                       </td>
-                      <td className="border border-gray-300 p-2 text-center text-sm">{totalCredits}</td>
-                      <td className="border border-gray-300 p-2"></td>
+                      <td className="border border-gray-300 p-2 text-center text-sm">
+                        {approvedCourses.reduce((sum, course) => sum + course.course.credits, 0)}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="border-t border-gray-800 pt-4 mt-8">
-                  <p className="text-center text-sm">Student Signature</p>
-                </div>
-                <div className="border-t border-gray-800 pt-4 mt-8">
-                  <p className="text-center text-sm">Registrar Signature</p>
-                </div>
+              <div className="text-sm mb-6">
+                <p>Printed: {new Date().toLocaleString()}</p>
               </div>
 
-              <div className="text-center text-xs mt-8">
-                <p>This registration card is an official document of Bugema University.</p>
-                <p>Please keep it safe and present it when required.</p>
+              <div className="flex justify-center mt-8">
+                <div className="border-2 border-gray-300 rounded-full p-8 w-40 h-40 flex items-center justify-center">
+                  <p className="text-center text-sm">UNIVERSITY SEAL</p>
+                </div>
               </div>
             </div>
           </div>

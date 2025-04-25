@@ -11,11 +11,16 @@ interface StaffDashboardProps {
   user: any
   announcements: any[]
   events: any[]
-  staffData: any
+  staffData?: {
+    coursesCount: number
+    studentCount: number
+    attendanceSessionsCount: number
+    performanceData: any[]
+  }
 }
 
 export function StaffDashboard({ user, announcements, events, staffData }: StaffDashboardProps) {
-  const { coursesCount = 0, studentsCount = 0, sessionsCount = 0 } = staffData
+  const { coursesCount = 0, studentsCount = 0, sessionsCount = 0 } = staffData || {}
 
   return (
     <div className="grid gap-6">
@@ -26,7 +31,9 @@ export function StaffDashboard({ user, announcements, events, staffData }: Staff
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{coursesCount}</div>
+            <div className="text-2xl font-bold">
+              <span className="text-2xl font-bold text-primary">{coursesCount}</span>
+            </div>
             <p className="text-xs text-muted-foreground">Courses you are teaching this semester</p>
           </CardContent>
           <CardFooter className="p-2">
@@ -42,7 +49,9 @@ export function StaffDashboard({ user, announcements, events, staffData }: Staff
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{studentsCount}</div>
+            <div className="text-2xl font-bold">
+              <span className="text-2xl font-bold text-primary">{studentsCount}</span>
+            </div>
             <p className="text-xs text-muted-foreground">Students enrolled in your courses</p>
           </CardContent>
           <CardFooter className="p-2">
@@ -58,7 +67,9 @@ export function StaffDashboard({ user, announcements, events, staffData }: Staff
             <CheckSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{sessionsCount}</div>
+            <div className="text-2xl font-bold">
+              <span className="text-2xl font-bold text-primary">{sessionsCount}</span>
+            </div>
             <p className="text-xs text-muted-foreground">Total attendance sessions recorded</p>
           </CardContent>
           <CardFooter className="p-2">
@@ -85,7 +96,9 @@ export function StaffDashboard({ user, announcements, events, staffData }: Staff
         </Card>
       </div>
 
-      <StaffPerformanceChart userId={user.id} />
+      <div className="rounded-lg border bg-gradient-to-br from-blue-50 to-indigo-50 p-4 dark:from-blue-900/20 dark:to-indigo-900/20">
+        <StaffPerformanceChart userId={user.id} />
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <RecentAnnouncements announcements={announcements} />
