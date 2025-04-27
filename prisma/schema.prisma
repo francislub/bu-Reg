@@ -11,169 +11,113 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  name      String
-  email     String   @unique
-  password  String
-  role      String   @default("STUDENT") // STUDENT, STAFF, REGISTRAR
-  profileId String?  @db.ObjectId
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  name             String?
+  email            String    @unique
+  emailVerified    DateTime?
+  password         String
+  image            String?
+  role             String    @default("STUDENT") // STUDENT, STAFF, REGISTRAR
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  profileId        String?   @db.ObjectId
+  profile          Profile?  @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  resetToken       String?
+  resetTokenExpiry DateTime?
 
-  profile          Profile?          @relation(fields: [profileId], references: [id])
-  courseApprovals  CourseApproval[]
+  // Relations
   registrations    Registration[]
   courseUploads    CourseUpload[]
-  departmentStaff  DepartmentStaff?
-  registrationCard RegistrationCard?
-  attendanceRecords AttendanceRecord[] @relation("StudentAttendance")
-  lecturedCourses   LecturerCourse[]
-  attendanceTaken   AttendanceSession[] @relation("LecturerAttendance")
-  announcements     Announcement[]     // Added relation to announcements
+  registrationCards RegistrationCard[]
+  notifications    Notification[]
+  approvals        Approval[]
 }
 
 model Profile {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  firstName       String
-  middleName      String?
-  lastName        String
-  dateOfBirth     DateTime?
-  gender          String?
-  nationality     String?
-  maritalStatus   String?
-  religion        String?
-  church          String?
-  responsibility  String?
-  referralSource  String?
-  physicallyDisabled Boolean @default(false)
-  studentId       String?
-  programId       String?  @db.ObjectId
-  status          String?  @default("PENDING") // ACTIVE, SUSPENDED
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  firstName         String
+  middleName        String?
+  lastName          String
+  dateOfBirth       DateTime?
+  gender            String?
+  nationality       String?
+  maritalStatus     String?
+  religion          String?
+  church            String?
+  responsibility    String?
+  referralSource    String?
+  physicallyDisabled Boolean  @default(false)
+  avatar            String?
+  phone             String?
+  address           String?
+  studentId         String?
+  program           String?
+  programId         String?  @db.ObjectId
+  departmentId      String?  @db.ObjectId
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  users User[]
-  program Program? @relation(fields: [programId], references: [id])
-}
-
-// Add the Announcement model
-model Announcement {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  title     String
-  content   String
-  authorId  String?  @db.ObjectId
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
-}
-
-model Department {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  name      String
-  code      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  courses        Course[]
-  departmentStaff DepartmentStaff[]
-  programs       Program[]
-}
-
-model DepartmentStaff {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId       String   @unique @db.ObjectId
-  departmentId String   @db.ObjectId
-  isHead       Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-}
-
-model Program {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  name         String
-  code         String   @unique
-  type         String   // DIPLOMA, BACHELORS, MASTERS, PHD
-  duration     Int      // in years
-  departmentId String   @db.ObjectId
-  description  String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  department    Department     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  profiles      Profile[]
-  programCourses ProgramCourse[]
-}
-
-model ProgramCourse {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  programId  String   @db.ObjectId
-  courseId   String   @db.ObjectId
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  program    Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
-  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-
-  @@unique([programId, courseId])
-}
-
-model Course {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  code         String   @unique
-  title        String
-  credits      Int
-  description  String?
-  departmentId String   @db.ObjectId
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  department     Department      @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  semesterCourses SemesterCourse[]
-  courseUploads   CourseUpload[]
-  lecturerCourses LecturerCourse[]
-  timetableSlots  TimetableSlot[]
-  attendanceSessions AttendanceSession[]
-  programCourses  ProgramCourse[]
+  // Relations
+  user              User?
 }
 
 model AcademicYear {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  name      String   @unique
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
   startDate DateTime
   endDate   DateTime
-  isActive  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isCurrent Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
+  // Relations
   semesters Semester[]
 }
 
 model Semester {
-  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
-  name                String
-  academicYearId      String   @db.ObjectId
-  startDate           DateTime
-  endDate             DateTime
-  isActive            Boolean  @default(false)
-  registrationDeadline DateTime?
-  courseUploadDeadline DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  startDate      DateTime
+  endDate        DateTime
+  isActive       Boolean          @default(false)
+  academicYearId String           @db.ObjectId
+  academicYear   AcademicYear     @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
-  academicYear     AcademicYear    @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  semesterCourses  SemesterCourse[]
-  registrations    Registration[]
-  courseUploads    CourseUpload[]
+  // Relations
+  registrations  Registration[]
+  courseUploads  CourseUpload[]
+  semesterCourses SemesterCourse[]
   registrationCards RegistrationCard[]
-  timetables       Timetable[]
-  lecturerCourses  LecturerCourse[]
-  attendanceSessions AttendanceSession[]
+}
 
-  @@unique([academicYearId, name])
+model Department {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  code        String        @unique
+  description String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  courses     Course[]
+}
+
+model Course {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  code        String        @unique
+  title       String
+  credits     Int
+  description String?
+  departmentId String       @db.ObjectId
+  department  Department    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  courseUploads CourseUpload[]
+  semesterCourses SemesterCourse[]
 }
 
 model SemesterCourse {
@@ -183,24 +127,25 @@ model SemesterCourse {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
-  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  // Relations
+  semester   Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([semesterId, courseId])
 }
 
 model Registration {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId          String   @db.ObjectId
-  semesterId      String   @db.ObjectId
-  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  semesterId String   @db.ObjectId
+  status     String   @default("PENDING") // PENDING, APPROVED, REJECTED
   rejectionReason String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
-
+  // Relations
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  semester   Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
   courseUploads CourseUpload[]
 
   @@unique([userId, semesterId])
@@ -216,118 +161,61 @@ model CourseUpload {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
-  course       Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  semester     Semester     @relation(fields: [semesterId], references: [id], onDelete: Cascade)
-
-  approvals CourseApproval[]
-
-  @@unique([registrationId, courseId])
+  // Relations
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  course         Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  semester       Semester     @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  approvals      Approval[]
 }
 
-model CourseApproval {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+model Approval {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
   courseUploadId String   @db.ObjectId
-  approverId    String   @db.ObjectId
-  status        String   // APPROVED, REJECTED
-  comments      String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  approverId     String   @db.ObjectId
+  status         String   // APPROVED, REJECTED
+  comments       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  courseUpload CourseUpload @relation(fields: [courseUploadId], references: [id], onDelete: Cascade)
-  approver     User         @relation(fields: [approverId], references: [id], onDelete: Cascade)
+  // Relations
+  courseUpload   CourseUpload @relation(fields: [courseUploadId], references: [id], onDelete: Cascade)
+  approver       User         @relation(fields: [approverId], references: [id], onDelete: Cascade)
 }
 
 model RegistrationCard {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId     String   @unique @db.ObjectId
-  semesterId String   @db.ObjectId
-  cardNumber String   @unique
-  issuedDate DateTime @default(now())
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  semesterId  String   @db.ObjectId
+  cardNumber  String   @unique
+  issuedDate  DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  semester    Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
 }
 
-// Models for timetable, lecturer assignment, and attendance
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  title     String
+  message   String
+  type      String   // INFO, WARNING, SUCCESS, ERROR
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-model LecturerCourse {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  lecturerId String   @db.ObjectId
-  courseId   String   @db.ObjectId
-  semesterId String   @db.ObjectId
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  lecturer User     @relation(fields: [lecturerId], references: [id], onDelete: Cascade)
-  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
-  timetableSlots TimetableSlot[]
-
-  @@unique([lecturerId, courseId, semesterId])
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model Timetable {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  semesterId String   @db.ObjectId
-  name       String
-  isPublished Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
-  slots    TimetableSlot[]
-}
-
-model TimetableSlot {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  timetableId   String   @db.ObjectId
-  courseId      String   @db.ObjectId
-  lecturerCourseId String? @db.ObjectId
-  dayOfWeek     Int      // 0 = Sunday, 1 = Monday, etc.
-  startTime     String   // Format: HH:MM (24-hour)
-  endTime       String   // Format: HH:MM (24-hour)
-  roomNumber    String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  timetable     Timetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
-  course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lecturerCourse LecturerCourse? @relation(fields: [lecturerCourseId], references: [id], onDelete: SetNull)
-}
-
-model AttendanceSession {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  courseId      String   @db.ObjectId
-  lecturerId    String   @db.ObjectId
-  semesterId    String   @db.ObjectId
-  date          DateTime
-  startTime     String   // Format: HH:MM (24-hour)
-  endTime       String   // Format: HH:MM (24-hour)
-  topic         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lecturer      User      @relation("LecturerAttendance", fields: [lecturerId], references: [id], onDelete: Cascade)
-  semester      Semester  @relation(fields: [semesterId], references: [id], onDelete: Cascade)
-  records       AttendanceRecord[]
-}
-
-model AttendanceRecord {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId     String   @db.ObjectId
-  studentId     String   @db.ObjectId
-  status        String   // PRESENT, ABSENT, LATE
-  comments      String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  session       AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  student       User              @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Cascade)
-
-  @@unique([sessionId, studentId])
+model Backup {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  filename  String
+  path      String
+  size      Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

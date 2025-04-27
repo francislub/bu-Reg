@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, Clock, Loader2, User, BookOpen, Calendar } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, Loader2, User, BookOpen, Calendar } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { approveCourseRegistration, rejectCourseRegistration } from "@/lib/actions/course-registration-actions"
 
@@ -38,11 +38,11 @@ export function ApprovalsClient({ pendingRegistrations }: ApprovalsClientProps) 
     setIsLoading((prev) => ({ ...prev, [id]: true }))
 
     try {
-      let result;
+      let result
       if (action === "approve") {
-        result = await approveCourseRegistration(id, "someApproverId"); // Replace "someApproverId" with actual approver ID
+        result = await approveCourseRegistration(id, "someApproverId") // Replace "someApproverId" with actual approver ID
       } else {
-        result = await rejectCourseRegistration(id, "someApproverId"); // Replace "someApproverId" with actual approver ID
+        result = await rejectCourseRegistration(id, "someApproverId") // Replace "someApproverId" with actual approver ID
       }
 
       if (!result.success) {
@@ -280,4 +280,3 @@ export function ApprovalsClient({ pendingRegistrations }: ApprovalsClientProps) 
     </div>
   )
 }
-

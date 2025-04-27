@@ -9,7 +9,13 @@ export function SiteFooter() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <Image src="/images/bugema.png" alt="Bugema University Logo" width={120} height={120} className="rounded-full" />
+              <Image
+                src="/images/bugema.png"
+                alt="Bugema University Logo"
+                width={120}
+                height={120}
+                className="rounded-full"
+              />
               <div>
                 <h3 className="text-xl font-bold">BUGEMA UNIVERSITY</h3>
                 <p className="text-sm">Excellence in Service</p>
@@ -158,7 +164,7 @@ export function SiteFooter() {
               Sitemap
             </Link>
             <Link href="/auth/register-code" className="hover:text-white transition-colors">
-            Register as Registrar
+              Register as Registrar
             </Link>
           </div>
         </div>

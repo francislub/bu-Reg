@@ -305,4 +305,3 @@ export async function rejectCourseRegistration(courseUploadId: string, approverI
     return { success: false, message: "Failed to reject course registration" }
   }
 }
-

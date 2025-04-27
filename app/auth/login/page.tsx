@@ -75,7 +75,13 @@ export default function LoginPage() {
     <div className="min-h-screen grid md:grid-cols-2">
       <div className="hidden md:flex bg-[#1e3a8a] items-center justify-center p-8">
         <div className="max-w-md">
-          <Image src="/images/bugema.png" alt="Bugema University Logo" width={300} height={300} className="mx-auto mb-8" />
+          <Image
+            src="/images/bugema.png"
+            alt="Bugema University Logo"
+            width={300}
+            height={300}
+            className="mx-auto mb-8"
+          />
           <h1 className="text-3xl font-bold text-white text-center mb-4">BUGEMA UNIVERSITY</h1>
           <p className="text-white/80 text-center mb-2">Excellence in Service</p>
           <p className="text-white/80 text-center">A Chartered Seventh-Day Adventist Institution of Higher Learning</p>

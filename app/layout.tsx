@@ -11,6 +11,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Bugema University",
   description: "A Chartered Seventh-Day Adventist Institution of Higher Learning",
+    generator: 'v0.dev'
 }
 
 export default function RootLayout({

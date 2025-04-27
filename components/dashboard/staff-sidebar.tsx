@@ -1,8 +1,21 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BookOpen, Calendar, CheckSquare, ClipboardList, FileText, GraduationCap, Home, Settings, User, Users, BarChart } from 'lucide-react'
+import {
+  BookOpen,
+  Calendar,
+  CheckSquare,
+  ClipboardList,
+  GraduationCap,
+  Home,
+  Settings,
+  User,
+  Users,
+  BarChart,
+} from "lucide-react"
 import {
   Sidebar,
   SidebarContent,

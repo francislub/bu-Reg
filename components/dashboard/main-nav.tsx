@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { GraduationCap } from 'lucide-react'
+import { GraduationCap } from "lucide-react"
 
 interface MainNavProps {
   userRole?: string
@@ -42,7 +42,7 @@ export function MainNav({ userRole = "STUDENT" }: MainNavProps) {
     STAFF: "text-green-600 hover:text-green-700",
     REGISTRAR: "text-purple-600 hover:text-purple-700",
   }
-  
+
   const primaryColor = roleColors[userRole as keyof typeof roleColors] || roleColors.STUDENT
 
   return (
