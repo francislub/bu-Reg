@@ -20,7 +20,7 @@ model User {
   role             String    @default("STUDENT") // STUDENT, STAFF, REGISTRAR
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
-  profileId        String?   @db.ObjectId
+  profileId        String?   @unique
   profile          Profile?  @relation(fields: [profileId], references: [id], onDelete: SetNull)
   resetToken       String?
   resetTokenExpiry DateTime?
