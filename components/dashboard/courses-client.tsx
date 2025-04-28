@@ -28,9 +28,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 const courseSchema = z.object({
   code: z
     .string()
-    .min(2, "Course code must be at least 2 characters")
+    .min(2, "Course Unit code must be at least 2 characters")
     .max(10, "Course code must be at most 10 characters"),
-  title: z.string().min(3, "Course title must be at least 3 characters"),
+  title: z.string().min(3, "Course Unit title must be at least 3 characters"),
   credits: z.coerce.number().int().min(1, "Credits must be at least 1").max(6, "Credits must be at most 6"),
   description: z.string().optional(),
   departmentId: z.string({
@@ -147,8 +147,8 @@ export function CoursesClient({
       const result = await deleteCourse(courseId)
       if (result.success) {
         toast({
-          title: "Course Deleted",
-          description: "Course has been deleted successfully.",
+          title: "Course unit Deleted",
+          description: "Course unit has been deleted successfully.",
         })
 
         // Update local state
@@ -251,12 +251,12 @@ export function CoursesClient({
                     }}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Add Course
+                    Add Course Unit 
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>{isEditing ? "Edit Course" : "Add New Course"}</DialogTitle>
+                    <DialogTitle>{isEditing ? "Edit Course Unit" : "Add New Course Unit"}</DialogTitle>
                     <DialogDescription>
                       {isEditing ? "Update the course details below." : "Enter the details for the new course."}
                     </DialogDescription>
@@ -270,7 +270,7 @@ export function CoursesClient({
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>
-                                Course Code <span className="text-red-500">*</span>
+                                Course Unit Code <span className="text-red-500">*</span>
                               </FormLabel>
                               <FormControl>
                                 <Input placeholder="e.g., CS101" {...field} />
@@ -305,7 +305,7 @@ export function CoursesClient({
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>
-                              Course Title <span className="text-red-500">*</span>
+                              Course Unit Title <span className="text-red-500">*</span>
                             </FormLabel>
                             <FormControl>
                               <Input placeholder="e.g., Introduction to Computer Science" {...field} />
@@ -370,9 +370,9 @@ export function CoursesClient({
                               {isEditing ? "Updating..." : "Creating..."}
                             </>
                           ) : isEditing ? (
-                            "Update Course"
+                            "Update Course Unit"
                           ) : (
-                            "Create Course"
+                            "Create Course Unit"
                           )}
                         </Button>
                       </DialogFooter>
@@ -441,7 +441,7 @@ function AllCoursesTable({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Course List</CardTitle>
+        <CardTitle>Course Unit List</CardTitle>
         <CardDescription>View all courses offered by the university.</CardDescription>
       </CardHeader>
       <CardContent>
