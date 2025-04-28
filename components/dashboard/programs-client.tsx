@@ -1,11 +1,13 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { PlusCircle, Pencil, Trash2, ChevronDown, BookOpen, GraduationCap, School } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -13,387 +15,367 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { useToast } from "@/hooks/use-toast"
-import { Loader2, Plus, School, BookOpen, Clock, Users } from "lucide-react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import { createProgram, deleteProgram } from "@/lib/actions/program-actions"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
-type Program = {
-  id: string
-  name: string
-  code: string
-  type: string
-  duration: number
-  departmentId: string
-  description?: string
-  department: {
-    id: string
-    name: string
-    code: string
-  }
-  programCourses: {
-    id: string
-    course: {
-      id: string
-      code: string
-      title: string
-      credits: number
-      department: {
-        name: string
-      }
-    }
-  }[]
-}
+// Define the form schema
+const formSchema = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
+  code: z.string().min(2, { message: "Code must be at least 2 characters" }),
+  type: z.string().min(1, { message: "Type is required" }),
+  duration: z.coerce.number().min(1, { message: "Duration must be at least 1 year" }),
+  departmentId: z.string().min(1, { message: "Department is required" }),
+  description: z.string().optional(),
+})
 
-type Department = {
-  id: string
-  name: string
-  code: string
-}
-
-type ProgramsClientProps = {
-  programs: Program[]
-  departments: Department[]
-  isRegistrar: boolean
-}
-
-export function ProgramsClient({ programs, departments, isRegistrar }: ProgramsClientProps) {
+export function ProgramsClient({ programs = [], departments = [], isRegistrar = false }) {
+  const [open, setOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [programToDelete, setProgramToDelete] = useState(null)
   const router = useRouter()
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
-  const [showNewProgramDialog, setShowNewProgramDialog] = useState(false)
-  const [formData, setFormData] = useState({
-    name: "",
-    code: "",
-    type: "",
-    duration: 4,
-    departmentId: "",
-    description: "",
+
+  const form = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      code: "",
+      type: "",
+      duration: 4,
+      departmentId: "",
+      description: "",
+    },
   })
 
-  // Group programs by type
-  const diplomaPrograms = programs.filter((p) => p.type === "DIPLOMA")
-  const bachelorsPrograms = programs.filter((p) => p.type === "BACHELORS")
-  const mastersPrograms = programs.filter((p) => p.type === "MASTERS")
-  const phdPrograms = programs.filter((p) => p.type === "PHD")
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-
+  const onSubmit = async (values) => {
     try {
-      const response = await fetch("/api/programs", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      })
+      const result = await createProgram(values)
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to create program")
+      if (result.success) {
+        toast.success("Program created successfully")
+        setOpen(false)
+        form.reset()
+        router.refresh()
+      } else {
+        toast.error(result.message || "Failed to create program")
       }
-
-      toast({
-        title: "Program Created",
-        description: "The academic program has been created successfully.",
-      })
-
-      setShowNewProgramDialog(false)
-      setFormData({
-        name: "",
-        code: "",
-        type: "",
-        duration: 4,
-        departmentId: "",
-        description: "",
-      })
-      router.refresh()
     } catch (error) {
-      console.error("Error creating program:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create program. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
+      toast.error("An error occurred while creating the program")
+      console.error(error)
     }
   }
 
-  const handleViewProgram = (programId: string) => {
-    router.push(`/dashboard/programs/${programId}`)
+  const handleDeleteClick = (program) => {
+    setProgramToDelete(program)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!programToDelete) return
+
+    try {
+      const result = await deleteProgram(programToDelete.id)
+
+      if (result.success) {
+        toast.success("Program deleted successfully")
+        setDeleteDialogOpen(false)
+        setProgramToDelete(null)
+        router.refresh()
+      } else {
+        toast.error(result.message || "Failed to delete program")
+      }
+    } catch (error) {
+      toast.error("An error occurred while deleting the program")
+      console.error(error)
+    }
+  }
+
+  const getProgramTypeIcon = (type) => {
+    switch (type) {
+      case "UNDERGRADUATE":
+        return <GraduationCap className="h-4 w-4 mr-2" />
+      case "GRADUATE":
+        return <School className="h-4 w-4 mr-2" />
+      default:
+        return <BookOpen className="h-4 w-4 mr-2" />
+    }
+  }
+
+  const getProgramTypeBadgeClass = (type) => {
+    switch (type) {
+      case "UNDERGRADUATE":
+        return "bg-blue-100 text-blue-800"
+      case "GRADUATE":
+        return "bg-purple-100 text-purple-800"
+      case "DIPLOMA":
+        return "bg-green-100 text-green-800"
+      case "CERTIFICATE":
+        return "bg-amber-100 text-amber-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Programs</CardTitle>
-              <School className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{programs.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Departments</CardTitle>
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{departments.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Average Duration</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {programs.length > 0
-                  ? Math.round(programs.reduce((acc, p) => acc + p.duration, 0) / programs.length)
-                  : 0}{" "}
-                years
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Courses</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{programs.reduce((acc, p) => acc + p.programCourses.length, 0)}</div>
-            </CardContent>
-          </Card>
+    <div className="space-y-4">
+      {isRegistrar && (
+        <div className="flex justify-end">
+          <Button onClick={() => setOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add New Program
+          </Button>
         </div>
-      </div>
+      )}
 
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">All Programs</h2>
-        {isRegistrar && (
-          <Dialog open={showNewProgramDialog} onOpenChange={setShowNewProgramDialog}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Add Program
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[550px]">
-              <DialogHeader>
-                <DialogTitle>Add New Academic Program</DialogTitle>
-                <DialogDescription>
-                  Create a new academic program for the university. Fill in all the required fields.
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit}>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Program Name</Label>
-                      <Input
-                        id="name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        placeholder="Bachelor of Science in Computer Science"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="code">Program Code</Label>
-                      <Input
-                        id="code"
-                        name="code"
-                        value={formData.code}
-                        onChange={handleInputChange}
-                        placeholder="BSC-CS"
-                        required
-                      />
-                    </div>
+      {programs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-in fade-in-50">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-muted">
+            <BookOpen className="h-10 w-10 text-muted-foreground" />
+          </div>
+          <h2 className="mt-6 text-xl font-semibold">No programs found</h2>
+          <p className="mb-8 mt-2 text-center text-sm text-muted-foreground max-w-sm mx-auto">
+            {isRegistrar
+              ? "Get started by creating a new academic program."
+              : "No academic programs are available at the moment."}
+          </p>
+          {isRegistrar && (
+            <Button onClick={() => setOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add New Program
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {programs.map((program) => (
+            <Card key={program.id} className="overflow-hidden">
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="text-lg font-bold">{program.name}</CardTitle>
+                    <CardDescription className="text-sm font-medium mt-1">Code: {program.code}</CardDescription>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="type">Program Type</Label>
-                      <Select
-                        value={formData.type}
-                        onValueChange={(value) => handleSelectChange("type", value)}
-                        required
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select program type" />
-                        </SelectTrigger>
+
+                  {isRegistrar && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/dashboard/programs/${program.id}`}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDeleteClick(program)}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pb-3">
+                <div className="flex items-center mb-2">
+                  <span
+                    className={`text-xs px-2 py-1 rounded-full ${getProgramTypeBadgeClass(program.type)} flex items-center`}
+                  >
+                    {getProgramTypeIcon(program.type)}
+                    {program.type}
+                  </span>
+                </div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Duration:</span>
+                    <span className="font-medium">
+                      {program.duration} {program.duration > 1 ? "years" : "year"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Department:</span>
+                    <span className="font-medium">{program.department?.name || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Courses:</span>
+                    <span className="font-medium">{program.programCourses?.length || 0}</span>
+                  </div>
+                </div>
+                {program.description && (
+                  <p className="text-sm text-muted-foreground mt-3 line-clamp-2">{program.description}</p>
+                )}
+              </CardContent>
+              <CardFooter>
+                <Button asChild variant="outline" size="sm" className="w-full">
+                  <Link href={`/dashboard/programs/${program.id}`}>View Details</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Create Program Dialog */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Create New Program</DialogTitle>
+            <DialogDescription>Add a new academic program to the system.</DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Program Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Bachelor of Science in Computer Science" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Program Code</FormLabel>
+                    <FormControl>
+                      <Input placeholder="BSC-CS" {...field} />
+                    </FormControl>
+                    <FormDescription>A unique code for this program.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Program Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select program type" />
+                          </SelectTrigger>
+                        </FormControl>
                         <SelectContent>
+                          <SelectItem value="UNDERGRADUATE">Undergraduate</SelectItem>
+                          <SelectItem value="GRADUATE">Graduate</SelectItem>
                           <SelectItem value="DIPLOMA">Diploma</SelectItem>
-                          <SelectItem value="BACHELORS">Bachelor's Degree</SelectItem>
-                          <SelectItem value="MASTERS">Master's Degree</SelectItem>
-                          <SelectItem value="PHD">PhD</SelectItem>
+                          <SelectItem value="CERTIFICATE">Certificate</SelectItem>
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="duration">Duration (years)</Label>
-                      <Input
-                        id="duration"
-                        name="duration"
-                        type="number"
-                        min={1}
-                        max={10}
-                        value={formData.duration}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="departmentId">Department</Label>
-                    <Select
-                      value={formData.departmentId}
-                      onValueChange={(value) => handleSelectChange("departmentId", value)}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select department" />
-                      </SelectTrigger>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="duration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Duration (years)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={1} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="departmentId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Department</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select department" />
+                        </SelectTrigger>
+                      </FormControl>
                       <SelectContent>
-                        {departments.map((dept) => (
-                          <SelectItem key={dept.id} value={dept.id}>
-                            {dept.name}
+                        {departments.map((department) => (
+                          <SelectItem key={department.id} value={department.id}>
+                            {department.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      name="description"
-                      value={formData.description}
-                      onChange={handleInputChange}
-                      placeholder="Program description and objectives"
-                      rows={3}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setShowNewProgramDialog(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      "Create Program"
-                    )}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Enter a description of the program" className="resize-none" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? "Creating..." : "Create Program"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="diploma">Diploma</TabsTrigger>
-          <TabsTrigger value="bachelors">Bachelor's</TabsTrigger>
-          <TabsTrigger value="masters">Master's</TabsTrigger>
-          <TabsTrigger value="phd">PhD</TabsTrigger>
-        </TabsList>
-        <TabsContent value="all" className="mt-6">
-          <ProgramsTable programs={programs} onViewProgram={handleViewProgram} />
-        </TabsContent>
-        <TabsContent value="diploma" className="mt-6">
-          <ProgramsTable programs={diplomaPrograms} onViewProgram={handleViewProgram} />
-        </TabsContent>
-        <TabsContent value="bachelors" className="mt-6">
-          <ProgramsTable programs={bachelorsPrograms} onViewProgram={handleViewProgram} />
-        </TabsContent>
-        <TabsContent value="masters" className="mt-6">
-          <ProgramsTable programs={mastersPrograms} onViewProgram={handleViewProgram} />
-        </TabsContent>
-        <TabsContent value="phd" className="mt-6">
-          <ProgramsTable programs={phdPrograms} onViewProgram={handleViewProgram} />
-        </TabsContent>
-      </Tabs>
-    </div>
-  )
-}
-
-function ProgramsTable({ programs, onViewProgram }: { programs: Program[]; onViewProgram: (id: string) => void }) {
-  return (
-    <Card>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Program Name</TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Department</TableHead>
-              <TableHead>Courses</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {programs.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
-                  No programs found
-                </TableCell>
-              </TableRow>
-            ) : (
-              programs.map((program) => (
-                <TableRow key={program.id}>
-                  <TableCell className="font-medium">{program.name}</TableCell>
-                  <TableCell>{program.code}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="capitalize">
-                      {program.type.toLowerCase()}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{program.duration} years</TableCell>
-                  <TableCell>{program.department.name}</TableCell>
-                  <TableCell>{program.programCourses.length}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => onViewProgram(program.id)}>
-                      View
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Program</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this program? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {programToDelete && (
+              <div className="rounded-lg border p-4">
+                <h3 className="font-medium">{programToDelete.name}</h3>
+                <p className="text-sm text-muted-foreground mt-1">Code: {programToDelete.code}</p>
+              </div>
             )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }

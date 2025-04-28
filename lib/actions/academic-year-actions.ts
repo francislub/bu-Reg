@@ -102,9 +102,7 @@ export async function updateAcademicYear(
       await db.academicYear.updateMany({
         where: {
           isActive: true,
-          NOT: {
-            id: academicYearId,
-          },
+          id: { not: academicYearId },
         },
         data: { isActive: false },
       })

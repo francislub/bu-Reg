@@ -34,11 +34,7 @@ export async function getProgramById(programId: string) {
         department: true,
         programCourses: {
           include: {
-            course: {
-              include: {
-                department: true,
-              },
-            },
+            course: true,
           },
         },
       },
@@ -104,13 +100,11 @@ export async function updateProgram(
   },
 ) {
   try {
-    // Check if another program with same code already exists
+    // Check if program with same code already exists (excluding this program)
     const existingProgram = await db.program.findFirst({
       where: {
         code: data.code,
-        NOT: {
-          id: programId,
-        },
+        id: { not: programId },
       },
     })
 
@@ -130,6 +124,7 @@ export async function updateProgram(
       },
     })
 
+    revalidatePath(`/dashboard/programs/${programId}`)
     revalidatePath("/dashboard/programs")
     return { success: true, program }
   } catch (error) {
@@ -154,37 +149,35 @@ export async function deleteProgram(programId: string) {
 
 export async function addCoursesToProgram(programId: string, courseIds: string[]) {
   try {
-    // Get existing program courses
+    // Filter out courses that are already in the program
     const existingProgramCourses = await db.programCourse.findMany({
       where: {
-        programId,
-      },
-      select: {
-        courseId: true,
+        programId: programId,
+        courseId: { in: courseIds },
       },
     })
 
     const existingCourseIds = existingProgramCourses.map((pc) => pc.courseId)
-
-    // Filter out courses that are already in the program
     const newCourseIds = courseIds.filter((id) => !existingCourseIds.includes(id))
 
-    // Add new courses to program
-    if (newCourseIds.length > 0) {
-      await Promise.all(
-        newCourseIds.map((courseId) =>
-          db.programCourse.create({
-            data: {
-              programId,
-              courseId,
-            },
-          }),
-        ),
-      )
+    if (newCourseIds.length === 0) {
+      return { success: true, message: "No new courses to add" }
     }
 
-    revalidatePath("/dashboard/programs")
-    return { success: true, message: `Added ${newCourseIds.length} courses to program` }
+    // Create program courses for the new courses
+    await Promise.all(
+      newCourseIds.map((courseId) =>
+        db.programCourse.create({
+          data: {
+            programId: programId,
+            courseId: courseId,
+          },
+        }),
+      ),
+    )
+
+    revalidatePath(`/dashboard/programs/${programId}`)
+    return { success: true, message: `${newCourseIds.length} course(s) added to program successfully` }
   } catch (error) {
     console.error("Error adding courses to program:", error)
     return { success: false, message: "Failed to add courses to program" }
@@ -193,59 +186,17 @@ export async function addCoursesToProgram(programId: string, courseIds: string[]
 
 export async function removeCourseFromProgram(programId: string, courseId: string) {
   try {
-    await db.programCourse.delete({
+    await db.programCourse.deleteMany({
       where: {
-        programId_courseId: {
-          programId,
-          courseId,
-        },
+        programId: programId,
+        courseId: courseId,
       },
     })
 
-    revalidatePath("/dashboard/programs")
+    revalidatePath(`/dashboard/programs/${programId}`)
     return { success: true, message: "Course removed from program successfully" }
   } catch (error) {
     console.error("Error removing course from program:", error)
     return { success: false, message: "Failed to remove course from program" }
-  }
-}
-
-export async function getStudentProgram(userId: string) {
-  try {
-    const student = await db.user.findUnique({
-      where: { id: userId },
-      include: {
-        profile: true,
-      },
-    })
-
-    if (!student || !student.profile?.programId) {
-      return { success: false, message: "Student program not found" }
-    }
-
-    const program = await db.program.findUnique({
-      where: { id: student.profile.programId },
-      include: {
-        department: true,
-        programCourses: {
-          include: {
-            course: {
-              include: {
-                department: true,
-              },
-            },
-          },
-        },
-      },
-    })
-
-    if (!program) {
-      return { success: false, message: "Program not found" }
-    }
-
-    return { success: true, program }
-  } catch (error) {
-    console.error("Error fetching student program:", error)
-    return { success: false, message: "Failed to fetch student program" }
   }
 }

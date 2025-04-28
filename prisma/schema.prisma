@@ -67,6 +67,7 @@ model AcademicYear {
   startDate DateTime
   endDate   DateTime
   isCurrent Boolean    @default(false)
+  isActive  Boolean    @default(false)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
@@ -102,6 +103,37 @@ model Department {
 
   // Relations
   courses     Course[]
+  programs    Program[]
+}
+
+model Program {
+  id            String     @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  code          String     @unique
+  type          String     // UNDERGRADUATE, GRADUATE, DIPLOMA, CERTIFICATE
+  duration      Int        // Duration in years
+  description   String?
+  departmentId  String     @db.ObjectId
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // Relations
+  department    Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  programCourses ProgramCourse[]
+}
+
+model ProgramCourse {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  programId  String   @db.ObjectId
+  courseId   String   @db.ObjectId
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  program    Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([programId, courseId])
 }
 
 model Course {
@@ -118,6 +150,7 @@ model Course {
   // Relations
   courseUploads CourseUpload[]
   semesterCourses SemesterCourse[]
+  programCourses ProgramCourse[]
 }
 
 model SemesterCourse {
@@ -218,4 +251,13 @@ model Backup {
   size      Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Announcement {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  content     String
+  authorId    String    @db.ObjectId
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
