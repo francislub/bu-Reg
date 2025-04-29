@@ -10,6 +10,7 @@ import { AdminSidebar } from "@/components/dashboard/admin-sidebar"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { MainNav } from "@/components/dashboard/main-nav"
 import { SidebarToggle } from "@/components/dashboard/sidebar-toggle"
+import { AutoLogout } from "@/components/auto-logout"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -49,7 +50,9 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           </div>
           <SidebarInset className="ml-0 md:ml-64 w-full">
             <main className="flex w-full flex-1 flex-col overflow-hidden p-6">{children}</main>
+
           </SidebarInset>
+          <AutoLogout timeoutMinutes={30} />
         </div>
       </div>
     </SidebarProvider>

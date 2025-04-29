@@ -2,6 +2,8 @@
 
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 /**
  * Get all announcements with optional pagination and filtering
@@ -31,7 +33,7 @@ export async function getAllAnnouncements(options?: {
     // Get total count for pagination
     const total = await db.announcement.count({ where })
 
-    // Get announcements without author information since it's not in the schema
+    // Get announcements without author information
     const announcements = await db.announcement.findMany({
       where,
       orderBy: { [sortBy]: sortOrder },
@@ -99,10 +101,23 @@ export async function getAnnouncementById(id: string) {
 /**
  * Create a new announcement
  */
-export async function createAnnouncement(data: { title: string; content: string; authorId?: string }) {
+export async function createAnnouncement(data: { title: string; content: string }) {
   try {
+    // Get the current user session
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return {
+        success: false,
+        message: "You must be logged in to create an announcement",
+        announcement: null,
+      }
+    }
+
     const announcement = await db.announcement.create({
-      data,
+      data: {
+        ...data,
+        authorId: session.user.id, // This is required in the schema
+      },
     })
 
     // Revalidate the announcements page to show the new announcement
@@ -128,6 +143,16 @@ export async function createAnnouncement(data: { title: string; content: string;
  */
 export async function updateAnnouncement(id: string, data: { title?: string; content?: string }) {
   try {
+    // Get the current user session
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return {
+        success: false,
+        message: "You must be logged in to update an announcement",
+        announcement: null,
+      }
+    }
+
     // Check if announcement exists
     const existingAnnouncement = await db.announcement.findUnique({
       where: { id },
@@ -169,6 +194,15 @@ export async function updateAnnouncement(id: string, data: { title?: string; con
  */
 export async function deleteAnnouncement(id: string) {
   try {
+    // Get the current user session
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return {
+        success: false,
+        message: "You must be logged in to delete an announcement",
+      }
+    }
+
     // Check if announcement exists
     const existingAnnouncement = await db.announcement.findUnique({
       where: { id },

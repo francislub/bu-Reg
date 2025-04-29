@@ -32,20 +32,12 @@ export async function GET(req: NextRequest) {
     // Calculate skip for pagination
     const skip = (page - 1) * limit
 
-    // Get announcements with author information
+    // Get announcements - REMOVED author include
     const announcements = await db.announcement.findMany({
       where,
       orderBy: { [sortBy]: sortOrder },
       skip,
       take: limit,
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
     })
 
     return NextResponse.json({
@@ -75,7 +67,7 @@ export async function POST(req: NextRequest) {
   try {
     // Check if user is authenticated and authorized
     const session = await getServerSession(authOptions)
-    if (!session || !["REGISTRAR", "STAFF"].includes(session.user.role)) {
+    if (!session || !["REGISTRAR", "STAFF", "ADMIN"].includes(session.user.role)) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
@@ -86,11 +78,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Title and content are required" }, { status: 400 })
     }
 
+    // Create announcement with required authorId
     const announcement = await db.announcement.create({
       data: {
         title,
         content,
-        authorId: session.user.id,
+        authorId: session.user.id, // This is required in the schema
       },
     })
 

@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { name, academicYearId, startDate, endDate, isActive, registrationDeadline, courseUploadDeadline } = body
+    const { name, academicYearId, startDate, endDate, isActive } = body
 
     // Validate required fields
     if (!name || !academicYearId || !startDate || !endDate) {
@@ -59,6 +59,7 @@ export async function POST(req: Request) {
       })
     }
 
+    // Create semester without registrationDeadline and courseUploadDeadline
     const semester = await db.semester.create({
       data: {
         name,
@@ -66,8 +67,6 @@ export async function POST(req: Request) {
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         isActive: isActive || false,
-        registrationDeadline: registrationDeadline ? new Date(registrationDeadline) : undefined,
-        courseUploadDeadline: courseUploadDeadline ? new Date(courseUploadDeadline) : undefined,
       },
     })
 

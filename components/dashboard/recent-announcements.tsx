@@ -1,143 +1,106 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useToast } from "@/hooks/use-toast"
-import { ChevronRight, AlertCircle } from "lucide-react"
-import { format } from "date-fns"
+import { formatDistanceToNow } from "date-fns"
 
 type Announcement = {
   id: string
   title: string
   content: string
   createdAt: string
-  author?: {
-    name: string
-  } | null
 }
 
 export function RecentAnnouncements() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { toast } = useToast()
 
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
-        setIsLoading(true)
+        setLoading(true)
         const response = await fetch("/api/announcements?limit=3")
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch announcements")
+        }
+
         const data = await response.json()
 
         if (data.success) {
           setAnnouncements(data.announcements)
-          setError(null)
         } else {
           setError(data.message || "Failed to fetch announcements")
-          toast({
-            title: "Error",
-            description: data.message || "Failed to fetch announcements",
-            variant: "destructive",
-          })
         }
-      } catch (error) {
-        console.error("Error fetching announcements:", error)
-        setError("An unexpected error occurred")
-        toast({
-          title: "Error",
-          description: "An unexpected error occurred. Please try again.",
-          variant: "destructive",
-        })
+      } catch (err) {
+        console.error("Error fetching announcements:", err)
+        setError("An error occurred while fetching announcements")
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
     fetchAnnouncements()
-  }, [toast])
+  }, [])
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Announcements</CardTitle>
+          <CardDescription>Latest updates and notifications</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="mb-4">
+              <Skeleton className="h-5 w-3/4 mb-2" />
+              <Skeleton className="h-4 w-full mb-1" />
+              <Skeleton className="h-4 w-full mb-1" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    )
   }
 
-  const truncateContent = (content: string, maxLength = 100) => {
-    if (content.length <= maxLength) return content
-    return content.substring(0, maxLength) + "..."
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Announcements</CardTitle>
+          <CardDescription>Latest updates and notifications</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-4 text-red-500">{error}</div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
-    <Card className="h-full">
+    <Card>
       <CardHeader>
         <CardTitle>Recent Announcements</CardTitle>
-        <CardDescription>Latest announcements from the university</CardDescription>
+        <CardDescription>Latest updates and notifications</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {isLoading ? (
-          // Loading skeleton
-          <>
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="space-y-2">
-                <Skeleton className="h-5 w-3/4" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-1/2" />
-                <div className="flex justify-between items-center mt-2">
-                  <Skeleton className="h-4 w-1/4" />
-                  <Skeleton className="h-4 w-1/4" />
-                </div>
-              </div>
-            ))}
-          </>
-        ) : error ? (
-          // Error state
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <AlertCircle className="h-10 w-10 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">{error}</p>
-            <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
-              Try Again
-            </Button>
-          </div>
-        ) : announcements.length > 0 ? (
-          // Announcements list
+      <CardContent>
+        {announcements.length === 0 ? (
+          <div className="text-center py-4 text-muted-foreground">No announcements yet</div>
+        ) : (
           announcements.map((announcement) => (
-            <div key={announcement.id} className="rounded-lg border p-4 transition-all duration-200 hover:bg-muted/50">
-              <h3 className="font-semibold text-foreground transition-colors hover:text-primary">
-                {announcement.title}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">{truncateContent(announcement.content)}</p>
-              <div className="flex justify-between items-center mt-2">
-                <div className="text-xs text-muted-foreground">
-                  {format(new Date(announcement.createdAt), "MMM d, yyyy")}
-                </div>
-                {announcement.author && (
-                  <span className="text-xs text-muted-foreground">By: {announcement.author.name}</span>
-                )}
-              </div>
+            <div key={announcement.id} className="mb-4 pb-4 border-b last:border-0">
+              <h3 className="font-medium text-lg">{announcement.title}</h3>
+              <p className="text-sm text-muted-foreground mb-2">
+                {formatDistanceToNow(new Date(announcement.createdAt), { addSuffix: true })}
+              </p>
+              <p className="text-sm line-clamp-2">{announcement.content}</p>
             </div>
           ))
-        ) : (
-          // Empty state
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">No announcements available</p>
-          </div>
         )}
       </CardContent>
-      <CardFooter>
-        <Button variant="outline" size="sm" className="w-full" asChild>
-          <Link href="/dashboard/announcements">
-            View All Announcements
-            <ChevronRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
-      </CardFooter>
     </Card>
   )
 }
