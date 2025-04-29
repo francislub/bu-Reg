@@ -7,7 +7,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { getProgramById } from "@/lib/actions/program-actions"
 import { getAllCourses } from "@/lib/actions/course-actions"
-import { ProgramDetailClient } from "@/components/dashboard/program-detail-client"
+import { ProgramDetailClient } from "@/components/dashboard/program-details-client"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 
