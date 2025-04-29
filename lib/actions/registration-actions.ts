@@ -2,60 +2,230 @@
 
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
+import { generateRegistrationCardNumber } from "@/lib/utils"
 
-export async function getStudentRegistrations(studentId: string) {
+/**
+ * Get student registration for a specific semester
+ */
+export async function getStudentRegistration(userId: string, semesterId: string) {
   try {
-    const registrations = await db.courseRegistration.findMany({
+    const registration = await db.registration.findUnique({
       where: {
-        studentId,
+        userId_semesterId: {
+          userId,
+          semesterId,
+        },
       },
       include: {
-        course: true,
-        semester: true,
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
       },
     })
-    return { success: true, registrations }
+
+    return { success: true, registration }
   } catch (error) {
-    console.error("Error fetching student registrations:", error)
-    return { success: false, message: "Failed to fetch student registrations" }
+    console.error("Error fetching student registration:", error)
+    return { success: false, message: "Failed to fetch student registration" }
   }
 }
 
-export async function getStudentApprovals(studentId: string) {
+/**
+ * Register a student for a semester
+ */
+export async function registerForSemester(userId: string, semesterId: string) {
   try {
-    const approvals = await db.courseRegistration.findMany({
+    // Check if registration already exists
+    const existingRegistration = await db.registration.findUnique({
       where: {
-        studentId,
+        userId_semesterId: {
+          userId,
+          semesterId,
+        },
+      },
+    })
+
+    if (existingRegistration) {
+      return { success: false, message: "You are already registered for this semester" }
+    }
+
+    // Create new registration
+    const registration = await db.registration.create({
+      data: {
+        userId,
+        semesterId,
         status: "PENDING",
+        registrationDate: new Date(),
       },
       include: {
-        course: true,
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
+      },
+    })
+
+    // Revalidate paths to update UI
+    revalidatePath("/dashboard/registration")
+
+    return { success: true, registration }
+  } catch (error) {
+    console.error("Error registering for semester:", error)
+    return { success: false, message: "Failed to register for semester" }
+  }
+}
+
+/**
+ * Get registration card for a student in a specific semester
+ */
+export async function getRegistrationCard(userId: string, semesterId: string) {
+  try {
+    const registrationCard = await db.registrationCard.findFirst({
+      where: {
+        userId,
+        semesterId,
+      },
+      include: {
+        user: {
+          include: {
+            profile: true,
+          },
+        },
         semester: true,
       },
     })
-    return { success: true, approvals }
+
+    if (!registrationCard) {
+      return { success: false, message: "Registration card not found" }
+    }
+
+    return { success: true, registrationCard }
   } catch (error) {
-    console.error("Error fetching student approvals:", error)
-    return { success: false, message: "Failed to fetch student approvals" }
+    console.error("Error fetching registration card:", error)
+    return { success: false, message: "Failed to fetch registration card" }
+  }
+}
+
+/**
+ * Approve a registration
+ */
+export async function approveRegistration(registrationId: string, approverId: string) {
+  try {
+    // Check if registration exists
+    const registration = await db.registration.findUnique({
+      where: { id: registrationId },
+    })
+
+    if (!registration) {
+      return { success: false, message: "Registration not found" }
+    }
+
+    // Update registration status
+    const updatedRegistration = await db.registration.update({
+      where: {
+        id: registrationId,
+      },
+      data: {
+        status: "APPROVED",
+        approvedById: approverId,
+        approvedAt: new Date(),
+      },
+    })
+
+    // Generate registration card if it doesn't exist
+    let registrationCard = await db.registrationCard.findFirst({
+      where: {
+        userId: registration.userId,
+        semesterId: registration.semesterId,
+      },
+    })
+
+    if (!registrationCard) {
+      const cardNumber = await generateRegistrationCardNumber(registration.userId, registration.semesterId)
+
+      registrationCard = await db.registrationCard.create({
+        data: {
+          userId: registration.userId,
+          semesterId: registration.semesterId,
+          cardNumber,
+          issuedDate: new Date(),
+        },
+      })
+    }
+
+    // Revalidate paths to update UI
+    revalidatePath("/dashboard/approvals")
+    revalidatePath(`/dashboard/students/${registration.userId}`)
+
+    return {
+      success: true,
+      registration: updatedRegistration,
+      registrationCard,
+    }
+  } catch (error) {
+    console.error("Error approving registration:", error)
+    return { success: false, message: "Failed to approve registration" }
+  }
+}
+
+/**
+ * Reject a registration
+ */
+export async function rejectRegistration(registrationId: string, approverId: string) {
+  try {
+    // Check if registration exists
+    const registration = await db.registration.findUnique({
+      where: { id: registrationId },
+    })
+
+    if (!registration) {
+      return { success: false, message: "Registration not found" }
+    }
+
+    // Update registration status
+    const updatedRegistration = await db.registration.update({
+      where: {
+        id: registrationId,
+      },
+      data: {
+        status: "REJECTED",
+        approvedById: approverId,
+        approvedAt: new Date(),
+      },
+    })
+
+    // Revalidate paths to update UI
+    revalidatePath("/dashboard/approvals")
+    revalidatePath(`/dashboard/students/${registration.userId}`)
+
+    return { success: true, registration: updatedRegistration }
+  } catch (error) {
+    console.error("Error rejecting registration:", error)
+    return { success: false, message: "Failed to reject registration" }
   }
 }
 
 export async function getAllPendingRegistrations() {
   try {
-    const pendingRegistrations = await db.courseRegistration.findMany({
+    const pendingRegistrations = await db.registration.findMany({
+      where: {
+        status: "PENDING",
+      },
       include: {
-        student: {
+        user: {
           include: {
             profile: true,
           },
         },
-        course: {
+        semester: true,
+        courseUploads: {
           include: {
-            department: true,
+            course: true,
           },
         },
-        semester: true,
-        approvals: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -65,136 +235,5 @@ export async function getAllPendingRegistrations() {
   } catch (error) {
     console.error("Error fetching pending registrations:", error)
     throw error
-  }
-}
-
-export async function approveRegistration(registrationId: string, approverId: string) {
-  try {
-    // Check if registration exists
-    const registration = await db.courseRegistration.findUnique({
-      where: { id: registrationId },
-    })
-
-    if (!registration) {
-      return { success: false, message: "Registration not found" }
-    }
-
-    // Update registration status and create approval record
-    const updatedRegistration = await db.courseRegistration.update({
-      where: {
-        id: registrationId,
-      },
-      data: {
-        status: "APPROVED",
-        approvals: {
-          create: {
-            status: "APPROVED",
-            approverId: approverId,
-          },
-        },
-      },
-      include: {
-        student: true,
-        course: true,
-        semester: true,
-        approvals: true,
-      },
-    })
-
-    // Revalidate paths to update UI
-    revalidatePath("/dashboard/approvals")
-    revalidatePath(`/dashboard/students/${registration.studentId}`)
-
-    return { success: true, registration: updatedRegistration }
-  } catch (error) {
-    console.error("Error approving registration:", error)
-    return { success: false, message: "Failed to approve registration" }
-  }
-}
-
-export async function rejectRegistration(registrationId: string, approverId: string) {
-  try {
-    // Check if registration exists
-    const registration = await db.courseRegistration.findUnique({
-      where: { id: registrationId },
-    })
-
-    if (!registration) {
-      return { success: false, message: "Registration not found" }
-    }
-
-    // Update registration status and create approval record
-    const updatedRegistration = await db.courseRegistration.update({
-      where: {
-        id: registrationId,
-      },
-      data: {
-        status: "REJECTED",
-        approvals: {
-          create: {
-            status: "REJECTED",
-            approverId: approverId,
-          },
-        },
-      },
-      include: {
-        student: true,
-        course: true,
-        semester: true,
-        approvals: true,
-      },
-    })
-
-    // Revalidate paths to update UI
-    revalidatePath("/dashboard/approvals")
-    revalidatePath(`/dashboard/students/${registration.studentId}`)
-
-    return { success: true, registration: updatedRegistration }
-  } catch (error) {
-    console.error("Error rejecting registration:", error)
-    return { success: false, message: "Failed to reject registration" }
-  }
-}
-
-export async function registerForCourse(data: {
-  studentId: string
-  courseId: string
-  semesterId: string
-}) {
-  try {
-    // Check if registration already exists
-    const existingRegistration = await db.courseRegistration.findFirst({
-      where: {
-        studentId: data.studentId,
-        courseId: data.courseId,
-        semesterId: data.semesterId,
-      },
-    })
-
-    if (existingRegistration) {
-      return {
-        success: false,
-        message: "You have already registered for this course in this semester",
-      }
-    }
-
-    // Create new registration
-    const registration = await db.courseRegistration.create({
-      data: {
-        studentId: data.studentId,
-        courseId: data.courseId,
-        semesterId: data.semesterId,
-        status: "PENDING",
-      },
-    })
-
-    // Revalidate paths to update UI
-    revalidatePath("/dashboard/course-registration")
-    revalidatePath("/dashboard/approvals")
-
-    return { success: true, registration }
-  } catch (error) {
-    console.error("Error registering for course:", error)
-    return { success: false, message: "Failed to register for course" }
   }
 }

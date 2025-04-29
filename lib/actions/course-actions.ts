@@ -133,3 +133,27 @@ export async function deleteCourse(courseId: string) {
     return { success: false, message: "Failed to delete course" }
   }
 }
+
+export async function getStudentCourses(userId: string, semesterId?: string) {
+  try {
+    const courseUploads = await db.courseUpload.findMany({
+      where: {
+        userId,
+        semesterId: semesterId ? semesterId : undefined,
+      },
+      include: {
+        course: {
+          include: {
+            department: true,
+          },
+        },
+        semester: true,
+      },
+    })
+
+    return { success: true, courseUploads }
+  } catch (error) {
+    console.error("Error fetching student courses:", error)
+    return { success: false, message: "Failed to fetch student courses" }
+  }
+}
