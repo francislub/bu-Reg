@@ -66,18 +66,18 @@ export function StudentSidebar() {
           icon: <FileText className="h-5 w-5" />,
           isActive: pathname === "/dashboard/registration",
         },
-        {
-          title: "Timetable",
-          href: "/dashboard/timetable",
-          icon: <Calendar className="h-5 w-5" />,
-          isActive: pathname === "/dashboard/timetable",
-        },
-        {
-          title: "Attendance",
-          href: "/dashboard/attendance",
-          icon: <Clock className="h-5 w-5" />,
-          isActive: pathname === "/dashboard/attendance",
-        },
+        // {
+        //   title: "Timetable",
+        //   href: "/dashboard/timetable",
+        //   icon: <Calendar className="h-5 w-5" />,
+        //   isActive: pathname === "/dashboard/timetable",
+        // },
+        // {
+        //   title: "Attendance",
+        //   href: "/dashboard/attendance",
+        //   icon: <Clock className="h-5 w-5" />,
+        //   isActive: pathname === "/dashboard/attendance",
+        // },
       ],
     },
     {

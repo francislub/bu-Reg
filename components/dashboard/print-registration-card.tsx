@@ -1,213 +1,235 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { useReactToPrint } from "react-to-print"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Printer, Download } from "lucide-react"
-import Image from "next/image"
-import { formatDate } from "@/lib/utils"
+import { Printer, Download, Loader2 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { useReactToPrint } from "react-to-print"
+import { useRef } from "react"
 
-interface RegistrationCardProps {
-  registrationCard: {
-    cardNumber: string
-    issuedDate: string | Date
-    user: {
-      name: string
-      email: string
-      profile: {
-        firstName: string
-        lastName: string
-        middleName?: string
-        gender?: string
-        dateOfBirth?: string | Date
-        studentId?: string
-        program?: string
-      }
-    }
-    semester: {
-      name: string
-      startDate: string | Date
-      endDate: string | Date
-      academicYear: {
-        name: string
-      }
+type Registration = {
+  id: string
+  userId: string
+  semesterId: string
+  status: string
+  createdAt: string
+  updatedAt: string
+  user: {
+    id: string
+    name: string
+    email: string
+    profile: {
+      firstName: string
+      lastName: string
+      studentId: string
+      program: string
     }
   }
-  courses: Array<{
+  semester: {
     id: string
+    name: string
+    startDate: string
+    endDate: string
+  }
+  courseUploads: {
+    id: string
+    courseId: string
+    status: string
     course: {
+      id: string
       code: string
-      title: string
-      credits: number
+      name: string
+      creditHours: number
       department: {
+        id: string
         name: string
       }
     }
-    status: string
-  }>
+  }[]
 }
 
-export function PrintRegistrationCard({ registrationCard, courses }: RegistrationCardProps) {
-  const [isPrinting, setIsPrinting] = useState(false)
+export function PrintRegistrationCard({ registration }: { registration: Registration }) {
+  const { toast } = useToast()
+  const [isGenerating, setIsGenerating] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
 
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
-    documentTitle: `Registration_Card_${registrationCard.cardNumber}`,
+    documentTitle: `Registration_Card_${registration.user.profile.studentId}`,
     onBeforeGetContent: () => {
-      setIsPrinting(true)
-      return Promise.resolve()
+      setIsGenerating(true)
+      return new Promise<void>((resolve) => {
+        setTimeout(() => {
+          resolve()
+        }, 500)
+      })
     },
     onAfterPrint: () => {
-      setIsPrinting(false)
+      setIsGenerating(false)
+      toast({
+        title: "Success",
+        description: "Registration card printed successfully",
+      })
     },
   })
 
-  const totalCredits = courses.reduce((sum, course) => sum + course.course.credits, 0)
-  const approvedCourses = courses.filter((course) => course.status === "APPROVED")
+  const handleDownloadPDF = async () => {
+    setIsGenerating(true)
+    try {
+      const response = await fetch(`/api/registrations/${registration.id}/pdf`)
+
+      if (!response.ok) {
+        throw new Error("Failed to generate PDF")
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `Registration_Card_${registration.user.profile.studentId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast({
+        title: "Success",
+        description: "Registration card downloaded successfully",
+      })
+    } catch (error) {
+      console.error("Error downloading PDF:", error)
+      toast({
+        title: "Error",
+        description: "Failed to download registration card",
+        variant: "destructive",
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  // Calculate total credit hours
+  const totalCreditHours = registration.courseUploads.reduce(
+    (total, upload) => total + (upload.course.creditHours || 0),
+    0,
+  )
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end space-x-2">
-        <Button variant="outline" onClick={handlePrint} disabled={isPrinting} className="flex items-center gap-2">
-          <Printer className="h-4 w-4" />
-          Print Registration Card
-        </Button>
-        <Button variant="outline" onClick={handlePrint} disabled={isPrinting} className="flex items-center gap-2">
-          <Download className="h-4 w-4" />
-          Download PDF
-        </Button>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Registration Card</h2>
+        <div className="flex space-x-2">
+          <Button onClick={handlePrint} disabled={isGenerating}>
+            {isGenerating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Printer className="mr-2 h-4 w-4" />
+                Print
+              </>
+            )}
+          </Button>
+          <Button variant="outline" onClick={handleDownloadPDF} disabled={isGenerating}>
+            <Download className="mr-2 h-4 w-4" />
+            Download PDF
+          </Button>
+        </div>
       </div>
 
-      <Card>
-        <CardContent className="p-6">
-          <div ref={printRef} className="print-container">
-            <div className="border-2 border-gray-800 p-6 max-w-3xl mx-auto">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="relative w-20 h-20">
-                    <Image
-                      src="/logo.png"
-                      alt="Bugema University Logo"
-                      width={80}
-                      height={80}
-                      className="rounded-full"
-                    />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold">BUGEMA UNIVERSITY</h1>
-                    <p className="text-sm">P.O. Box 6529 Kampala - Uganda, Tel: +256-312-351-400</p>
-                    <p className="text-xs">MAIN CAMPUS</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold">Registration Card</p>
-                  <p className="text-sm">Printed: {formatDate(new Date())}</p>
-                </div>
-              </div>
+      <div ref={printRef} className="bg-white p-8 rounded-lg border shadow-sm">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold">BUGEMA UNIVERSITY</h1>
+          <p className="text-lg font-semibold">STUDENT REGISTRATION CARD</p>
+          <p className="text-md">{registration.semester.name}</p>
+        </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-6 border border-gray-300">
-                <div className="p-3 border-r border-gray-300">
-                  <h3 className="text-sm font-bold mb-2">Student Details</h3>
-                  <div className="grid grid-cols-[auto_1fr] gap-x-2 text-sm">
-                    <p className="font-semibold">Student ID:</p>
-                    <p>{registrationCard.user.profile?.studentId || "N/A"}</p>
-                    <p className="font-semibold">Student Name:</p>
-                    <p>
-                      {registrationCard.user.profile?.firstName} {registrationCard.user.profile?.lastName}
-                    </p>
-                  </div>
-                </div>
-                <div className="p-3">
-                  <h3 className="text-sm font-bold mb-2">Academic Period</h3>
-                  <div className="grid grid-cols-[auto_1fr] gap-x-2 text-sm">
-                    <p className="font-semibold">Semester:</p>
-                    <p>{registrationCard.semester.name}</p>
-                    <p className="font-semibold">Year:</p>
-                    <p>{registrationCard.semester.academicYear.name}</p>
-                    <p className="font-semibold">Reg. Status:</p>
-                    <p>Day Scholar</p>
-                  </div>
-                </div>
-              </div>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div>
+            <p className="text-sm text-gray-500">Student Name</p>
+            <p className="font-medium">
+              {registration.user.profile.firstName} {registration.user.profile.lastName}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Student ID</p>
+            <p className="font-medium">{registration.user.profile.studentId}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Program</p>
+            <p className="font-medium">{registration.user.profile.program}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Registration Date</p>
+            <p className="font-medium">{new Date(registration.createdAt).toLocaleDateString()}</p>
+          </div>
+        </div>
 
-              <div className="mb-6">
-                <div className="border border-gray-300 p-3">
-                  <p className="font-bold uppercase">AWARD(S): {registrationCard.user.profile?.program || "N/A"}</p>
-                  <p className="text-sm">
-                    <span className="font-semibold">Major 1:</span>{" "}
-                    {registrationCard.user.profile?.program?.split(" ").slice(3).join(" ") || "N/A"}
-                  </p>
-                </div>
-              </div>
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold mb-2">Registered Courses</h3>
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border p-2 text-left">Course Code</th>
+                <th className="border p-2 text-left">Course Name</th>
+                <th className="border p-2 text-left">Department</th>
+                <th className="border p-2 text-center">Credit Hours</th>
+                <th className="border p-2 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {registration.courseUploads.map((upload) => (
+                <tr key={upload.id}>
+                  <td className="border p-2">{upload.course.code}</td>
+                  <td className="border p-2">{upload.course.name}</td>
+                  <td className="border p-2">{upload.course.department?.name || "N/A"}</td>
+                  <td className="border p-2 text-center">{upload.course.creditHours}</td>
+                  <td className="border p-2 text-center">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${
+                        upload.status === "APPROVED"
+                          ? "bg-green-100 text-green-800"
+                          : upload.status === "REJECTED"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-yellow-100 text-yellow-800"
+                      }`}
+                    >
+                      {upload.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              <tr className="bg-gray-50">
+                <td colSpan={3} className="border p-2 text-right font-semibold">
+                  Total Credit Hours:
+                </td>
+                <td className="border p-2 text-center font-semibold">{totalCreditHours}</td>
+                <td className="border p-2"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-              <div className="mb-6">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="border border-gray-300 p-2 text-left text-sm">Subject ID</th>
-                      <th className="border border-gray-300 p-2 text-left text-sm">Subject Name</th>
-                      <th className="border border-gray-300 p-2 text-center text-sm">Credits Hours</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {approvedCourses.map((course) => (
-                      <tr key={course.id}>
-                        <td className="border border-gray-300 p-2 text-sm">{course.course.code}</td>
-                        <td className="border border-gray-300 p-2 text-sm">{course.course.title}</td>
-                        <td className="border border-gray-300 p-2 text-center text-sm">{course.course.credits}</td>
-                      </tr>
-                    ))}
-                    <tr className="font-bold">
-                      <td colSpan={2} className="border border-gray-300 p-2 text-right text-sm">
-                        TOTAL
-                      </td>
-                      <td className="border border-gray-300 p-2 text-center text-sm">
-                        {approvedCourses.reduce((sum, course) => sum + course.course.credits, 0)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="text-sm mb-6">
-                <p>Printed: {new Date().toLocaleString()}</p>
-              </div>
-
-              <div className="flex justify-center mt-8">
-                <div className="border-2 border-gray-300 rounded-full p-8 w-40 h-40 flex items-center justify-center">
-                  <p className="text-center text-sm">UNIVERSITY SEAL</p>
-                </div>
-              </div>
+        <div className="grid grid-cols-2 gap-8 mt-12">
+          <div>
+            <div className="border-t border-dashed pt-2">
+              <p className="text-center">Student Signature</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <div className="border-t border-dashed pt-2">
+              <p className="text-center">Registrar Signature</p>
+            </div>
+          </div>
+        </div>
 
-      {/* Print-specific styles */}
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          .print-container,
-          .print-container * {
-            visibility: visible;
-          }
-          .print-container {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            padding: 20px;
-          }
-          @page {
-            size: portrait;
-            margin: 0.5cm;
-          }
-        }
-      `}</style>
+        <div className="mt-12 text-xs text-gray-500">
+          <p>This registration card is an official document of Bugema University. Any alteration renders it invalid.</p>
+          <p>Printed on: {new Date().toLocaleString()}</p>
+        </div>
+      </div>
     </div>
   )
 }

@@ -132,6 +132,10 @@ export function StudentsClient({
         method: "DELETE",
       })
 
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`)
+      }
+
       const data = await response.json()
 
       if (data.success) {
@@ -141,6 +145,7 @@ export function StudentsClient({
         })
         setStudents(students.filter((student) => student.id !== studentId))
         setFilteredStudents(filteredStudents.filter((student) => student.id !== studentId))
+        router.refresh()
       } else {
         toast({
           title: "Error",

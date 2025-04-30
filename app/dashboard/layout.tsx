@@ -42,19 +42,25 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
             }}
           />
         </SiteHeader>
-        <div className="flex flex-1 relative">
+
+        <div className="flex flex-1 relative overflow-hidden">
           <div className="fixed left-0 top-14 h-[calc(100vh-3.5rem)] z-30">
             {userRole === "REGISTRAR" && <AdminSidebar />}
             {userRole === "STAFF" && <StaffSidebar />}
             {userRole === "STUDENT" && <StudentSidebar />}
           </div>
-          <SidebarInset className="ml-0 md:ml-64 w-full">
-            <main className="flex w-full flex-1 flex-col overflow-hidden p-6">{children}</main>
 
+          <SidebarInset className="ml-0 md:ml-64 w-full">
+            <main className="h-full w-full flex-1 overflow-auto p-0">
+              <div className="min-h-full w-full p-6">
+                {children}
+              </div>
+            </main>
           </SidebarInset>
-          <AutoLogout timeoutMinutes={30} />
         </div>
+
       </div>
+      <AutoLogout timeoutMinutes={30} />
     </SidebarProvider>
   )
 }

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -21,16 +22,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import { Eye, FileEdit, Loader2, PlusCircle, Trash2 } from "lucide-react"
+import { Eye, FileEdit, Loader2, PlusCircle, Trash2, RefreshCw, Search } from "lucide-react"
 import { createCourse, deleteCourse, updateCourse } from "@/lib/actions/course-actions"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
 
 const courseSchema = z.object({
   code: z
     .string()
-    .min(2, "Course Unit code must be at least 2 characters")
+    .min(2, "Course code must be at least 2 characters")
     .max(10, "Course code must be at most 10 characters"),
-  title: z.string().min(3, "Course Unit title must be at least 3 characters"),
+  title: z.string().min(3, "Course title must be at least 3 characters"),
   credits: z.coerce.number().int().min(1, "Credits must be at least 1").max(6, "Credits must be at most 6"),
   description: z.string().optional(),
   departmentId: z.string({
@@ -40,25 +41,52 @@ const courseSchema = z.object({
 
 type CourseFormValues = z.infer<typeof courseSchema>
 
-export function CoursesClient({
-  courses,
-  departments,
-  userRole,
-  studentCourses,
-}: {
-  courses: any[]
-  departments: any[]
-  userRole: string
-  studentCourses: any[]
-}) {
+export default function CoursesClient() {
+  const { data: session } = useSession()
   const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [courses, setCourses] = useState<any[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [currentCourseId, setCurrentCourseId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [courseToDelete, setCourseToDelete] = useState<string | null>(null)
-  const [localCourses, setLocalCourses] = useState(courses)
+  const [localCourses, setLocalCourses] = useState<any[]>([])
+  const [isTableLoading, setIsTableLoading] = useState(false)
+
+  useEffect(() => {
+    fetchCourses()
+  }, [session])
+
+  const fetchCourses = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch("/api/courses")
+      const data = await response.json()
+
+      if (data.success) {
+        setCourses(data.courses || [])
+        setLocalCourses(data.courses || [])
+      } else {
+        toast({
+          title: "Error",
+          description: data.message || "Failed to fetch courses",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching courses:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseSchema),
@@ -96,7 +124,7 @@ export function CoursesClient({
           setLocalCourses(
             localCourses.map((course) =>
               course.id === currentCourseId
-                ? { ...course, ...data, department: departments.find((d) => d.id === data.departmentId) }
+                ? { ...course, ...data, department: courses.find((d) => d.id === data.departmentId) }
                 : course,
             ),
           )
@@ -105,10 +133,11 @@ export function CoursesClient({
             ...localCourses,
             {
               ...result.course,
-              department: departments.find((d) => d.id === data.departmentId),
+              department: courses.find((d) => d.id === data.departmentId),
             },
           ])
         }
+        fetchCourses()
       } else {
         toast({
           title: "Error",
@@ -128,6 +157,12 @@ export function CoursesClient({
     }
   }
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await fetchCourses()
+    setIsRefreshing(false)
+  }
+
   function handleEdit(course: any) {
     setIsEditing(true)
     setCurrentCourseId(course.id)
@@ -136,7 +171,7 @@ export function CoursesClient({
       title: course.title,
       credits: course.credits,
       description: course.description || "",
-      departmentId: course.departmentId || departments[0]?.id || "",
+      departmentId: course.departmentId || courses[0]?.id || "",
     })
     setIsDialogOpen(true)
   }
@@ -147,12 +182,13 @@ export function CoursesClient({
       const result = await deleteCourse(courseId)
       if (result.success) {
         toast({
-          title: "Course unit Deleted",
-          description: "Course unit has been deleted successfully.",
+          title: "Course Deleted",
+          description: "Course has been deleted successfully.",
         })
 
         // Update local state
         setLocalCourses(localCourses.filter((course) => course.id !== courseId))
+        fetchCourses()
       } else {
         toast({
           title: "Error",
@@ -173,223 +209,286 @@ export function CoursesClient({
     }
   }
 
-  const canManageCourses = userRole === "STAFF" || userRole === "REGISTRAR"
+  // Function to refresh courses
+  const refreshCourses = async () => {
+    setIsRefreshing(true)
+    try {
+      const response = await fetch("/api/courses")
+      if (response.ok) {
+        const data = await response.json()
+        setLocalCourses(data.courses || [])
+        toast({
+          title: "Courses Refreshed",
+          description: "Course list has been updated.",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to refresh courses",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error refreshing courses:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while refreshing",
+        variant: "destructive",
+      })
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  // Filter courses based on search term
+  const filteredCourses = courses.filter(
+    (course) =>
+      course.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      course.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      course.department?.name?.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  const canManageCourses =
+    session?.user.role === "STAFF" || session?.user.role === "REGISTRAR" || session?.user.role === "ADMIN"
 
   return (
-    <>
-      {userRole === "STUDENT" ? (
-        <Tabs defaultValue="registered" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="registered">My Registered Courses</TabsTrigger>
-            <TabsTrigger value="all">All Courses</TabsTrigger>
-          </TabsList>
-          <TabsContent value="registered">
-            <Card>
-              <CardHeader>
-                <CardTitle>My Registered Courses</CardTitle>
-                <CardDescription>Courses you are currently registered for this semester.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Credits</TableHead>
-                      <TableHead>Department</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {studentCourses.length > 0 ? (
-                      studentCourses.map((courseUpload) => (
-                        <TableRow key={courseUpload.id}>
-                          <TableCell className="font-medium">{courseUpload.course.code}</TableCell>
-                          <TableCell>{courseUpload.course.title}</TableCell>
-                          <TableCell>{courseUpload.course.credits}</TableCell>
-                          <TableCell>{courseUpload.course.department?.name || "Unknown"}</TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="icon">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                          No registered courses found for the current semester.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="all">
-            <AllCoursesTable courses={localCourses} canManageCourses={false} />
-          </TabsContent>
-        </Tabs>
-      ) : (
-        <>
-          {canManageCourses && (
-            <div className="mb-4">
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    onClick={() => {
-                      setIsEditing(false)
-                      setCurrentCourseId(null)
-                      form.reset({
-                        code: "",
-                        title: "",
-                        credits: 3,
-                        description: "",
-                        departmentId: "",
-                      })
-                    }}
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Add Course Unit 
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{isEditing ? "Edit Course Unit" : "Add New Course Unit"}</DialogTitle>
-                    <DialogDescription>
-                      {isEditing ? "Update the course details below." : "Enter the details for the new course."}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="code"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>
-                                Course Unit Code <span className="text-red-500">*</span>
-                              </FormLabel>
-                              <FormControl>
-                                <Input placeholder="e.g., CS101" {...field} />
-                              </FormControl>
-                              <FormDescription>A unique identifier for the course</FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Courses</CardTitle>
+              <CardDescription>View and manage all courses</CardDescription>
+            </div>
+            <Button onClick={handleRefresh} variant="outline" disabled={isRefreshing}>
+              {isRefreshing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-2 mb-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search courses..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+          </div>
 
-                        <FormField
-                          control={form.control}
-                          name="credits"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>
-                                Credits <span className="text-red-500">*</span>
-                              </FormLabel>
-                              <FormControl>
-                                <Input type="number" min={1} max={6} {...field} />
-                              </FormControl>
-                              <FormDescription>Number of credit hours (1-6)</FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <FormField
-                        control={form.control}
-                        name="title"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              Course Unit Title <span className="text-red-500">*</span>
-                            </FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., Introduction to Computer Science" {...field} />
-                            </FormControl>
-                            <FormDescription>The full title of the course</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="departmentId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              Department <span className="text-red-500">*</span>
-                            </FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select department" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {departments.map((dept) => (
-                                  <SelectItem key={dept.id} value={dept.id}>
-                                    {dept.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormDescription>The department offering this course</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="description"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Description</FormLabel>
-                            <FormControl>
-                              <Textarea placeholder="Enter course description" className="resize-none" {...field} />
-                            </FormControl>
-                            <FormDescription>A brief description of the course content</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button type="submit" disabled={isLoading}>
-                          {isLoading ? (
+          {isLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : courses.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Credits</TableHead>
+                  {canManageCourses && <TableHead className="text-right">Actions</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCourses.map((course) => (
+                  <TableRow key={course.id}>
+                    <TableCell className="font-medium">{course.code}</TableCell>
+                    <TableCell>{course.title}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{course.department?.name}</Badge>
+                    </TableCell>
+                    <TableCell>{course.credits}</TableCell>
+                    {canManageCourses && (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {canManageCourses && (
                             <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              {isEditing ? "Updating..." : "Creating..."}
+                              <Button variant="ghost" size="icon" onClick={() => handleEdit(course)}>
+                                <FileEdit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => setCourseToDelete(course.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </>
-                          ) : isEditing ? (
-                            "Update Course Unit"
-                          ) : (
-                            "Create Course Unit"
                           )}
-                        </Button>
-                      </DialogFooter>
-                    </form>
-                  </Form>
-                </DialogContent>
-              </Dialog>
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No courses found.</p>
             </div>
           )}
+        </CardContent>
+      </Card>
 
-          <AllCoursesTable
-            courses={localCourses}
-            canManageCourses={canManageCourses}
-            onEdit={handleEdit}
-            onDelete={setCourseToDelete}
-          />
-        </>
+      {canManageCourses && (
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button
+              onClick={() => {
+                setIsEditing(false)
+                setCurrentCourseId(null)
+                form.reset({
+                  code: "",
+                  title: "",
+                  credits: 3,
+                  description: "",
+                  departmentId: "",
+                })
+              }}
+            >
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Course
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{isEditing ? "Edit Course" : "Add New Course"}</DialogTitle>
+              <DialogDescription>
+                {isEditing ? "Update the course details below." : "Enter the details for the new course."}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="code"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Course Code <span className="text-red-500">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., CS101" {...field} />
+                        </FormControl>
+                        <FormDescription>A unique identifier for the course</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="credits"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Credits <span className="text-red-500">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input type="number" min={1} max={6} {...field} />
+                        </FormControl>
+                        <FormDescription>Number of credit hours (1-6)</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Course Title <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Introduction to Computer Science" {...field} />
+                      </FormControl>
+                      <FormDescription>The full title of the course</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="departmentId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Department <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select department" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {courses.map((dept) => (
+                            <SelectItem key={dept.id} value={dept.id}>
+                              {dept.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>The department offering this course</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Enter course description" className="resize-none" {...field} />
+                      </FormControl>
+                      <FormDescription>A brief description of the course content</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {isEditing ? "Updating..." : "Creating..."}
+                      </>
+                    ) : isEditing ? (
+                      "Update Course"
+                    ) : (
+                      "Create Course"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Delete Confirmation Dialog */}
@@ -423,75 +522,6 @@ export function CoursesClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
-  )
-}
-
-function AllCoursesTable({
-  courses,
-  canManageCourses,
-  onEdit,
-  onDelete,
-}: {
-  courses: any[]
-  canManageCourses: boolean
-  onEdit?: (course: any) => void
-  onDelete?: (courseId: string) => void
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Course Unit List</CardTitle>
-        <CardDescription>View all courses offered by the university.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Code</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Credits</TableHead>
-              <TableHead>Department</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {courses.length > 0 ? (
-              courses.map((course) => (
-                <TableRow key={course.id}>
-                  <TableCell className="font-medium">{course.code}</TableCell>
-                  <TableCell>{course.title}</TableCell>
-                  <TableCell>{course.credits}</TableCell>
-                  <TableCell>{course.department?.name || "Unknown"}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {canManageCourses && onEdit && onDelete && (
-                        <>
-                          <Button variant="ghost" size="icon" onClick={() => onEdit(course)}>
-                            <FileEdit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => onDelete(course.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                  No courses found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+    </div>
   )
 }

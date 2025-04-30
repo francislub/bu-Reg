@@ -1,49 +1,38 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { db } from "@/lib/db"
-import { authOptions } from "@/lib/auth"
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
+    // Get departments
+    const departments = await db.department.findMany()
 
-    // Get current semester
-    const currentSemester = await db.semester.findFirst({
-      where: { isActive: true },
+    // For a real application, you would fetch actual performance data
+    // This is a placeholder that generates random performance data for each department
+    const performanceData = departments.map((dept) => {
+      // Generate random values for demonstration
+      const gpa = Number.parseFloat((2.5 + Math.random() * 1.5).toFixed(2)) // GPA between 2.5 and 4.0
+      const attendance = Number.parseFloat((70 + Math.random() * 30).toFixed(1)) // Attendance between 70% and 100%
+      const passRate = Number.parseFloat((75 + Math.random() * 25).toFixed(1)) // Pass rate between 75% and 100%
+
+      return {
+        department: dept.name,
+        gpa,
+        attendance,
+        passRate,
+      }
     })
-
-    if (!currentSemester) {
-      return NextResponse.json({
-        success: true,
-        message: "No active semester found",
-        performance: [],
-      })
-    }
-
-    // For now, return placeholder data since we don't have actual performance data
-    // In a real implementation, you would query actual performance metrics
-    const performanceData = [
-      { category: "Excellent", count: 25, percentage: 25 },
-      { category: "Good", count: 40, percentage: 40 },
-      { category: "Average", count: 20, percentage: 20 },
-      { category: "Below Average", count: 10, percentage: 10 },
-      { category: "Poor", count: 5, percentage: 5 },
-    ]
 
     return NextResponse.json({
       success: true,
-      performance: performanceData,
-      semesterId: currentSemester.id,
-      semesterName: currentSemester.name,
+      departments: performanceData,
     })
   } catch (error) {
     console.error("Error fetching performance analytics:", error)
     return NextResponse.json(
-      { success: false, message: "An error occurred while fetching performance analytics" },
+      {
+        success: false,
+        message: "Failed to fetch performance analytics",
+      },
       { status: 500 },
     )
   }

@@ -3,6 +3,39 @@
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 
+/**
+ * Get student courses
+ */
+export async function getStudentCourses(userId: string, semesterId?: string) {
+  try {
+    // Validate userId to prevent malformed ObjectID errors
+    if (!userId || userId === "$[id]" || userId.includes("%")) {
+      console.error("Invalid user ID provided:", userId)
+      return { success: false, message: "Invalid user ID provided" }
+    }
+
+    const courseUploads = await db.courseUpload.findMany({
+      where: {
+        userId,
+        semesterId: semesterId ? semesterId : undefined,
+      },
+      include: {
+        course: {
+          include: {
+            department: true,
+          },
+        },
+        semester: true,
+      },
+    })
+
+    return { success: true, courseUploads }
+  } catch (error) {
+    console.error("Error fetching student courses:", error)
+    return { success: false, message: "Failed to fetch student courses" }
+  }
+}
+
 export async function getAllCourses() {
   try {
     const courses = await db.course.findMany({
@@ -131,29 +164,5 @@ export async function deleteCourse(courseId: string) {
   } catch (error) {
     console.error("Error deleting course:", error)
     return { success: false, message: "Failed to delete course" }
-  }
-}
-
-export async function getStudentCourses(userId: string, semesterId?: string) {
-  try {
-    const courseUploads = await db.courseUpload.findMany({
-      where: {
-        userId,
-        semesterId: semesterId ? semesterId : undefined,
-      },
-      include: {
-        course: {
-          include: {
-            department: true,
-          },
-        },
-        semester: true,
-      },
-    })
-
-    return { success: true, courseUploads }
-  } catch (error) {
-    console.error("Error fetching student courses:", error)
-    return { success: false, message: "Failed to fetch student courses" }
   }
 }

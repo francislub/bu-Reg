@@ -1,44 +1,60 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { db } from "@/lib/db"
-import { authOptions } from "@/lib/auth"
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    // Get departments with student and course counts
+    // Get departments with course counts
     const departments = await db.department.findMany({
       include: {
+        courses: {
+          select: {
+            id: true,
+          },
+        },
         _count: {
           select: {
-            students: true,
             courses: true,
+            programs: true,
           },
         },
       },
     })
 
-    // Format the data for the frontend
-    const departmentStats = departments.map((dept) => ({
-      id: dept.id,
+    // Get student counts per department
+    const studentCounts = await db.profile.groupBy({
+      by: ["departmentId"],
+      _count: {
+        _all: true,
+      },
+    })
+
+    // Create a map of department IDs to student counts
+    const departmentStudentCounts = new Map()
+    studentCounts.forEach((count) => {
+      if (count.departmentId) {
+        departmentStudentCounts.set(count.departmentId, count._count._all)
+      }
+    })
+
+    // Format the response
+    const formattedDepartments = departments.map((dept) => ({
       name: dept.name,
-      studentCount: dept._count.students,
-      courseCount: dept._count.courses,
+      students: departmentStudentCounts.get(dept.id) || 0,
+      courses: dept._count.courses,
+      programs: dept._count.programs,
     }))
 
     return NextResponse.json({
       success: true,
-      departments: departmentStats,
+      departments: formattedDepartments,
     })
   } catch (error) {
     console.error("Error fetching department analytics:", error)
     return NextResponse.json(
-      { success: false, message: "An error occurred while fetching department analytics" },
+      {
+        success: false,
+        message: "Failed to fetch department analytics",
+      },
       { status: 500 },
     )
   }

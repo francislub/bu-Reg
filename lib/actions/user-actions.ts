@@ -193,8 +193,17 @@ export async function changePassword(userId: string, currentPassword: string, ne
   }
 }
 
+/**
+ * Get user profile
+ */
 export async function getUserProfile(userId: string) {
   try {
+    // Validate userId to prevent malformed ObjectID errors
+    if (!userId || userId === "$[id]" || userId.includes("%")) {
+      console.error("Invalid user ID provided:", userId)
+      return { success: false, message: "Invalid user ID provided" }
+    }
+
     const user = await db.user.findUnique({
       where: { id: userId },
       include: { profile: true },

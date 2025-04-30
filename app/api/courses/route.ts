@@ -1,61 +1,36 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { db } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { db } from "@/lib/db"
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const courses = await db.course.findMany({
-      include: {
-        department: true,
-        semesterCourses: {
-          include: {
-            semester: true,
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Fetch all courses with better error handling
+    try {
+      const courses = await db.course.findMany({
+        include: {
+          department: true,
+          semesterCourses: {
+            include: {
+              semester: true,
+            },
           },
         },
-      },
-    })
+      })
 
-    return NextResponse.json({ success: true, courses })
-  } catch (error) {
-    console.error("Error fetching courses:", error)
-    return NextResponse.json({ success: false, message: "An error occurred while fetching courses" }, { status: 500 })
-  }
-}
-
-export async function POST(req: Request) {
-  try {
-    // Check if user is authenticated and is staff or registrar
-    const session = await getServerSession(authOptions)
-    if (!session || (session.user.role !== "STAFF" && session.user.role !== "REGISTRAR")) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ courses })
+    } catch (dbError) {
+      console.error("Database error fetching courses:", dbError)
+      return NextResponse.json({ error: "Database error fetching courses", details: dbError.message }, { status: 500 })
     }
-
-    const body = await req.json()
-    const { code, title, credits, description, departmentId } = body
-
-    // Check if course with same code already exists
-    const existingCourse = await db.course.findUnique({
-      where: { code },
-    })
-
-    if (existingCourse) {
-      return NextResponse.json({ success: false, message: "Course with this code already exists" }, { status: 400 })
-    }
-
-    const course = await db.course.create({
-      data: {
-        code,
-        title,
-        credits,
-        description,
-        departmentId,
-      },
-    })
-
-    return NextResponse.json({ success: true, course })
   } catch (error) {
-    console.error("Course creation error:", error)
-    return NextResponse.json({ success: false, message: "An error occurred during course creation" }, { status: 500 })
+    console.error("Error in courses API route:", error)
+    return NextResponse.json({ error: "Failed to fetch courses", details: error.message }, { status: 500 })
   }
 }

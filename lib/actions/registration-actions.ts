@@ -37,6 +37,11 @@ export async function getStudentRegistration(userId: string, semesterId: string)
  */
 export async function registerForSemester(userId: string, semesterId: string) {
   try {
+    // Check if userId and semesterId are valid
+    if (!userId || !semesterId) {
+      return { success: false, message: "Invalid user ID or semester ID provided" }
+    }
+
     // Check if registration already exists
     const existingRegistration = await db.registration.findUnique({
       where: {
@@ -51,13 +56,13 @@ export async function registerForSemester(userId: string, semesterId: string) {
       return { success: false, message: "You are already registered for this semester" }
     }
 
-    // Create new registration
+    // Create new registration without registrationDate field
     const registration = await db.registration.create({
       data: {
         userId,
         semesterId,
         status: "PENDING",
-        registrationDate: new Date(),
+        // Remove registrationDate as it's not in the schema
       },
       include: {
         semester: {
@@ -112,7 +117,7 @@ export async function getRegistrationCard(userId: string, semesterId: string) {
 /**
  * Approve a registration
  */
-export async function approveRegistration(registrationId: string, approverId: string) {
+export async function approveRegistration(registrationId: string) {
   try {
     // Check if registration exists
     const registration = await db.registration.findUnique({
@@ -123,15 +128,14 @@ export async function approveRegistration(registrationId: string, approverId: st
       return { success: false, message: "Registration not found" }
     }
 
-    // Update registration status
+    // Update registration status - fix the syntax and remove approvedAt which isn't in the schema
     const updatedRegistration = await db.registration.update({
       where: {
         id: registrationId,
       },
       data: {
         status: "APPROVED",
-        approvedById: approverId,
-        approvedAt: new Date(),
+        // Remove approvedById and approvedAt if they're not in your schema
       },
     })
 
@@ -174,7 +178,7 @@ export async function approveRegistration(registrationId: string, approverId: st
 /**
  * Reject a registration
  */
-export async function rejectRegistration(registrationId: string, approverId: string) {
+export async function rejectRegistration(registrationId: string, rejectionReason: string) {
   try {
     // Check if registration exists
     const registration = await db.registration.findUnique({
@@ -192,8 +196,8 @@ export async function rejectRegistration(registrationId: string, approverId: str
       },
       data: {
         status: "REJECTED",
-        approvedById: approverId,
-        approvedAt: new Date(),
+        rejectionReason: rejectionReason || "No reason provided",
+        // Remove approvedById and approvedAt if they're not in your schema
       },
     })
 

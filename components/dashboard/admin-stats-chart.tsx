@@ -17,6 +17,7 @@ import {
   CartesianGrid,
   Tooltip as ChartTooltip,
   Legend,
+  Tooltip,
 } from "recharts"
 
 interface EnrollmentData {
@@ -109,7 +110,7 @@ export function AdminStatsChart() {
         const data = await response.json()
 
         if (data.success) {
-          setPerformanceData(data.departments)
+          setPerformanceData(data.departments || [])
         } else {
           throw new Error(data.message || "Failed to fetch performance data")
         }
@@ -214,23 +215,21 @@ export function AdminStatsChart() {
             </TabsContent>
             <TabsContent value="performance">
               <div className="h-[300px]">
-                {performanceData.length > 0 ? (
+                {performanceData && performanceData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={performanceData}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="department" />
-                      <YAxis yAxisId="left" orientation="left" stroke="#8b5cf6" />
-                      <YAxis yAxisId="right" orientation="right" stroke="#3b82f6" />
-                      <ChartTooltip />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
                       <Legend />
-                      <Bar yAxisId="left" dataKey="gpa" name="Avg. GPA" fill="#8b5cf6" />
-                      <Bar yAxisId="left" dataKey="attendance" name="Attendance %" fill="#06b6d4" />
-                      <Line yAxisId="right" type="monotone" dataKey="passRate" name="Pass Rate (%)" stroke="#3b82f6" />
+                      <Bar dataKey="attendance" fill="#8884d8" />
+                      <Line type="monotone" dataKey="grades" stroke="#ff7300" />
                     </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex h-full items-center justify-center text-muted-foreground">
-                    No performance data available
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-muted-foreground">No performance data available</p>
                   </div>
                 )}
               </div>
