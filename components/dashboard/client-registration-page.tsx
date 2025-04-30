@@ -79,7 +79,7 @@ type Registration = {
     startDate: string
     endDate: string
   }
-  courseUploads: CourseUpload[]
+  courseUploads?: CourseUpload[]
 }
 
 type ClientRegistrationPageProps = {
@@ -87,7 +87,10 @@ type ClientRegistrationPageProps = {
   availableCourses: Course[]
 }
 
-export default function ClientRegistrationPage({ initialRegistration, availableCourses }: ClientRegistrationPageProps) {
+export default function ClientRegistrationPage({
+  initialRegistration,
+  availableCourses = [],
+}: ClientRegistrationPageProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [registration, setRegistration] = useState<Registration | null>(initialRegistration)
@@ -99,8 +102,8 @@ export default function ClientRegistrationPage({ initialRegistration, availableC
   const [showPrintCard, setShowPrintCard] = useState(false)
 
   // Filter out courses that are already registered
-  const registeredCourseIds = registration?.courseUploads.map((upload) => upload.courseId) || []
-  const availableCoursesToAdd = availableCourses.filter((course) => !registeredCourseIds.includes(course.id))
+  const registeredCourseIds = registration?.courseUploads?.map((upload) => upload.courseId) || []
+  const availableCoursesToAdd = availableCourses?.filter((course) => !registeredCourseIds.includes(course.id)) || []
 
   const handleCourseSelection = (courseId: string) => {
     setSelectedCourses((prev) => {
@@ -189,7 +192,7 @@ export default function ClientRegistrationPage({ initialRegistration, availableC
           description: "Course dropped successfully",
         })
         // Update local state
-        if (registration) {
+        if (registration && registration.courseUploads) {
           setRegistration({
             ...registration,
             courseUploads: registration.courseUploads.filter((upload) => upload.id !== courseToDelete),
@@ -218,7 +221,7 @@ export default function ClientRegistrationPage({ initialRegistration, availableC
   const handleSubmitRegistration = async () => {
     if (!registration) return
 
-    if (registration.courseUploads.length === 0) {
+    if (!registration.courseUploads || registration.courseUploads.length === 0) {
       toast({
         title: "No courses selected",
         description: "Please add at least one course to your registration",
@@ -269,7 +272,7 @@ export default function ClientRegistrationPage({ initialRegistration, availableC
 
   // Calculate total credit hours
   const totalCreditHours =
-    registration?.courseUploads.reduce((total, upload) => total + (upload.course.creditHours || 0), 0) || 0
+    registration?.courseUploads?.reduce((total, upload) => total + (upload.course.creditHours || 0), 0) || 0
 
   return (
     <div className="space-y-6">
@@ -331,7 +334,7 @@ export default function ClientRegistrationPage({ initialRegistration, availableC
                 <TabsTrigger value="registered">
                   Registered Courses{" "}
                   <Badge variant="secondary" className="ml-2">
-                    {registration.courseUploads.length}
+                    {registration.courseUploads?.length || 0}
                   </Badge>
                 </TabsTrigger>
                 <TabsTrigger value="available">
@@ -349,7 +352,7 @@ export default function ClientRegistrationPage({ initialRegistration, availableC
                     <CardDescription>Courses you have registered for {registration.semester.name}</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {registration.courseUploads.length === 0 ? (
+                    {!registration.courseUploads || registration.courseUploads.length === 0 ? (
                       <div className="text-center py-8">
                         <BookOpen className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
                         <p className="mt-2 text-muted-foreground">No courses registered yet</p>
@@ -386,11 +389,11 @@ export default function ClientRegistrationPage({ initialRegistration, availableC
                   </CardContent>
                   <CardFooter className="flex justify-between">
                     <p className="text-sm text-muted-foreground">
-                      {registration.courseUploads.length} courses registered
+                      {registration.courseUploads?.length || 0} courses registered
                     </p>
                     <Button
                       onClick={handleSubmitRegistration}
-                      disabled={registration.courseUploads.length === 0 || isSubmitting}
+                      disabled={!registration.courseUploads || registration.courseUploads.length === 0 || isSubmitting}
                     >
                       {isSubmitting ? (
                         <>
@@ -506,30 +509,36 @@ export default function ClientRegistrationPage({ initialRegistration, availableC
                   <div>
                     <h3 className="text-lg font-medium mb-2">Registered Courses</h3>
                     <div className="space-y-4">
-                      {registration.courseUploads.map((upload) => (
-                        <div key={upload.id} className="flex items-center justify-between p-4 border rounded-md">
-                          <div>
-                            <p className="font-medium">
-                              {upload.course.code}: {upload.course.name}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {upload.course.creditHours} Credit Hours • {upload.course.department.name}
-                            </p>
-                          </div>
-                          <Badge
-                            variant="outline"
-                            className={
-                              upload.status === "APPROVED"
-                                ? "bg-green-100 text-green-800 hover:bg-green-100"
-                                : upload.status === "REJECTED"
-                                  ? "bg-red-100 text-red-800 hover:bg-red-100"
-                                  : "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-                            }
-                          >
-                            {upload.status}
-                          </Badge>
+                      {!registration.courseUploads || registration.courseUploads.length === 0 ? (
+                        <div className="text-center py-4">
+                          <p className="text-muted-foreground">No courses registered</p>
                         </div>
-                      ))}
+                      ) : (
+                        registration.courseUploads.map((upload) => (
+                          <div key={upload.id} className="flex items-center justify-between p-4 border rounded-md">
+                            <div>
+                              <p className="font-medium">
+                                {upload.course.code}: {upload.course.name}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {upload.course.creditHours} Credit Hours • {upload.course.department.name}
+                              </p>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={
+                                upload.status === "APPROVED"
+                                  ? "bg-green-100 text-green-800 hover:bg-green-100"
+                                  : upload.status === "REJECTED"
+                                    ? "bg-red-100 text-red-800 hover:bg-red-100"
+                                    : "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                              }
+                            >
+                              {upload.status}
+                            </Badge>
+                          </div>
+                        ))
+                      )}
 
                       <div className="flex justify-between items-center p-4 border-t">
                         <div>

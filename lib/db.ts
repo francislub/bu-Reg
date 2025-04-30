@@ -13,8 +13,7 @@ export const db =
         url: process.env.DATABASE_URL,
       },
     },
-    // Add connection timeout settings
-    connectionTimeout: 20000, // 20 seconds
+    // Remove the unsupported connectionTimeout property
   })
 
 // Handle connection errors

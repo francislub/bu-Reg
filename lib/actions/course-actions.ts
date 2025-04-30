@@ -50,7 +50,7 @@ export async function getAllCourses() {
     return { success: true, courses }
   } catch (error) {
     console.error("Error fetching courses:", error)
-    return { success: false, message: "Failed to fetch courses" }
+    return { success: false, message: "Failed to fetch courses", error: error.message }
   }
 }
 

@@ -38,9 +38,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[240px_1fr] lg:grid-cols-[280px_1fr]">
       {renderSidebar()}
-      <div className="flex flex-col">
+      <div className="flex flex-col w-full">
         <DashboardHeader onSidebarOpen={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-6 pt-16">{children}</main>
+        <main className="flex-1 w-full overflow-y-auto p-6 pt-16">{children}</main>
       </div>
     </div>
   )
