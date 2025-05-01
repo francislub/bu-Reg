@@ -209,7 +209,7 @@ export default function AboutPage() {
                 <Image src="/images/palm-girls.jpg" alt="Library" fill className="object-cover" />
               </div>
               <div className="relative h-48 rounded-lg overflow-hidden shadow-md">
-                <Image src="/campus.jpg" alt="Sports Field" fill className="object-cover" />
+                <Image src="/images/aerial2.png" alt="Sports Field" fill className="object-cover" />
               </div>
             </div>
           </div>

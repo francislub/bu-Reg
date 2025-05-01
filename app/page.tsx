@@ -22,9 +22,9 @@ export default function Home() {
                 </Button>
               </Link>
               <Link href="/academics">
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
-                  Explore Programs
-                </Button>
+              <Button size="lg" variant="outline" className="border-white text-black hover:bg-white/10">
+                Explore Programs
+              </Button>
               </Link>
             </div>
           </div>
@@ -293,7 +293,7 @@ export default function Home() {
               </Button>
             </Link>
             <Link href="/contact">
-              <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
+              <Button size="lg" variant="outline" className="border-white text-black hover:bg-white/10">
                 Contact Us
               </Button>
             </Link>
