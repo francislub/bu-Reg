@@ -55,7 +55,7 @@ export default function AboutPage() {
             </div>
             <div className="relative h-[400px] rounded-lg overflow-hidden shadow-lg">
               <Image
-                src="/images/history.jpg"
+                src="/images/buadmin.jpg"
                 alt="Historical photo of Bugema University"
                 fill
                 className="object-cover"
@@ -200,16 +200,16 @@ export default function AboutPage() {
             </div>
             <div className="order-1 md:order-2 grid grid-cols-2 gap-4">
               <div className="relative h-48 rounded-lg overflow-hidden shadow-md">
-                <Image src="/images/campus1.jpg" alt="Campus Building" fill className="object-cover" />
+                <Image src="/images/nurses1.jpg" alt="Campus Building" fill className="object-cover" />
               </div>
               <div className="relative h-48 rounded-lg overflow-hidden shadow-md">
-                <Image src="/images/campus2.jpg" alt="Campus Garden" fill className="object-cover" />
+                <Image src="/images/grad.jpg" alt="Campus Garden" fill className="object-cover" />
               </div>
               <div className="relative h-48 rounded-lg overflow-hidden shadow-md">
-                <Image src="/images/campus3.jpg" alt="Library" fill className="object-cover" />
+                <Image src="/images/palm-girls.jpg" alt="Library" fill className="object-cover" />
               </div>
               <div className="relative h-48 rounded-lg overflow-hidden shadow-md">
-                <Image src="/images/campus4.jpg" alt="Sports Field" fill className="object-cover" />
+                <Image src="/campus.jpg" alt="Sports Field" fill className="object-cover" />
               </div>
             </div>
           </div>
