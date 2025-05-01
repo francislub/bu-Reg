@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -93,11 +93,11 @@ export default function RegisterPage() {
   })
 
   // Fetch programs on component mount
-  useState(() => {
+  useEffect(() => {
     const fetchPrograms = async () => {
       try {
         setIsLoadingPrograms(true)
-        const response = await fetch("/api/programs")
+        const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/api/programs`)
         const data = await response.json()
 
         if (data.success) {
@@ -113,7 +113,7 @@ export default function RegisterPage() {
     }
 
     fetchPrograms()
-  })
+  }, [])
 
   function nextStep() {
     const fieldsToValidate =
@@ -140,7 +140,7 @@ export default function RegisterPage() {
   async function onSubmit(data: RegisterFormValues) {
     setIsLoading(true)
     try {
-      const response = await fetch("/api/register", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/api/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
