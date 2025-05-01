@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
-import PrintRegistrationCard from "@/components/dashboard/print-registration-card"
+import { PrintRegistrationCard } from "@/components/dashboard/print-registration-card"
 
 export const metadata: Metadata = {
   title: "Registration Card",
