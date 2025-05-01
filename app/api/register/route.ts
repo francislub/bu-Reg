@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { hash } from "bcryptjs"
 import { db } from "@/lib/db"
+import { sendWelcomeEmail } from "@/lib/email" // Add this import
 
 export async function POST(req: Request) {
   try {
@@ -51,6 +52,14 @@ export async function POST(req: Request) {
         profileId: profile.id,
       },
     })
+
+    // Send welcome email
+    try {
+      await sendWelcomeEmail(email, name)
+    } catch (emailError) {
+      console.error("Failed to send welcome email:", emailError)
+      // Continue with registration even if email fails
+    }
 
     return NextResponse.json({
       success: true,

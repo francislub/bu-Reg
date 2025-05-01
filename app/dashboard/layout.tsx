@@ -27,7 +27,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen flex-col w-full">
+      <div className="flex min-h-screen flex-col">
         <SiteHeader>
           <div className="flex items-center">
             <SidebarToggle />
@@ -47,8 +47,8 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
             {userRole === "STAFF" && <StaffSidebar />}
             {userRole === "STUDENT" && <StudentSidebar />}
           </div>
-          <SidebarInset className="ml-0 w-full">
-            <main className="flex w-full flex-1 flex-col overflow-hidden p-6">{children}</main>
+          <SidebarInset className="ml-0 md:ml-56 sm:w-[300px] md:w-[600px] lg:w-[1100px]">
+            <main className="flex flex-1 flex-col overflow-hidden p-6">{children}</main>
 
           </SidebarInset>
         </div>

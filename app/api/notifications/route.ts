@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { db } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { sendEmail } from "@/lib/email"
 
 export async function GET(req: Request) {
   try {
@@ -74,6 +75,39 @@ export async function POST(req: Request) {
         isRead: false,
       },
     })
+
+    if (notification.user?.email) {
+      try {
+        await sendEmail({
+          to: notification.user.email,
+          subject: `Notification: ${notification.title}`,
+          text: notification.message,
+          html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #1e3a8a; padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0;">Bugema University</h1>
+          </div>
+          <div style="padding: 20px; border: 1px solid #e5e7eb; border-top: none;">
+            <h2>${notification.title}</h2>
+            <p>${notification.message}</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/notifications" 
+                 style="background-color: #1e3a8a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+                View Notification
+              </a>
+            </div>
+          </div>
+          <div style="background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; color: #6b7280;">
+            <p>© ${new Date().getFullYear()} Bugema University. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+        })
+      } catch (emailError) {
+        console.error("Failed to send notification email:", emailError)
+        // Continue even if email fails
+      }
+    }
 
     return NextResponse.json({ success: true, notification })
   } catch (error) {

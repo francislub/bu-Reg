@@ -129,3 +129,193 @@ export async function sendPasswordResetEmail(email: string, token: string) {
     return { success: false, error }
   }
 }
+
+// Add these new email notification functions after the existing functions
+
+export async function sendWelcomeEmail(email: string, name: string) {
+  const mailOptions = {
+    to: email,
+    subject: "Welcome to Bugema University Portal",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #1e3a8a; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Bugema University</h1>
+        </div>
+        <div style="padding: 20px; border: 1px solid #e5e7eb; border-top: none;">
+          <h2>Welcome to Bugema University!</h2>
+          <p>Dear ${name},</p>
+          <p>Thank you for creating an account on the Bugema University portal. We're excited to have you join our community!</p>
+          <p>With your new account, you can:</p>
+          <ul>
+            <li>Register for courses</li>
+            <li>View your academic records</li>
+            <li>Access university announcements</li>
+            <li>Manage your student profile</li>
+          </ul>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/auth/login" style="background-color: #1e3a8a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Login to Your Account</a>
+          </div>
+          <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
+        </div>
+        <div style="background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; color: #6b7280;">
+          <p>© ${new Date().getFullYear()} Bugema University. All rights reserved.</p>
+        </div>
+      </div>
+    `,
+  }
+
+  try {
+    const result = await sendEmail({
+      to: mailOptions.to,
+      subject: mailOptions.subject,
+      html: mailOptions.html,
+      text: mailOptions.html,
+    })
+    return { success: true, messageId: result.messageId }
+  } catch (error) {
+    console.error("Error sending welcome email:", error)
+    return { success: false, error }
+  }
+}
+
+export async function sendLoginNotificationEmail(
+  email: string,
+  name: string,
+  loginTime: Date,
+  ipAddress: string,
+  deviceInfo: string,
+) {
+  const mailOptions = {
+    to: email,
+    subject: "New Login to Your Bugema University Account",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #1e3a8a; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Bugema University</h1>
+        </div>
+        <div style="padding: 20px; border: 1px solid #e5e7eb; border-top: none;">
+          <h2>New Account Login</h2>
+          <p>Dear ${name},</p>
+          <p>We detected a new login to your Bugema University account.</p>
+          <div style="background-color: #f3f4f6; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <p><strong>Login Details:</strong></p>
+            <ul style="list-style-type: none; padding-left: 0;">
+              <li><strong>Time:</strong> ${loginTime.toLocaleString()}</li>
+              <li><strong>IP Address:</strong> ${ipAddress}</li>
+              <li><strong>Device:</strong> ${deviceInfo}</li>
+            </ul>
+          </div>
+          <p>If this was you, no action is needed. If you did not log in at this time, please contact our IT support immediately to secure your account.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Reset Your Password</a>
+          </div>
+        </div>
+        <div style="background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; color: #6b7280;">
+          <p>© ${new Date().getFullYear()} Bugema University. All rights reserved.</p>
+        </div>
+      </div>
+    `,
+  }
+
+  try {
+    const result = await sendEmail({
+      to: mailOptions.to,
+      subject: mailOptions.subject,
+      html: mailOptions.html,
+      text: mailOptions.html,
+    })
+    return { success: true, messageId: result.messageId }
+  } catch (error) {
+    console.error("Error sending login notification email:", error)
+    return { success: false, error }
+  }
+}
+
+export async function sendAnnouncementNotificationEmail(
+  email: string,
+  name: string,
+  announcement: { title: string; content: string },
+) {
+  const mailOptions = {
+    to: email,
+    subject: `New Announcement: ${announcement.title}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #1e3a8a; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Bugema University</h1>
+        </div>
+        <div style="padding: 20px; border: 1px solid #e5e7eb; border-top: none;">
+          <h2>New Announcement</h2>
+          <p>Dear ${name},</p>
+          <p>A new announcement has been posted on the Bugema University portal:</p>
+          <div style="background-color: #f3f4f6; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">${announcement.title}</h3>
+            <div>${announcement.content}</div>
+          </div>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/announcements" style="background-color: #1e3a8a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View All Announcements</a>
+          </div>
+        </div>
+        <div style="background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; color: #6b7280;">
+          <p>© ${new Date().getFullYear()} Bugema University. All rights reserved.</p>
+        </div>
+      </div>
+    `,
+  }
+
+  try {
+    const result = await sendEmail({
+      to: mailOptions.to,
+      subject: mailOptions.subject,
+      html: mailOptions.html,
+      text: mailOptions.html,
+    })
+    return { success: true, messageId: result.messageId }
+  } catch (error) {
+    console.error("Error sending announcement notification email:", error)
+    return { success: false, error }
+  }
+}
+
+export async function sendRegistrationDeadlineEmail(email: string, name: string, semester: string, deadline: Date) {
+  const mailOptions = {
+    to: email,
+    subject: `Registration Deadline Reminder: ${semester}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #1e3a8a; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Bugema University</h1>
+        </div>
+        <div style="padding: 20px; border: 1px solid #e5e7eb; border-top: none;">
+          <h2>Registration Deadline Reminder</h2>
+          <p>Dear ${name},</p>
+          <p>This is a friendly reminder that the registration deadline for <strong>${semester}</strong> is approaching.</p>
+          <div style="background-color: #f3f4f6; padding: 15px; border-radius: 4px; margin: 20px 0; text-align: center;">
+            <p style="font-size: 18px; margin: 0;"><strong>Deadline:</strong> ${deadline.toLocaleDateString()} at ${deadline.toLocaleTimeString()}</p>
+          </div>
+          <p>Please ensure you complete your course registration before the deadline to avoid late registration fees or other penalties.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/registration" style="background-color: #1e3a8a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Complete Registration</a>
+          </div>
+          <p>If you have already completed your registration, please disregard this message.</p>
+        </div>
+        <div style="background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; color: #6b7280;">
+          <p>© ${new Date().getFullYear()} Bugema University. All rights reserved.</p>
+        </div>
+      </div>
+    `,
+  }
+
+  try {
+    const result = await sendEmail({
+      to: mailOptions.to,
+      subject: mailOptions.subject,
+      html: mailOptions.html,
+      text: mailOptions.html,
+    })
+    return { success: true, messageId: result.messageId }
+  } catch (error) {
+    console.error("Error sending registration deadline email:", error)
+    return { success: false, error }
+  }
+}

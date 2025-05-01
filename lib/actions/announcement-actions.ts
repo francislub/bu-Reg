@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { sendAnnouncementNotificationEmail } from "@/lib/emails/announcement-notification-email"
 
 /**
  * Get all announcements with optional pagination and filtering
@@ -98,9 +99,8 @@ export async function getAnnouncementById(id: string) {
   }
 }
 
-/**
- * Create a new announcement
- */
+// Update the createAnnouncement function to send emails to all users
+
 export async function createAnnouncement(data: { title: string; content: string }) {
   try {
     // Get the current user session
@@ -119,6 +119,48 @@ export async function createAnnouncement(data: { title: string; content: string 
         authorId: session.user.id, // This is required in the schema
       },
     })
+
+    // Send notification emails to all users
+    try {
+      // Get all active users
+      const users = await db.user.findMany({
+        where: {
+          // You can add filters here if needed, e.g., only active users
+        },
+        include: {
+          profile: true,
+        },
+      })
+
+      // Send emails in batches to avoid overwhelming the email server
+      const batchSize = 50
+      for (let i = 0; i < users.length; i += batchSize) {
+        const batch = users.slice(i, i + batchSize)
+
+        // Process each user in the batch
+        await Promise.all(
+          batch.map(async (user) => {
+            if (user.email) {
+              try {
+                await sendAnnouncementNotificationEmail(
+                  user.email,
+                  user.profile ? `${user.profile.firstName} ${user.profile.lastName}` : user.name,
+                  {
+                    title: data.title,
+                    content: data.content,
+                  },
+                )
+              } catch (error) {
+                console.error(`Failed to send announcement email to ${user.email}:`, error)
+              }
+            }
+          }),
+        )
+      }
+    } catch (emailError) {
+      console.error("Error sending announcement notifications:", emailError)
+      // Continue even if emails fail
+    }
 
     // Revalidate the announcements page to show the new announcement
     revalidatePath("/dashboard/announcements")
