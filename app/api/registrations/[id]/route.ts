@@ -3,27 +3,21 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-
     if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const registrationId = params.id
-
     const registration = await db.registration.findUnique({
-      where: {
-        id: registrationId,
-      },
+      where: { id: params.id },
       include: {
         user: {
           select: {
             id: true,
             name: true,
             email: true,
-            profile: true,
           },
         },
         semester: {
@@ -33,169 +27,201 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         },
         courseUploads: {
           include: {
-            course: true,
+            course: {
+              include: {
+                department: true,
+              },
+            },
           },
         },
       },
     })
 
     if (!registration) {
-      return new NextResponse("Registration not found", { status: 404 })
+      return NextResponse.json({ error: "Registration not found" }, { status: 404 })
     }
 
-    // Check if user has permission to view this registration
+    // Authorization check: only the user, admin or registrar can view
     if (registration.userId !== session.user.id && session.user.role !== "ADMIN" && session.user.role !== "REGISTRAR") {
-      return new NextResponse("Forbidden", { status: 403 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
     return NextResponse.json(registration)
   } catch (error) {
-    console.error("[REGISTRATION_GET]", error)
-    return new NextResponse("Internal Error", { status: 500 })
+    console.error("Error fetching registration:", error)
+    return NextResponse.json({ error: "Failed to fetch registration" }, { status: 500 })
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-
     if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const registrationId = params.id
-    const body = await req.json()
-    const { courseIds } = body
-
-    // Get the existing registration
-    const registration = await db.registration.findUnique({
-      where: {
-        id: registrationId,
-      },
+    // Get existing registration
+    const existingRegistration = await db.registration.findUnique({
+      where: { id: params.id },
       include: {
         courseUploads: true,
       },
     })
 
-    if (!registration) {
-      return new NextResponse("Registration not found", { status: 404 })
+    if (!existingRegistration) {
+      return NextResponse.json({ error: "Registration not found" }, { status: 404 })
     }
 
-    // Check if user has permission to update this registration
-    if (registration.userId !== session.user.id && session.user.role !== "ADMIN" && session.user.role !== "REGISTRAR") {
-      return new NextResponse("Forbidden", { status: 403 })
+    // Authorization check: only the user, admin or registrar can update
+    if (
+      existingRegistration.userId !== session.user.id &&
+      session.user.role !== "ADMIN" &&
+      session.user.role !== "REGISTRAR"
+    ) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    // Check if registration can be updated (not already approved or rejected)
-    if (registration.status === "APPROVED" || registration.status === "REJECTED") {
-      return new NextResponse(`Cannot update registration with status: ${registration.status}`, { status: 400 })
+    // Status check: can't update approved/rejected registrations
+    if (existingRegistration.status === "APPROVED" || existingRegistration.status === "REJECTED") {
+      return NextResponse.json(
+        {
+          error: `Cannot update a registration with status ${existingRegistration.status}`,
+        },
+        { status: 400 },
+      )
     }
 
-    // Delete existing course uploads
-    await db.courseUpload.deleteMany({
+    // Parse request body
+    const body = await request.json()
+    const { courseIds } = body
+
+    if (!courseIds || !Array.isArray(courseIds)) {
+      return NextResponse.json({ error: "Invalid course IDs" }, { status: 400 })
+    }
+
+    // Check credit units total - maximum allowed is 24
+    const courses = await db.course.findMany({
       where: {
-        registrationId,
+        id: {
+          in: courseIds,
+        },
       },
     })
 
-    // Create new course uploads
-    const courseUploads = await Promise.all(
-      courseIds.map(async (courseId: string) => {
-        return db.courseUpload.create({
-          data: {
-            registrationId,
-            courseId,
-            userId: registration.userId,
-            semesterId: registration.semesterId,
-            status: "PENDING",
-          },
-        })
-      }),
-    )
+    const totalCredits = courses.reduce((sum, course) => sum + course.credits, 0)
 
-    // Update registration status to PENDING if it was DRAFT
-    if (registration.status === "DRAFT") {
-      await db.registration.update({
-        where: {
-          id: registrationId,
+    if (totalCredits > 24) {
+      return NextResponse.json(
+        {
+          error: "Total credit units exceed the maximum of 24",
+          totalCredits,
         },
-        data: {
-          status: "PENDING",
+        { status: 400 },
+      )
+    }
+
+    // Transaction to update registration
+    const registration = await db.$transaction(async (tx) => {
+      // 1. Delete all existing course uploads
+      await tx.courseUpload.deleteMany({
+        where: {
+          registrationId: params.id,
         },
       })
-    }
 
-    // Create a notification for the student
-    await db.notification.create({
-      data: {
-        userId: registration.userId,
-        title: "Registration Updated",
-        message: "Your course registration has been updated and is pending approval.",
-        type: "INFO",
-      },
+      // 2. Update the registration
+      const updatedRegistration = await tx.registration.update({
+        where: {
+          id: params.id,
+        },
+        data: {
+          status: "PENDING", // Reset to pending on update
+          updatedAt: new Date(),
+          courseUploads: {
+            create: courseIds.map((courseId: string) => ({
+              courseId,
+              userId: existingRegistration.userId,
+              semesterId: existingRegistration.semesterId,
+              status: "PENDING",
+            })),
+          },
+        },
+        include: {
+          user: true,
+          semester: true,
+          courseUploads: {
+            include: {
+              course: true,
+            },
+          },
+        },
+      })
+
+      return updatedRegistration
     })
 
-    return NextResponse.json({
-      success: true,
-      courseUploads,
-    })
+    return NextResponse.json(registration)
   } catch (error) {
-    console.error("[REGISTRATION_PUT]", error)
-    return new NextResponse("Internal Error", { status: 500 })
+    console.error("Error updating registration:", error)
+    return NextResponse.json({ error: "Failed to update registration" }, { status: 500 })
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-
     if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const registrationId = params.id
-
-    // Get the existing registration
-    const registration = await db.registration.findUnique({
-      where: {
-        id: registrationId,
-      },
+    // Get existing registration
+    const existingRegistration = await db.registration.findUnique({
+      where: { id: params.id },
     })
 
-    if (!registration) {
-      return new NextResponse("Registration not found", { status: 404 })
+    if (!existingRegistration) {
+      return NextResponse.json({ error: "Registration not found" }, { status: 404 })
     }
 
-    // Check if user has permission to delete this registration
-    if (registration.userId !== session.user.id && session.user.role !== "ADMIN" && session.user.role !== "REGISTRAR") {
-      return new NextResponse("Forbidden", { status: 403 })
+    // Authorization check: only the user, admin or registrar can delete
+    if (
+      existingRegistration.userId !== session.user.id &&
+      session.user.role !== "ADMIN" &&
+      session.user.role !== "REGISTRAR"
+    ) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    // Check if registration can be deleted (not already approved)
-    if (registration.status === "APPROVED") {
-      return new NextResponse("Cannot delete an approved registration", { status: 400 })
+    // Status check: can't delete approved registrations
+    if (existingRegistration.status === "APPROVED") {
+      return NextResponse.json(
+        {
+          error: "Cannot delete an approved registration",
+        },
+        { status: 400 },
+      )
     }
 
-    // Delete course uploads first
-    await db.courseUpload.deleteMany({
-      where: {
-        registrationId,
-      },
+    // Transaction to delete registration
+    await db.$transaction(async (tx) => {
+      // 1. Delete all course uploads
+      await tx.courseUpload.deleteMany({
+        where: {
+          registrationId: params.id,
+        },
+      })
+
+      // 2. Delete the registration
+      await tx.registration.delete({
+        where: {
+          id: params.id,
+        },
+      })
     })
 
-    // Delete the registration
-    await db.registration.delete({
-      where: {
-        id: registrationId,
-      },
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: "Registration deleted successfully",
-    })
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[REGISTRATION_DELETE]", error)
-    return new NextResponse("Internal Error", { status: 500 })
+    console.error("Error deleting registration:", error)
+    return NextResponse.json({ error: "Failed to delete registration" }, { status: 500 })
   }
 }

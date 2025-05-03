@@ -5,13 +5,15 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/components/ui/use-toast"
-import { AlertCircle, CheckCircle2, Clock } from "lucide-react"
+import { AlertCircle, BookOpen, CheckCircle2, Clock, Plus, Minus, AlertTriangle, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Progress } from "@/components/ui/progress"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface Course {
   id: string
@@ -19,6 +21,9 @@ interface Course {
   title: string
   credits: number
   description?: string
+  department?: {
+    name: string
+  }
 }
 
 interface Semester {
@@ -49,6 +54,9 @@ interface SemesterRegistrationClientProps {
   existingRegistrations: Registration[]
 }
 
+// Maximum allowed credit units
+const MAX_CREDITS = 24
+
 export function SemesterRegistrationClient({
   semesters = [],
   programId,
@@ -62,6 +70,8 @@ export function SemesterRegistrationClient({
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [existingRegistration, setExistingRegistration] = useState<Registration | null>(null)
+  const [currentTab, setCurrentTab] = useState<string>("add")
+  const [totalCredits, setTotalCredits] = useState<number>(0)
 
   // Check if user already has a registration for the selected semester
   useEffect(() => {
@@ -102,14 +112,46 @@ export function SemesterRegistrationClient({
     }
   }, [selectedSemester, programId])
 
-  const handleCourseToggle = (courseId: string) => {
-    setSelectedCourses((prev) => {
-      if (prev.includes(courseId)) {
-        return prev.filter((id) => id !== courseId)
-      } else {
-        return [...prev, courseId]
+  // Calculate total credits whenever selected courses change
+  useEffect(() => {
+    const calculateTotalCredits = () => {
+      let total = 0
+
+      selectedCourses.forEach((courseId) => {
+        const course = availableCourses.find((c) => c.id === courseId)
+        if (course) {
+          total += course.credits
+        }
+      })
+
+      setTotalCredits(total)
+    }
+
+    calculateTotalCredits()
+  }, [selectedCourses, availableCourses])
+
+  const handleAddCourse = (courseId: string) => {
+    const courseToAdd = availableCourses.find((c) => c.id === courseId)
+
+    if (courseToAdd) {
+      const newTotalCredits = totalCredits + courseToAdd.credits
+
+      // Check if adding this course would exceed credit limit
+      if (newTotalCredits > MAX_CREDITS) {
+        toast({
+          title: "Credit Limit Exceeded",
+          description: `Adding this course would exceed the maximum ${MAX_CREDITS} credit units allowed.`,
+          variant: "destructive",
+        })
+        return
       }
-    })
+
+      setSelectedCourses((prev) => [...prev, courseId])
+    }
+  }
+
+  const handleDropCourse = (courseId: string) => {
+    setSelectedCourses((prev) => prev.filter((id) => id !== courseId))
   }
 
   const handleSubmit = async () => {
@@ -126,6 +168,16 @@ export function SemesterRegistrationClient({
       toast({
         title: "Error",
         description: "Please select at least one course",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Final credit check before submission
+    if (totalCredits > MAX_CREDITS) {
+      toast({
+        title: "Credit Limit Exceeded",
+        description: `Your selected courses exceed the maximum ${MAX_CREDITS} credit units allowed.`,
         variant: "destructive",
       })
       return
@@ -207,12 +259,20 @@ export function SemesterRegistrationClient({
     }
   }
 
+  const getCreditProgressColor = () => {
+    if (totalCredits > MAX_CREDITS) return "bg-red-500"
+    if (totalCredits > MAX_CREDITS * 0.8) return "bg-amber-500"
+    return "bg-green-500"
+  }
+
+  const isReadOnly = existingRegistration?.status === "APPROVED" || existingRegistration?.status === "REJECTED"
+
   return (
     <div className="grid gap-6">
       <Card>
         <CardHeader>
           <CardTitle>Course Registration</CardTitle>
-          <CardDescription>Select a semester and courses to register for</CardDescription>
+          <CardDescription>Add and drop courses for the semester (Maximum: 24 credit units)</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6">
@@ -246,48 +306,161 @@ export function SemesterRegistrationClient({
 
             {selectedSemester && (
               <>
-                <div>
-                  <h3 className="mb-3 font-medium">Available Courses</h3>
-                  <Separator className="mb-4" />
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">Credit Units</h3>
+                    <span className={`text-sm font-medium ${totalCredits > MAX_CREDITS ? "text-red-500" : ""}`}>
+                      {totalCredits} / {MAX_CREDITS} credits
+                    </span>
+                  </div>
+                  <Progress value={(totalCredits / MAX_CREDITS) * 100} className={getCreditProgressColor()} />
 
-                  {loading ? (
-                    <div className="flex justify-center p-4">
-                      <p>Loading courses...</p>
-                    </div>
-                  ) : availableCourses.length === 0 ? (
-                    <div className="rounded-md border p-4 text-center">
-                      <p className="text-muted-foreground">No courses available for this semester</p>
-                    </div>
-                  ) : (
-                    <ScrollArea className="h-[300px]">
-                      <div className="space-y-4">
-                        {availableCourses.map((course) => (
-                          <div key={course.id} className="flex items-start space-x-3 rounded-md border p-3">
-                            <Checkbox
-                              id={`course-${course.id}`}
-                              checked={selectedCourses.includes(course.id)}
-                              onCheckedChange={() => handleCourseToggle(course.id)}
-                              disabled={
-                                submitting ||
-                                existingRegistration?.status === "APPROVED" ||
-                                existingRegistration?.status === "REJECTED"
-                              }
-                            />
-                            <div className="grid gap-1">
-                              <Label htmlFor={`course-${course.id}`} className="font-medium">
-                                {course.code} - {course.title}
-                              </Label>
-                              <p className="text-sm text-muted-foreground">{course.credits} credits</p>
-                              {course.description && (
-                                <p className="text-sm text-muted-foreground">{course.description}</p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
+                  {totalCredits > MAX_CREDITS && (
+                    <Alert variant="destructive" className="mt-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Credit Limit Exceeded</AlertTitle>
+                      <AlertDescription>
+                        You have selected courses totaling {totalCredits} credit units, which exceeds the maximum of{" "}
+                        {MAX_CREDITS}. Please drop some courses before submitting.
+                      </AlertDescription>
+                    </Alert>
                   )}
                 </div>
+
+                {loading ? (
+                  <div className="flex items-center justify-center p-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <span className="ml-2">Loading courses...</span>
+                  </div>
+                ) : (
+                  <>
+                    {!isReadOnly && (
+                      <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="add">Add Courses</TabsTrigger>
+                          <TabsTrigger value="drop">Drop Courses</TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="add" className="mt-4">
+                          <h3 className="mb-3 font-medium">Available Courses</h3>
+                          <Separator className="mb-4" />
+
+                          {availableCourses.length === 0 ? (
+                            <div className="rounded-md border p-4 text-center">
+                              <p className="text-muted-foreground">No courses available for this semester</p>
+                            </div>
+                          ) : (
+                            <ScrollArea className="h-[300px]">
+                              <div className="space-y-4">
+                                {availableCourses
+                                  .filter((course) => !selectedCourses.includes(course.id))
+                                  .map((course) => (
+                                    <div key={course.id} className="flex items-start space-x-3 rounded-md border p-3">
+                                      <div className="grid gap-1 flex-1">
+                                        <div className="font-medium">
+                                          {course.code} - {course.title}
+                                        </div>
+                                        <div className="flex items-center text-sm text-muted-foreground">
+                                          <BookOpen className="mr-1 h-4 w-4" />
+                                          {course.credits} credit unit{course.credits !== 1 ? "s" : ""}
+                                        </div>
+                                        {course.department && (
+                                          <p className="text-sm text-muted-foreground">{course.department.name}</p>
+                                        )}
+                                      </div>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-1"
+                                        onClick={() => handleAddCourse(course.id)}
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                        Add
+                                      </Button>
+                                    </div>
+                                  ))}
+                              </div>
+                            </ScrollArea>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="drop" className="mt-4">
+                          <h3 className="mb-3 font-medium">Selected Courses</h3>
+                          <Separator className="mb-4" />
+
+                          {selectedCourses.length === 0 ? (
+                            <div className="rounded-md border p-4 text-center">
+                              <p className="text-muted-foreground">No courses selected yet</p>
+                            </div>
+                          ) : (
+                            <ScrollArea className="h-[300px]">
+                              <div className="space-y-4">
+                                {availableCourses
+                                  .filter((course) => selectedCourses.includes(course.id))
+                                  .map((course) => (
+                                    <div key={course.id} className="flex items-start space-x-3 rounded-md border p-3">
+                                      <div className="grid gap-1 flex-1">
+                                        <div className="font-medium">
+                                          {course.code} - {course.title}
+                                        </div>
+                                        <div className="flex items-center text-sm text-muted-foreground">
+                                          <BookOpen className="mr-1 h-4 w-4" />
+                                          {course.credits} credit unit{course.credits !== 1 ? "s" : ""}
+                                        </div>
+                                        {course.department && (
+                                          <p className="text-sm text-muted-foreground">{course.department.name}</p>
+                                        )}
+                                      </div>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-1 text-red-500 hover:text-red-700"
+                                        onClick={() => handleDropCourse(course.id)}
+                                      >
+                                        <Minus className="h-4 w-4" />
+                                        Drop
+                                      </Button>
+                                    </div>
+                                  ))}
+                              </div>
+                            </ScrollArea>
+                          )}
+                        </TabsContent>
+                      </Tabs>
+                    )}
+
+                    {/* Read-only view for approved/rejected registrations */}
+                    {isReadOnly && (
+                      <div className="mt-4">
+                        <h3 className="mb-3 font-medium">Registered Courses</h3>
+                        <Separator className="mb-4" />
+
+                        <ScrollArea className="h-[300px]">
+                          <div className="space-y-4">
+                            {availableCourses
+                              .filter((course) => selectedCourses.includes(course.id))
+                              .map((course) => (
+                                <div key={course.id} className="flex items-start space-x-3 rounded-md border p-3">
+                                  <div className="grid gap-1 flex-1">
+                                    <div className="font-medium">
+                                      {course.code} - {course.title}
+                                    </div>
+                                    <div className="flex items-center text-sm text-muted-foreground">
+                                      <BookOpen className="mr-1 h-4 w-4" />
+                                      {course.credits} credit unit{course.credits !== 1 ? "s" : ""}
+                                    </div>
+                                    {course.department && (
+                                      <p className="text-sm text-muted-foreground">{course.department.name}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    )}
+                  </>
+                )}
               </>
             )}
           </div>
@@ -302,11 +475,20 @@ export function SemesterRegistrationClient({
               submitting ||
               selectedCourses.length === 0 ||
               !selectedSemester ||
-              existingRegistration?.status === "APPROVED" ||
-              existingRegistration?.status === "REJECTED"
+              totalCredits > MAX_CREDITS ||
+              isReadOnly
             }
           >
-            {submitting ? "Submitting..." : existingRegistration ? "Update Registration" : "Submit Registration"}
+            {submitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Submitting...
+              </>
+            ) : existingRegistration ? (
+              "Update Registration"
+            ) : (
+              "Submit Registration"
+            )}
           </Button>
         </CardFooter>
       </Card>

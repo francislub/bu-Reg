@@ -3,50 +3,63 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
 
     if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const semesterId = params.id
-    const { searchParams } = new URL(req.url)
+    const { searchParams } = new URL(request.url)
     const programId = searchParams.get("programId")
 
-    if (!programId) {
-      return new NextResponse("Program ID is required", { status: 400 })
+    let courses
+
+    if (programId) {
+      // Get courses for this semester filtered by program
+      courses = await db.course.findMany({
+        where: {
+          semesterCourses: {
+            some: {
+              semesterId: params.id,
+            },
+          },
+          programCourses: {
+            some: {
+              programId,
+            },
+          },
+        },
+        include: {
+          department: true,
+        },
+        orderBy: {
+          code: "asc",
+        },
+      })
+    } else {
+      // Get all courses for this semester
+      courses = await db.course.findMany({
+        where: {
+          semesterCourses: {
+            some: {
+              semesterId: params.id,
+            },
+          },
+        },
+        include: {
+          department: true,
+        },
+        orderBy: {
+          code: "asc",
+        },
+      })
     }
 
-    // Get all courses for the semester
-    const semesterCourses = await db.semesterCourse.findMany({
-      where: {
-        semesterId,
-      },
-      include: {
-        course: true,
-      },
-    })
-
-    // Get all courses for the program
-    const programCourses = await db.programCourse.findMany({
-      where: {
-        programId,
-      },
-      include: {
-        course: true,
-      },
-    })
-
-    // Filter semester courses to only include those that are part of the program
-    const availableCourses = semesterCourses
-      .filter((sc) => programCourses.some((pc) => pc.courseId === sc.courseId))
-      .map((sc) => sc.course)
-
-    return NextResponse.json(availableCourses)
+    return NextResponse.json(courses)
   } catch (error) {
-    console.error("[SEMESTER_COURSES_GET]", error)
-    return new NextResponse("Internal Error", { status: 500 })
+    console.error("Error fetching semester courses:", error)
+    return NextResponse.json({ error: "Failed to fetch courses" }, { status: 500 })
   }
 }
