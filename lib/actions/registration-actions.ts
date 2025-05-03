@@ -22,7 +22,11 @@ export async function getStudentRegistration(userId: string, semesterId: string)
             profile: true,
           },
         },
-        semester: true,
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
         courseUploads: {
           include: {
             course: {
@@ -72,7 +76,11 @@ export async function registerForSemester(userId: string, semesterId: string) {
             profile: true,
           },
         },
-        semester: true,
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
       },
     })
 
@@ -113,10 +121,16 @@ export async function addCourseToRegistration(registrationId: string, courseId: 
       data: {
         registrationId,
         courseId,
+        userId: registration.userId,
+        semesterId: registration.semesterId,
         status: "PENDING",
       },
       include: {
-        course: true,
+        course: {
+          include: {
+            department: true,
+          },
+        },
       },
     })
 
@@ -177,7 +191,11 @@ export async function submitRegistration(registrationId: string) {
       include: {
         courseUploads: true,
         user: true,
-        semester: true,
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
       },
     })
 
@@ -200,7 +218,20 @@ export async function submitRegistration(registrationId: string) {
       },
       include: {
         user: true,
-        semester: true,
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
+        courseUploads: {
+          include: {
+            course: {
+              include: {
+                department: true,
+              },
+            },
+          },
+        },
       },
     })
 
@@ -255,7 +286,7 @@ export async function submitRegistration(registrationId: string) {
 /**
  * Approve a registration
  */
-export async function approveRegistration(registrationId: string) {
+export async function approveRegistration(registrationId: string, approverId?: string) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -268,7 +299,11 @@ export async function approveRegistration(registrationId: string) {
       where: { id: registrationId },
       include: {
         user: true,
-        semester: true,
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
         courseUploads: true,
       },
     })
@@ -292,7 +327,11 @@ export async function approveRegistration(registrationId: string) {
       },
       include: {
         user: true,
-        semester: true,
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
       },
     })
 
@@ -361,7 +400,10 @@ export async function approveRegistration(registrationId: string) {
 /**
  * Reject a registration
  */
-export async function rejectRegistration(registrationId: string, rejectionReason: string) {
+export async function rejectRegistration(
+  registrationId: string,
+  rejectionReason = "Registration rejected by registrar",
+) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -374,7 +416,11 @@ export async function rejectRegistration(registrationId: string, rejectionReason
       where: { id: registrationId },
       include: {
         user: true,
-        semester: true,
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
       },
     })
 
@@ -393,7 +439,11 @@ export async function rejectRegistration(registrationId: string, rejectionReason
       },
       include: {
         user: true,
-        semester: true,
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
       },
     })
 
@@ -458,7 +508,11 @@ export async function getRegistrationCard(userId: string, semesterId: string) {
             profile: true,
           },
         },
-        semester: true,
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
       },
     })
 
@@ -514,7 +568,11 @@ export async function getAllPendingRegistrations() {
             profile: true,
           },
         },
-        semester: true,
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
         courseUploads: {
           include: {
             course: true,
@@ -570,7 +628,11 @@ export async function getAllRegistrations({
             profile: true,
           },
         },
-        semester: true,
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
         courseUploads: {
           include: {
             course: true,

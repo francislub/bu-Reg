@@ -30,6 +30,9 @@ type Registration = {
     name: string
     startDate: string
     endDate: string
+    academicYear: {
+      name: string
+    }
   }
   courseUploads: {
     id: string
@@ -38,8 +41,8 @@ type Registration = {
     course: {
       id: string
       code: string
-      name: string
-      creditHours: number
+      title: string
+      credits: number
       department: {
         id: string
         name: string
@@ -55,7 +58,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
 
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
-    documentTitle: `Registration_Card_${registration.user.profile.studentId}`,
+    documentTitle: `Registration_Card_${registration.user.profile.studentId || registration.user.id}`,
     onBeforeGetContent: () => {
       setIsGenerating(true)
       return new Promise<void>((resolve) => {
@@ -86,7 +89,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `Registration_Card_${registration.user.profile.studentId}.pdf`
+      a.download = `Registration_Card_${registration.user.profile.studentId || registration.user.id}.pdf`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -109,10 +112,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
   }
 
   // Calculate total credit hours
-  const totalCreditHours = registration.courseUploads.reduce(
-    (total, upload) => total + (upload.course.creditHours || 0),
-    0,
-  )
+  const totalCreditHours = registration.courseUploads.reduce((total, upload) => total + (upload.course.credits || 0), 0)
 
   return (
     <div className="space-y-6">
@@ -143,23 +143,25 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold">BUGEMA UNIVERSITY</h1>
           <p className="text-lg font-semibold">STUDENT REGISTRATION CARD</p>
-          <p className="text-md">{registration.semester.name}</p>
+          <p className="text-md">
+            {registration.semester.name} - {registration.semester.academicYear.name}
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div>
             <p className="text-sm text-gray-500">Student Name</p>
             <p className="font-medium">
-              {registration.user.profile.firstName} {registration.user.profile.lastName}
+              {registration.user.profile?.firstName} {registration.user.profile?.lastName}
             </p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Student ID</p>
-            <p className="font-medium">{registration.user.profile.studentId}</p>
+            <p className="font-medium">{registration.user.profile?.studentId || registration.user.id}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Program</p>
-            <p className="font-medium">{registration.user.profile.program}</p>
+            <p className="font-medium">{registration.user.profile?.program || "Not specified"}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Registration Date</p>
@@ -173,9 +175,9 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
             <thead>
               <tr className="bg-gray-100">
                 <th className="border p-2 text-left">Course Code</th>
-                <th className="border p-2 text-left">Course Name</th>
+                <th className="border p-2 text-left">Course Title</th>
                 <th className="border p-2 text-left">Department</th>
-                <th className="border p-2 text-center">Credit Hours</th>
+                <th className="border p-2 text-center">Credits</th>
                 <th className="border p-2 text-center">Status</th>
               </tr>
             </thead>
@@ -183,9 +185,9 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
               {registration.courseUploads.map((upload) => (
                 <tr key={upload.id}>
                   <td className="border p-2">{upload.course.code}</td>
-                  <td className="border p-2">{upload.course.name}</td>
+                  <td className="border p-2">{upload.course.title}</td>
                   <td className="border p-2">{upload.course.department?.name || "N/A"}</td>
-                  <td className="border p-2 text-center">{upload.course.creditHours}</td>
+                  <td className="border p-2 text-center">{upload.course.credits}</td>
                   <td className="border p-2 text-center">
                     <span
                       className={`px-2 py-1 rounded-full text-xs ${

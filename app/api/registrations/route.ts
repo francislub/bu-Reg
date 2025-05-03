@@ -1,45 +1,141 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { db } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { db } from "@/lib/db"
 
-export async function GET(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
+
     if (!session) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+      return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const url = new URL(req.url)
-    const semesterId = url.searchParams.get("semesterId")
-    const userId = url.searchParams.get("userId") || session.user.id
-    const status = url.searchParams.get("status")
+    const body = await req.json()
+    const { userId, semesterId, courseIds } = body
 
-    // Build where clause based on parameters
-    const whereClause: any = {}
-
-    if (semesterId) {
-      whereClause.semesterId = semesterId
+    // Verify the user is registering themselves or has admin/registrar privileges
+    if (userId !== session.user.id && session.user.role !== "ADMIN" && session.user.role !== "REGISTRAR") {
+      return new NextResponse("Forbidden", { status: 403 })
     }
+
+    // Check if a registration already exists for this user and semester
+    const existingRegistration = await db.registration.findFirst({
+      where: {
+        userId,
+        semesterId,
+      },
+    })
+
+    if (existingRegistration) {
+      return new NextResponse("Registration already exists for this semester", { status: 400 })
+    }
+
+    // Create a new registration
+    const registration = await db.registration.create({
+      data: {
+        userId,
+        semesterId,
+        status: "PENDING",
+      },
+    })
+
+    // Create course uploads for each selected course
+    const courseUploads = await Promise.all(
+      courseIds.map(async (courseId: string) => {
+        return db.courseUpload.create({
+          data: {
+            registrationId: registration.id,
+            courseId,
+            userId,
+            semesterId,
+            status: "PENDING",
+          },
+        })
+      }),
+    )
+
+    // Create a notification for the student
+    await db.notification.create({
+      data: {
+        userId,
+        title: "Registration Submitted",
+        message: "Your course registration has been submitted and is pending approval.",
+        type: "INFO",
+      },
+    })
+
+    // Create notifications for registrars
+    const registrars = await db.user.findMany({
+      where: {
+        role: "REGISTRAR",
+      },
+    })
+
+    await Promise.all(
+      registrars.map(async (registrar) => {
+        return db.notification.create({
+          data: {
+            userId: registrar.id,
+            title: "New Registration",
+            message: `A new registration has been submitted by ${session.user.name || "a student"} and requires your approval.`,
+            type: "INFO",
+          },
+        })
+      }),
+    )
+
+    return NextResponse.json({
+      registration,
+      courseUploads,
+    })
+  } catch (error) {
+    console.error("[REGISTRATIONS_POST]", error)
+    return new NextResponse("Internal Error", { status: 500 })
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return new NextResponse("Unauthorized", { status: 401 })
+    }
+
+    const { searchParams } = new URL(req.url)
+    const userId = searchParams.get("userId")
+    const semesterId = searchParams.get("semesterId")
+    const status = searchParams.get("status")
+
+    // Build the query based on provided parameters
+    const query: any = {}
 
     if (userId) {
-      whereClause.userId = userId
+      query.userId = userId
+    }
+
+    if (semesterId) {
+      query.semesterId = semesterId
     }
 
     if (status) {
-      whereClause.status = status
+      query.status = status
     }
 
-    // Check if user has permission to view registrations
-    if (session.user.role !== "REGISTRAR" && session.user.id !== userId) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 })
+    // If not an admin or registrar, only show own registrations
+    if (session.user.role !== "ADMIN" && session.user.role !== "REGISTRAR") {
+      query.userId = session.user.id
     }
 
     const registrations = await db.registration.findMany({
-      where: whereClause,
+      where: query,
       include: {
         user: {
-          include: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
             profile: true,
           },
         },
@@ -50,11 +146,7 @@ export async function GET(req: Request) {
         },
         courseUploads: {
           include: {
-            course: {
-              include: {
-                department: true,
-              },
-            },
+            course: true,
           },
         },
       },
@@ -63,60 +155,9 @@ export async function GET(req: Request) {
       },
     })
 
-    return NextResponse.json({ success: true, registrations })
+    return NextResponse.json(registrations)
   } catch (error) {
-    console.error("Error fetching registrations:", error)
-    return NextResponse.json(
-      { success: false, message: "An error occurred while fetching registrations" },
-      { status: 500 },
-    )
-  }
-}
-
-export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    const body = await req.json()
-    const { userId, semesterId } = body
-
-    // Validate required fields
-    if (!userId || !semesterId) {
-      return NextResponse.json({ success: false, message: "User ID and semester ID are required" }, { status: 400 })
-    }
-
-    // Check if registration already exists
-    const existingRegistration = await db.registration.findUnique({
-      where: {
-        userId_semesterId: {
-          userId,
-          semesterId,
-        },
-      },
-    })
-
-    if (existingRegistration) {
-      return NextResponse.json({ success: false, message: "Registration already exists" }, { status: 400 })
-    }
-
-    // Create registration
-    const registration = await db.registration.create({
-      data: {
-        userId,
-        semesterId,
-        status: "PENDING",
-      },
-    })
-
-    return NextResponse.json({ success: true, registration })
-  } catch (error) {
-    console.error("Registration creation error:", error)
-    return NextResponse.json(
-      { success: false, message: "An error occurred during registration creation" },
-      { status: 500 },
-    )
+    console.error("[REGISTRATIONS_GET]", error)
+    return new NextResponse("Internal Error", { status: 500 })
   }
 }

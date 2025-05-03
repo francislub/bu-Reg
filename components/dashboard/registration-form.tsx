@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle, PlusCircle, Trash2 } from "lucide-react"
+import { AlertCircle, CheckCircle, PlusCircle, Trash2, Loader2, FileText } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -20,8 +21,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { toast } from "@/components/ui/use-toast"
-import { registerForSemester } from "@/lib/actions/registration-actions"
+import { useToast } from "@/hooks/use-toast"
+import { registerForSemester, submitRegistration, cancelRegistration } from "@/lib/actions/registration-actions"
 import { addCourseToRegistration, removeCourseFromRegistration } from "@/lib/actions/course-registration-actions"
 
 // Define types based on your schema
@@ -39,10 +40,13 @@ type Semester = {
 type Course = {
   id: string
   code: string
-  name: string
-  creditHours: number
+  title: string
+  credits: number
   description?: string
-  departmentId: string
+  department: {
+    id: string
+    name: string
+  }
 }
 
 type CourseUpload = {
@@ -50,6 +54,7 @@ type CourseUpload = {
   courseId: string
   registrationId: string
   status: string
+  rejectionReason?: string
   course: Course
 }
 
@@ -58,6 +63,9 @@ type Registration = {
   userId: string
   semesterId: string
   status: string
+  rejectionReason?: string
+  createdAt: Date
+  updatedAt: Date
   semester: Semester
   courseUploads?: CourseUpload[]
 }
@@ -72,17 +80,21 @@ export default function RegistrationForm({
   existingRegistration?: Registration
 }) {
   const router = useRouter()
+  const { data: session } = useSession()
+  const { toast } = useToast()
   const [selectedSemesterId, setSelectedSemesterId] = useState<string>("")
   const [registration, setRegistration] = useState<Registration | null>(existingRegistration || null)
   const [isRegistering, setIsRegistering] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isCancelling, setIsCancelling] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedCourses, setSelectedCourses] = useState<Course[]>([])
   const [isAddingCourse, setIsAddingCourse] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [confirmCancelDialogOpen, setConfirmCancelDialogOpen] = useState(false)
 
   // Calculate total credit hours
   const totalCreditHours =
-    registration?.courseUploads?.reduce((total, courseUpload) => total + courseUpload.course.creditHours, 0) || 0
+    registration?.courseUploads?.reduce((total, courseUpload) => total + courseUpload.course.credits, 0) || 0
 
   // Credit hour limit
   const CREDIT_HOUR_LIMIT = 24
@@ -98,8 +110,9 @@ export default function RegistrationForm({
   // Filter courses based on search term
   const filteredCourses = courses.filter(
     (course) =>
-      course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.code.toLowerCase().includes(searchTerm.toLowerCase()),
+      course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      course.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      course.department.name.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   // Check if course is already selected
@@ -120,7 +133,7 @@ export default function RegistrationForm({
 
     setIsRegistering(true)
     try {
-      const result = await registerForSemester(selectedSemesterId)
+      const result = await registerForSemester(session?.user?.id || "", selectedSemesterId)
       if (result.success) {
         setRegistration(result.registration)
         toast({
@@ -159,7 +172,7 @@ export default function RegistrationForm({
 
     // Check credit hour limit
     const courseToAdd = courses.find((c) => c.id === courseId)
-    if (courseToAdd && totalCreditHours + courseToAdd.creditHours > CREDIT_HOUR_LIMIT) {
+    if (courseToAdd && totalCreditHours + courseToAdd.credits > CREDIT_HOUR_LIMIT) {
       toast({
         title: "Credit Hour Limit Exceeded",
         description: `Adding this course would exceed the ${CREDIT_HOUR_LIMIT} credit hour limit`,
@@ -240,6 +253,88 @@ export default function RegistrationForm({
     }
   }
 
+  // Handle submitting registration
+  const handleSubmitRegistration = async () => {
+    if (!registration) {
+      toast({
+        title: "Error",
+        description: "No registration to submit",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!registration.courseUploads || registration.courseUploads.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please add at least one course before submitting",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const result = await submitRegistration(registration.id)
+      if (result.success) {
+        setRegistration(result.registration)
+        toast({
+          title: "Success",
+          description: "Registration submitted successfully. Waiting for approval.",
+        })
+        router.refresh()
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || "Failed to submit registration",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error submitting registration:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Handle cancelling registration
+  const handleCancelRegistration = async () => {
+    if (!registration) return
+
+    setIsCancelling(true)
+    try {
+      const result = await cancelRegistration(registration.id)
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Registration cancelled successfully",
+        })
+        router.refresh()
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || "Failed to cancel registration",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error cancelling registration:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+    } finally {
+      setIsCancelling(false)
+      setConfirmCancelDialogOpen(false)
+    }
+  }
+
   // Status badge component
   const StatusBadge = ({ status }: { status: string }) => {
     switch (status) {
@@ -255,8 +350,12 @@ export default function RegistrationForm({
             <AlertCircle className="w-3 h-3 mr-1" /> Rejected
           </Badge>
         )
+      case "PENDING":
+        return <Badge variant="secondary">Pending Approval</Badge>
+      case "CANCELLED":
+        return <Badge variant="outline">Cancelled</Badge>
       default:
-        return <Badge variant="outline">Pending</Badge>
+        return <Badge variant="outline">Draft</Badge>
     }
   }
 
@@ -291,7 +390,14 @@ export default function RegistrationForm({
           </CardContent>
           <CardFooter>
             <Button onClick={handleRegister} disabled={isRegistering}>
-              {isRegistering ? "Registering..." : "Register for Semester"}
+              {isRegistering ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Registering...
+                </>
+              ) : (
+                "Register for Semester"
+              )}
             </Button>
           </CardFooter>
         </Card>
@@ -310,10 +416,18 @@ export default function RegistrationForm({
                   <div>
                     <p className="text-sm font-medium">Status</p>
                     <StatusBadge status={registration.status} />
+                    {registration.status === "REJECTED" && registration.rejectionReason && (
+                      <p className="text-xs text-red-500 mt-1">Reason: {registration.rejectionReason}</p>
+                    )}
                   </div>
                   {registration.status === "APPROVED" && (
                     <Button onClick={() => router.push(`/dashboard/registration/card?id=${registration.id}`)}>
-                      Print Registration Card
+                      <FileText className="w-4 h-4 mr-2" /> Print Registration Card
+                    </Button>
+                  )}
+                  {(registration.status === "DRAFT" || registration.status === "PENDING") && (
+                    <Button variant="outline" onClick={() => setConfirmCancelDialogOpen(true)} disabled={isCancelling}>
+                      Cancel Registration
                     </Button>
                   )}
                 </div>
@@ -328,7 +442,7 @@ export default function RegistrationForm({
                   <Progress value={creditHourPercentage} className="h-2" />
                 </div>
 
-                {registration.status === "PENDING" && (
+                {(registration.status === "DRAFT" || registration.status === "PENDING") && (
                   <Alert variant={creditHourPercentage < 100 ? "default" : "destructive"}>
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Credit Hour Limit</AlertTitle>
@@ -349,7 +463,7 @@ export default function RegistrationForm({
                 <CardTitle>Registered Courses</CardTitle>
                 <CardDescription>Courses you have registered for this semester</CardDescription>
               </div>
-              {registration.status === "PENDING" && creditHourPercentage < 100 && (
+              {registration.status === "DRAFT" && creditHourPercentage < 100 && (
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm">
@@ -363,7 +477,7 @@ export default function RegistrationForm({
                     </DialogHeader>
                     <div className="py-4">
                       <Input
-                        placeholder="Search courses by name or code..."
+                        placeholder="Search courses by name, code, or department..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="mb-4"
@@ -374,9 +488,13 @@ export default function RegistrationForm({
                             <div key={course.id} className="flex items-center justify-between p-3 border rounded-md">
                               <div>
                                 <p className="font-medium">
-                                  {course.code}: {course.name}
+                                  {course.code}: {course.title}
                                 </p>
-                                <p className="text-sm text-muted-foreground">{course.creditHours} Credit Hours</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm text-muted-foreground">{course.credits} Credit Hours</p>
+                                  <span className="text-xs text-muted-foreground">•</span>
+                                  <p className="text-sm text-muted-foreground">{course.department.name}</p>
+                                </div>
                               </div>
                               <Button
                                 size="sm"
@@ -384,12 +502,12 @@ export default function RegistrationForm({
                                 disabled={
                                   isAddingCourse ||
                                   isCourseSelected(course.id) ||
-                                  totalCreditHours + course.creditHours > CREDIT_HOUR_LIMIT
+                                  totalCreditHours + course.credits > CREDIT_HOUR_LIMIT
                                 }
                               >
                                 {isCourseSelected(course.id)
                                   ? "Added"
-                                  : totalCreditHours + course.creditHours > CREDIT_HOUR_LIMIT
+                                  : totalCreditHours + course.credits > CREDIT_HOUR_LIMIT
                                     ? "Exceeds Limit"
                                     : "Add"}
                               </Button>
@@ -419,13 +537,20 @@ export default function RegistrationForm({
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="font-medium">
-                            {courseUpload.course.code}: {courseUpload.course.name}
+                            {courseUpload.course.code}: {courseUpload.course.title}
                           </p>
                           <StatusBadge status={courseUpload.status} />
                         </div>
-                        <p className="text-sm text-muted-foreground">{courseUpload.course.creditHours} Credit Hours</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-sm text-muted-foreground">{courseUpload.course.credits} Credit Hours</p>
+                          <span className="text-xs text-muted-foreground">•</span>
+                          <p className="text-sm text-muted-foreground">{courseUpload.course.department.name}</p>
+                        </div>
+                        {courseUpload.status === "REJECTED" && courseUpload.rejectionReason && (
+                          <p className="text-xs text-red-500 mt-1">Reason: {courseUpload.rejectionReason}</p>
+                        )}
                       </div>
-                      {registration.status === "PENDING" && (
+                      {registration.status === "DRAFT" && (
                         <Button size="sm" variant="outline" onClick={() => handleRemoveCourse(courseUpload.id)}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -436,7 +561,7 @@ export default function RegistrationForm({
               ) : (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">No courses added yet</p>
-                  {registration.status === "PENDING" && (
+                  {registration.status === "DRAFT" && (
                     <Button variant="outline" className="mt-4" onClick={() => setIsDialogOpen(true)}>
                       <PlusCircle className="w-4 h-4 mr-2" /> Add Your First Course
                     </Button>
@@ -444,9 +569,54 @@ export default function RegistrationForm({
                 </div>
               )}
             </CardContent>
+            {registration.status === "DRAFT" && registration.courseUploads && registration.courseUploads.length > 0 && (
+              <CardFooter>
+                <Button
+                  onClick={handleSubmitRegistration}
+                  disabled={isSubmitting || registration.courseUploads.length === 0}
+                  className="w-full"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit Registration for Approval"
+                  )}
+                </Button>
+              </CardFooter>
+            )}
           </Card>
         </div>
       )}
+
+      {/* Cancel Registration Confirmation Dialog */}
+      <Dialog open={confirmCancelDialogOpen} onOpenChange={setConfirmCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Registration</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel this registration? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmCancelDialogOpen(false)}>
+              No, Keep Registration
+            </Button>
+            <Button variant="destructive" onClick={handleCancelRegistration} disabled={isCancelling}>
+              {isCancelling ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                "Yes, Cancel Registration"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

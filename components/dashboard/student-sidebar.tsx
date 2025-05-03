@@ -4,7 +4,7 @@ import type React from "react"
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BookOpen, Calendar, Clock, FileText, GraduationCap, Home, Settings, User } from "lucide-react"
+import { BookOpen, Calendar, CheckSquare, ClipboardList, FileText, GraduationCap, Home, Settings, User, Bell } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -60,29 +60,52 @@ export function StudentSidebar() {
           icon: <BookOpen className="h-5 w-5" />,
           isActive: pathname === "/dashboard/courses",
         },
-        {
-          title: "Registration",
-          href: "/dashboard/registration",
-          icon: <FileText className="h-5 w-5" />,
-          isActive: pathname === "/dashboard/registration",
-        },
+        // {
+        //   title: "Attendance",
+        //   href: "/dashboard/attendance",
+        //   icon: <ClipboardList className="h-5 w-5" />,
+        //   isActive: pathname === "/dashboard/attendance",
+        // },
         // {
         //   title: "Timetable",
         //   href: "/dashboard/timetable",
         //   icon: <Calendar className="h-5 w-5" />,
         //   isActive: pathname === "/dashboard/timetable",
         // },
-        // {
-        //   title: "Attendance",
-        //   href: "/dashboard/attendance",
-        //   icon: <Clock className="h-5 w-5" />,
-        //   isActive: pathname === "/dashboard/attendance",
-        // },
       ],
     },
     {
-      title: "Settings",
+      title: "Registration",
       items: [
+        {
+          title: "Registration",
+          href: "/dashboard/registration",
+          icon: <FileText className="h-5 w-5" />,
+          isActive: pathname === "/dashboard/registration",
+        },
+        {
+          title: "Semester Registration",
+          href: "/dashboard/semester-registration",
+          icon: <GraduationCap className="h-5 w-5" />,
+          isActive: pathname === "/dashboard/semester-registration",
+        },
+        {
+          title: "Approvals",
+          href: "/dashboard/approvals",
+          icon: <CheckSquare className="h-5 w-5" />,
+          isActive: pathname === "/dashboard/approvals",
+        },
+      ],
+    },
+    {
+      title: "Communication",
+      items: [
+        {
+          title: "Notifications",
+          href: "/dashboard/notifications",
+          icon: <Bell className="h-5 w-5" />,
+          isActive: pathname === "/dashboard/notifications",
+        },
         {
           title: "Settings",
           href: "/dashboard/settings",

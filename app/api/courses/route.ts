@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -11,27 +11,85 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
 
-    // Fetch all courses with their departments
-    const courses = await db.course.findMany({
-      include: {
-        department: true,
-        semesterCourses: {
-          include: {
-            semester: true,
+    const url = new URL(request.url)
+    const programId = url.searchParams.get("programId")
+
+    // If user is a student, get their profile to determine their program
+    let studentProgramId = programId
+    if (session.user.role === "STUDENT" && !programId) {
+      const userProfile = await db.profile.findFirst({
+        where: {
+          user: {
+            id: session.user.id,
           },
         },
-      },
-      orderBy: {
-        code: "asc",
-      },
-    })
+      })
 
-    // Also fetch departments for the dropdown
-    const departments = await db.department.findMany({
-      orderBy: {
-        name: "asc",
-      },
-    })
+      if (userProfile?.programId) {
+        studentProgramId = userProfile.programId
+      }
+    }
+
+    let courses = []
+    let departments = []
+
+    // If we have a program ID (either from query or from student profile), filter courses by program
+    if (studentProgramId) {
+      // Get program details to find department
+      const program = await db.program.findUnique({
+        where: { id: studentProgramId },
+        include: { department: true },
+      })
+
+      if (program) {
+        // Get courses for this program through programCourses relation
+        courses = await db.course.findMany({
+          where: {
+            programCourses: {
+              some: {
+                programId: studentProgramId,
+              },
+            },
+          },
+          include: {
+            department: true,
+            semesterCourses: {
+              include: {
+                semester: true,
+              },
+            },
+          },
+          orderBy: {
+            code: "asc",
+          },
+        })
+
+        // Get department for dropdown
+        departments = [program.department]
+      }
+    } else {
+      // For admin/registrar/staff, show all courses
+      courses = await db.course.findMany({
+        include: {
+          department: true,
+          semesterCourses: {
+            include: {
+              semester: true,
+            },
+          },
+        },
+        orderBy: {
+          code: "asc",
+        },
+      })
+
+      // Also fetch departments for the dropdown
+      departments = await db.department.findMany({
+        orderBy: {
+          name: "asc",
+        },
+      })
+    }
 
     return NextResponse.json({
       success: true,

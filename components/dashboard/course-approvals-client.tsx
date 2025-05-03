@@ -10,9 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Loader2, CheckSquare, CheckCircle, XCircle, AlertCircle } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
+import { Search, Loader2, CheckSquare, X, Check, AlertCircle } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -21,14 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
 import {
   getAllCourseUploads,
   approveCourseUpload,
@@ -56,7 +48,6 @@ type CourseUpload = {
   id: string
   status: string
   createdAt: Date
-  rejectionReason?: string
   course: {
     id: string
     code: string
@@ -74,7 +65,6 @@ type CourseUpload = {
     profile: {
       firstName?: string
       lastName?: string
-      studentId?: string
     }
   }
   semester: {
@@ -154,8 +144,7 @@ export function CourseApprovalsClient({ semesters, departments }: CourseApproval
       cu.course.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cu.course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cu.user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cu.user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cu.user.profile?.studentId?.toLowerCase().includes(searchTerm.toLowerCase()),
+      cu.user.email.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   // Handle course approval
@@ -188,25 +177,9 @@ export function CourseApprovalsClient({ semesters, departments }: CourseApproval
     }
   }
 
-  // Open rejection dialog
-  const openRejectDialog = (courseUploadId: string) => {
-    setSelectedCourseUploadId(courseUploadId)
-    setRejectionReason("")
-    setIsDialogOpen(true)
-  }
-
   // Handle course rejection
   const handleRejectCourse = async () => {
     if (!selectedCourseUploadId) return
-
-    if (!rejectionReason.trim()) {
-      toast({
-        title: "Error",
-        description: "Please provide a reason for rejection",
-        variant: "destructive",
-      })
-      return
-    }
 
     setIsRejecting(true)
     try {
@@ -314,32 +287,6 @@ export function CourseApprovalsClient({ semesters, departments }: CourseApproval
 
   // Count selected items
   const selectedCount = Object.values(selectedItems).filter(Boolean).length
-
-  // Render status badge
-  const renderStatusBadge = (status: string) => {
-    switch (status) {
-      case "APPROVED":
-        return (
-          <Badge className="bg-green-500">
-            <CheckCircle className="w-3 h-3 mr-1" /> Approved
-          </Badge>
-        )
-      case "REJECTED":
-        return (
-          <Badge variant="destructive">
-            <XCircle className="w-3 h-3 mr-1" /> Rejected
-          </Badge>
-        )
-      case "PENDING":
-        return (
-          <Badge variant="secondary">
-            <AlertCircle className="w-3 h-3 mr-1" /> Pending
-          </Badge>
-        )
-      default:
-        return <Badge variant="outline">{status}</Badge>
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -479,9 +426,6 @@ export function CourseApprovalsClient({ semesters, departments }: CourseApproval
                               {courseUpload.user.profile?.lastName || courseUpload.user.name}
                             </p>
                             <p className="text-sm text-muted-foreground">{courseUpload.user.email}</p>
-                            {courseUpload.user.profile?.studentId && (
-                              <p className="text-xs text-muted-foreground">ID: {courseUpload.user.profile.studentId}</p>
-                            )}
                           </div>
                         </TableCell>
                         <TableCell>{courseUpload.course.department.name}</TableCell>
@@ -489,39 +433,52 @@ export function CourseApprovalsClient({ semesters, departments }: CourseApproval
                           {courseUpload.semester.name} ({courseUpload.semester.academicYear.name})
                         </TableCell>
                         <TableCell>
-                          {renderStatusBadge(courseUpload.status)}
-                          {courseUpload.status === "REJECTED" && courseUpload.rejectionReason && (
-                            <p className="text-xs text-red-500 mt-1">Reason: {courseUpload.rejectionReason}</p>
-                          )}
+                          <Badge
+                            variant={
+                              courseUpload.status === "APPROVED"
+                                ? "success"
+                                : courseUpload.status === "REJECTED"
+                                  ? "destructive"
+                                  : "outline"
+                            }
+                          >
+                            {courseUpload.status}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           {courseUpload.status === "PENDING" && (
-                            <div className="flex justify-end gap-2">
+                            <div className="flex justify-end space-x-2">
                               <Button
-                                size="sm"
                                 variant="outline"
-                                className="h-8 px-2 text-red-500"
-                                onClick={() => openRejectDialog(courseUpload.id)}
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedCourseUploadId(courseUpload.id)
+                                  setIsDialogOpen(true)
+                                }}
                               >
-                                <XCircle className="h-4 w-4" />
+                                <X className="h-4 w-4 mr-1" />
+                                Reject
                               </Button>
                               <Button
+                                variant="default"
                                 size="sm"
-                                variant="outline"
-                                className="h-8 px-2 text-green-500"
                                 onClick={() => handleApproveCourse(courseUpload.id)}
                                 disabled={isApproving}
                               >
-                                <CheckCircle className="h-4 w-4" />
+                                {isApproving ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Check className="h-4 w-4 mr-1" />
+                                )}
+                                Approve
                               </Button>
                             </div>
                           )}
-                          {courseUpload.status === "APPROVED" && (
+                          {courseUpload.status !== "PENDING" && (
                             <Button
-                              size="sm"
                               variant="outline"
-                              className="h-8"
-                              onClick={() => router.push(`/dashboard/students/${courseUpload.user.id}`)}
+                              size="sm"
+                              onClick={() => router.push(`/dashboard/students/${courseUpload.userId}`)}
                             >
                               View Student
                             </Button>
@@ -533,35 +490,39 @@ export function CourseApprovalsClient({ semesters, departments }: CourseApproval
                 </Table>
               </div>
             ) : (
-              <div className="text-center py-12 border rounded-md">
-                <p className="text-muted-foreground">No course registrations found</p>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium">No course registrations found</h3>
+                <p className="text-sm text-muted-foreground mt-2">
+                  {searchTerm
+                    ? "Try adjusting your search or filters"
+                    : "There are no course registrations matching your filters"}
+                </p>
               </div>
             )}
 
             {totalPages > 1 && (
-              <Pagination className="mt-4">
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                      className={page <= 1 ? "pointer-events-none opacity-50" : ""}
-                    />
-                  </PaginationItem>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                    <PaginationItem key={p}>
-                      <PaginationLink isActive={page === p} onClick={() => setPage(p)}>
-                        {p}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ))}
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                      className={page >= totalPages ? "pointer-events-none opacity-50" : ""}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+              <div className="flex justify-center mt-4 space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <span className="flex items-center px-2">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                  disabled={page === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
             )}
           </div>
         </CardContent>
@@ -576,17 +537,17 @@ export function CourseApprovalsClient({ semesters, departments }: CourseApproval
               Please provide a reason for rejecting this course registration. This will be visible to the student.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="rejectionReason" className="mb-2 block">
-              Rejection Reason
-            </Label>
-            <Textarea
-              id="rejectionReason"
-              placeholder="Enter reason for rejection..."
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              className="min-h-[100px]"
-            />
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rejection-reason">Rejection Reason</Label>
+              <Textarea
+                id="rejection-reason"
+                placeholder="Enter reason for rejection..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={4}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>

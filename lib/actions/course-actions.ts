@@ -2,50 +2,64 @@
 
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 /**
- * Get student courses
+ * Get all courses
  */
-export async function getStudentCourses(userId: string, semesterId?: string) {
+export async function getAllCourses() {
   try {
-    // Validate userId to prevent malformed ObjectID errors
-    if (!userId || userId === "$[id]" || userId.includes("%")) {
-      console.error("Invalid user ID provided:", userId)
-      return { success: false, message: "Invalid user ID provided" }
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return { success: false, message: "Unauthorized" }
     }
 
-    const courseUploads = await db.courseUpload.findMany({
-      where: {
-        userId,
-        semesterId: semesterId ? semesterId : undefined,
-      },
-      include: {
-        course: {
+    let courses = []
+
+    // If user is a student, get courses based on their program
+    if (session.user.role === "STUDENT") {
+      // Get student profile to determine program
+      const userProfile = await db.profile.findFirst({
+        where: {
+          user: {
+            id: session.user.id,
+          },
+        },
+      })
+
+      if (userProfile?.programId) {
+        // Get courses for this program
+        courses = await db.course.findMany({
+          where: {
+            programCourses: {
+              some: {
+                programId: userProfile.programId,
+              },
+            },
+          },
           include: {
             department: true,
           },
+          orderBy: {
+            code: "asc",
+          },
+        })
+      } else {
+        // If student has no program assigned, return empty list
+        courses = []
+      }
+    } else {
+      // For admin/registrar/staff, show all courses
+      courses = await db.course.findMany({
+        include: {
+          department: true,
         },
-        semester: true,
-      },
-    })
-
-    return { success: true, courseUploads }
-  } catch (error) {
-    console.error("Error fetching student courses:", error)
-    return { success: false, message: "Failed to fetch student courses" }
-  }
-}
-
-export async function getAllCourses() {
-  try {
-    const courses = await db.course.findMany({
-      include: {
-        department: true,
-      },
-      orderBy: {
-        code: "asc",
-      },
-    })
+        orderBy: {
+          code: "asc",
+        },
+      })
+    }
 
     return { success: true, courses }
   } catch (error) {
@@ -54,10 +68,13 @@ export async function getAllCourses() {
   }
 }
 
-export async function getCourseById(courseId: string) {
+/**
+ * Get course by ID
+ */
+export async function getCourseById(id: string) {
   try {
     const course = await db.course.findUnique({
-      where: { id: courseId },
+      where: { id },
       include: {
         department: true,
       },
@@ -70,99 +87,167 @@ export async function getCourseById(courseId: string) {
     return { success: true, course }
   } catch (error) {
     console.error("Error fetching course:", error)
-    return { success: false, message: "Failed to fetch course" }
+    return { success: false, message: "Failed to fetch course", error: error.message }
   }
 }
 
-export async function createCourse(data: {
-  code: string
-  title: string
-  credits: number
-  departmentId: string
-  description?: string
-}) {
+/**
+ * Create or update a course
+ */
+export async function createOrUpdateCourse(data: any) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "REGISTRAR")) {
+      return { success: false, message: "Unauthorized" }
+    }
+
+    // Validate required fields
+    if (!data.code || !data.title || !data.credits || !data.departmentId) {
+      return { success: false, message: "Missing required fields" }
+    }
+
     // Check if course with same code already exists
-    const existingCourse = await db.course.findUnique({
-      where: { code: data.code },
+    const existingCourse = await db.course.findFirst({
+      where: {
+        code: data.code,
+        NOT: data.id ? { id: data.id } : undefined,
+      },
     })
 
     if (existingCourse) {
       return { success: false, message: "Course with this code already exists" }
     }
 
-    const course = await db.course.create({
-      data: {
-        code: data.code,
-        title: data.title,
-        credits: data.credits,
-        departmentId: data.departmentId,
-        description: data.description,
-      },
-    })
+    // Create or update course
+    let course
+    if (data.id) {
+      course = await db.course.update({
+        where: { id: data.id },
+        data: {
+          code: data.code,
+          title: data.title,
+          credits: Number(data.credits),
+          departmentId: data.departmentId,
+          description: data.description,
+        },
+      })
+    } else {
+      course = await db.course.create({
+        data: {
+          code: data.code,
+          title: data.title,
+          credits: Number(data.credits),
+          departmentId: data.departmentId,
+          description: data.description,
+        },
+      })
+    }
 
     revalidatePath("/dashboard/courses")
     return { success: true, course }
   } catch (error) {
-    console.error("Error creating course:", error)
-    return { success: false, message: "Failed to create course" }
+    console.error("Error creating/updating course:", error)
+    return { success: false, message: "Failed to create/update course", error: error.message }
   }
 }
 
-export async function updateCourse(
-  courseId: string,
-  data: {
-    code: string
-    title: string
-    credits: number
-    departmentId: string
-    description?: string
-  },
-) {
+/**
+ * Delete a course
+ */
+export async function deleteCourse(id: string) {
   try {
-    // Check if another course with same code already exists
-    const existingCourse = await db.course.findFirst({
+    const session = await getServerSession(authOptions)
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "REGISTRAR")) {
+      return { success: false, message: "Unauthorized" }
+    }
+
+    await db.course.delete({
+      where: { id },
+    })
+
+    revalidatePath("/dashboard/courses")
+    return { success: true }
+  } catch (error) {
+    console.error("Error deleting course:", error)
+    return { success: false, message: "Failed to delete course", error: error.message }
+  }
+}
+
+/**
+ * Get student courses
+ */
+export async function getStudentCourses(userId: string) {
+  try {
+    const courseUploads = await db.courseUpload.findMany({
       where: {
-        code: data.code,
-        NOT: {
-          id: courseId,
+        userId,
+      },
+      include: {
+        course: {
+          include: {
+            department: true,
+          },
+        },
+        semester: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+
+    return { success: true, courseUploads }
+  } catch (error) {
+    console.error("Error fetching student courses:", error)
+    return { success: false, message: "Failed to fetch student courses", error: error.message }
+  }
+}
+
+/**
+ * Get courses for a specific semester
+ */
+export async function getSemesterCourses(semesterId: string) {
+  try {
+    const semesterCourses = await db.semesterCourse.findMany({
+      where: {
+        semesterId,
+      },
+      include: {
+        course: {
+          include: {
+            department: true,
+          },
         },
       },
     })
 
-    if (existingCourse) {
-      return { success: false, message: "Another course with this code already exists" }
-    }
-
-    const course = await db.course.update({
-      where: { id: courseId },
-      data: {
-        code: data.code,
-        title: data.title,
-        credits: data.credits,
-        departmentId: data.departmentId,
-        description: data.description,
-      },
-    })
-
-    revalidatePath("/dashboard/courses")
-    return { success: true, course }
+    return { success: true, semesterCourses }
   } catch (error) {
-    console.error("Error updating course:", error)
-    return { success: false, message: "Failed to update course" }
+    console.error("Error fetching semester courses:", error)
+    return { success: false, message: "Failed to fetch semester courses", error: error.message }
   }
 }
 
-export async function deleteCourse(courseId: string) {
+/**
+ * Get courses for a specific program
+ */
+export async function getProgramCourses(programId: string) {
   try {
-    await db.course.delete({
-      where: { id: courseId },
+    const programCourses = await db.programCourse.findMany({
+      where: {
+        programId,
+      },
+      include: {
+        course: {
+          include: {
+            department: true,
+          },
+        },
+      },
     })
 
-    revalidatePath("/dashboard/courses")
-    return { success: true, message: "Course deleted successfully" }
+    return { success: true, programCourses }
   } catch (error) {
-    console.error("Error deleting course:", error)
-    return { success: false, message: "Failed to delete course" }
+    console.error("Error fetching program courses:", error)
+    return { success: false, message: "Failed to fetch program courses", error: error.message }
   }
 }
