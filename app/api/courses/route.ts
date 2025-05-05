@@ -109,6 +109,7 @@ export async function GET(request: Request) {
   }
 }
 
+// Update the POST method to handle program and semester associations
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -154,6 +155,7 @@ export async function POST(request: Request) {
     // Create or update course
     let course
     if (data.id) {
+      // Update the course
       course = await db.course.update({
         where: { id: data.id },
         data: {
@@ -164,7 +166,52 @@ export async function POST(request: Request) {
           description: data.description,
         },
       })
+
+      // Handle program associations
+      if (data.programIds && Array.isArray(data.programIds)) {
+        // Delete existing program associations
+        await db.programCourse.deleteMany({
+          where: { courseId: data.id },
+        })
+
+        // Create new program associations
+        if (data.programIds.length > 0) {
+          await Promise.all(
+            data.programIds.map(async (programId: string) => {
+              await db.programCourse.create({
+                data: {
+                  programId,
+                  courseId: data.id,
+                },
+              })
+            }),
+          )
+        }
+      }
+
+      // Handle semester associations
+      if (data.semesterIds && Array.isArray(data.semesterIds)) {
+        // Delete existing semester associations
+        await db.semesterCourse.deleteMany({
+          where: { courseId: data.id },
+        })
+
+        // Create new semester associations
+        if (data.semesterIds.length > 0) {
+          await Promise.all(
+            data.semesterIds.map(async (semesterId: string) => {
+              await db.semesterCourse.create({
+                data: {
+                  semesterId,
+                  courseId: data.id,
+                },
+              })
+            }),
+          )
+        }
+      }
     } else {
+      // Create new course
       course = await db.course.create({
         data: {
           code: data.code,
@@ -174,6 +221,34 @@ export async function POST(request: Request) {
           description: data.description,
         },
       })
+
+      // Create program associations
+      if (data.programIds && Array.isArray(data.programIds) && data.programIds.length > 0) {
+        await Promise.all(
+          data.programIds.map(async (programId: string) => {
+            await db.programCourse.create({
+              data: {
+                programId,
+                courseId: course.id,
+              },
+            })
+          }),
+        )
+      }
+
+      // Create semester associations
+      if (data.semesterIds && Array.isArray(data.semesterIds) && data.semesterIds.length > 0) {
+        await Promise.all(
+          data.semesterIds.map(async (semesterId: string) => {
+            await db.semesterCourse.create({
+              data: {
+                semesterId,
+                courseId: course.id,
+              },
+            })
+          }),
+        )
+      }
     }
 
     return NextResponse.json({ success: true, course })

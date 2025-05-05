@@ -22,6 +22,7 @@ export async function registerUser(data: {
     responsibility?: string
     referralSource?: string
     physicallyDisabled?: boolean
+    programId?: string
   }
 }) {
   try {
@@ -58,6 +59,7 @@ export async function registerUser(data: {
         responsibility: data.profileData?.responsibility,
         referralSource: data.profileData?.referralSource,
         physicallyDisabled: data.profileData?.physicallyDisabled || false,
+        programId: data.profileData?.programId,
       },
     })
 
@@ -97,6 +99,7 @@ export async function updateUserProfile(
     responsibility?: string
     referralSource?: string
     physicallyDisabled: boolean
+    programId?: string
   },
 ) {
   try {
@@ -149,6 +152,7 @@ export async function updateUserProfile(
           responsibility: data.responsibility,
           referralSource: data.referralSource,
           physicallyDisabled: data.physicallyDisabled,
+          programId: data.programId,
         },
       })
     }

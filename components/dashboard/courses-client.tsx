@@ -33,7 +33,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
+// Update the courseSchema to include programs and semesters
 const courseSchema = z.object({
   code: z
     .string()
@@ -45,6 +48,8 @@ const courseSchema = z.object({
   departmentId: z.string({
     required_error: "Please select a department",
   }),
+  programIds: z.array(z.string()).optional(),
+  semesterIds: z.array(z.string()).optional(),
 })
 
 type CourseFormValues = z.infer<typeof courseSchema>
@@ -63,6 +68,10 @@ export default function CoursesClient() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [courseToDelete, setCourseToDelete] = useState<any | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isFetchingDetails, setIsFetchingDetails] = useState(false)
+  // Add state for programs and semesters
+  const [programs, setPrograms] = useState<any[]>([])
+  const [semesters, setSemesters] = useState<any[]>([])
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseSchema),
@@ -72,11 +81,16 @@ export default function CoursesClient() {
       credits: 3,
       description: "",
       departmentId: "",
+      programIds: [],
+      semesterIds: [],
     },
   })
 
+  // Update the useEffect to fetch programs and semesters
   useEffect(() => {
     fetchCourses()
+    fetchPrograms()
+    fetchSemesters()
   }, [])
 
   const fetchCourses = async () => {
@@ -111,6 +125,41 @@ export default function CoursesClient() {
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Add functions to fetch programs and semesters
+  const fetchPrograms = async () => {
+    try {
+      const response = await fetch("/api/programs")
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+      const data = await response.json()
+      if (data.success) {
+        setPrograms(data.programs || [])
+      } else {
+        console.error("API returned error:", data.error)
+      }
+    } catch (error) {
+      console.error("Error fetching programs:", error)
+    }
+  }
+
+  const fetchSemesters = async () => {
+    try {
+      const response = await fetch("/api/semesters")
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+      const data = await response.json()
+      if (data.success) {
+        setSemesters(data.semesters || [])
+      } else {
+        console.error("API returned error:", data.error)
+      }
+    } catch (error) {
+      console.error("Error fetching semesters:", error)
     }
   }
 
@@ -165,17 +214,57 @@ export default function CoursesClient() {
     setIsRefreshing(false)
   }
 
+  // Update the handleEdit function to include programs and semesters
   function handleEdit(course: any) {
     setIsEditing(true)
     setCurrentCourseId(course.id)
+    setIsFetchingDetails(true)
+    setIsDialogOpen(true)
+
+    // Reset form with basic info first
     form.reset({
       code: course.code,
       title: course.title,
       credits: course.credits,
       description: course.description || "",
       departmentId: course.departmentId,
+      programIds: [],
+      semesterIds: [],
     })
-    setIsDialogOpen(true)
+
+    // Fetch course details including program and semester associations
+    const fetchCourseDetails = async () => {
+      try {
+        const response = await fetch(`/api/courses/${course.id}`)
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`)
+        }
+        const data = await response.json()
+        if (data.success) {
+          const courseDetails = data.course
+          form.reset({
+            code: courseDetails.code,
+            title: courseDetails.title,
+            credits: courseDetails.credits,
+            description: courseDetails.description || "",
+            departmentId: courseDetails.departmentId,
+            programIds: courseDetails.programCourses?.map((pc: any) => pc.programId) || [],
+            semesterIds: courseDetails.semesterCourses?.map((sc: any) => sc.semesterId) || [],
+          })
+        }
+      } catch (error) {
+        console.error("Error fetching course details:", error)
+        toast({
+          title: "Warning",
+          description: "Could not fetch all course details. Some associations may be missing.",
+          variant: "warning",
+        })
+      } finally {
+        setIsFetchingDetails(false)
+      }
+    }
+
+    fetchCourseDetails()
   }
 
   async function handleDeleteCourse() {
@@ -228,6 +317,22 @@ export default function CoursesClient() {
   const canManageCourses =
     session?.user.role === "STAFF" || session?.user.role === "REGISTRAR" || session?.user.role === "ADMIN"
 
+  // Update the form reset in the "Add Course" button click handler
+  const handleAddCourse = () => {
+    setIsEditing(false)
+    setCurrentCourseId(null)
+    form.reset({
+      code: "",
+      title: "",
+      credits: 3,
+      description: "",
+      departmentId: departments[0]?.id || "",
+      programIds: [],
+      semesterIds: [],
+    })
+    setIsDialogOpen(true)
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -264,20 +369,7 @@ export default function CoursesClient() {
               />
             </div>
             {canManageCourses && (
-              <Button
-                onClick={() => {
-                  setIsEditing(false)
-                  setCurrentCourseId(null)
-                  form.reset({
-                    code: "",
-                    title: "",
-                    credits: 3,
-                    description: "",
-                    departmentId: departments[0]?.id || "",
-                  })
-                  setIsDialogOpen(true)
-                }}
-              >
+              <Button onClick={handleAddCourse}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Course
               </Button>
@@ -290,52 +382,56 @@ export default function CoursesClient() {
             </div>
           ) : filteredCourses.length > 0 ? (
             <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Credits</TableHead>
-                    {canManageCourses && <TableHead className="text-right">Actions</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCourses.map((course) => (
-                    <TableRow key={course.id}>
-                      <TableCell className="font-medium">{course.code}</TableCell>
-                      <TableCell>{course.title}</TableCell>
-                      <TableCell>
-                        {course.department ? (
-                          <Badge variant="outline">{course.department.name}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">No department</span>
-                        )}
-                      </TableCell>
-                      <TableCell>{course.credits}</TableCell>
+              <ScrollArea className="h-[60vh]" scrollHideDelay={0} type="always">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky top-0 bg-background z-10">Code</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-10">Title</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-10">Department</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-10">Credits</TableHead>
                       {canManageCourses && (
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => handleEdit(course)}>
-                              <FileEdit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setCourseToDelete(course)
-                                setIsDeleteDialogOpen(true)
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
+                        <TableHead className="sticky top-0 bg-background z-10 text-right">Actions</TableHead>
                       )}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCourses.map((course) => (
+                      <TableRow key={course.id}>
+                        <TableCell className="font-medium">{course.code}</TableCell>
+                        <TableCell>{course.title}</TableCell>
+                        <TableCell>
+                          {course.department ? (
+                            <Badge variant="outline">{course.department.name}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">No department</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{course.credits}</TableCell>
+                        {canManageCourses && (
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="icon" onClick={() => handleEdit(course)}>
+                                <FileEdit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setCourseToDelete(course)
+                                  setIsDeleteDialogOpen(true)
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
             </div>
           ) : (
             <div className="text-center py-12">
@@ -347,130 +443,237 @@ export default function CoursesClient() {
 
       {/* Create/Edit Course Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="px-0">
             <DialogTitle>{isEditing ? "Edit Course" : "Add New Course"}</DialogTitle>
             <DialogDescription>
               {isEditing ? "Update the course details below." : "Enter the details for the new course."}
             </DialogDescription>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="code"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Course Code <span className="text-red-500">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., CS101" {...field} />
-                      </FormControl>
-                      <FormDescription>A unique identifier for the course</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
-                <FormField
-                  control={form.control}
-                  name="credits"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Credits <span className="text-red-500">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input type="number" min={1} max={6} {...field} />
-                      </FormControl>
-                      <FormDescription>Number of credit hours (1-6)</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+          {isFetchingDetails && isEditing ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Loading course details...</span>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-hidden">
+              <ScrollArea
+                className="h-[calc(75vh-120px)] pr-4"
+                scrollHideDelay={0}
+                type="always"
+                style={{
+                  overflowY: "auto",
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "rgba(0, 0, 0, 0.2) transparent",
+                }}
+              >
+                <div className="pr-4">
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="code"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                Course Code <span className="text-red-500">*</span>
+                              </FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., CS101" {...field} />
+                              </FormControl>
+                              <FormDescription>A unique identifier for the course</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Course Title <span className="text-red-500">*</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Introduction to Computer Science" {...field} />
-                    </FormControl>
-                    <FormDescription>The full title of the course</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                        <FormField
+                          control={form.control}
+                          name="credits"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                Credits <span className="text-red-500">*</span>
+                              </FormLabel>
+                              <FormControl>
+                                <Input type="number" min={1} max={6} {...field} />
+                              </FormControl>
+                              <FormDescription>Number of credit hours (1-6)</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="title"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              Course Title <span className="text-red-500">*</span>
+                            </FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., Introduction to Computer Science" {...field} />
+                            </FormControl>
+                            <FormDescription>The full title of the course</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="departmentId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              Department <span className="text-red-500">*</span>
+                            </FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select department" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {departments.map((dept) => (
+                                  <SelectItem key={dept.id} value={dept.id}>
+                                    {dept.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>The department offering this course</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="programIds"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Programs</FormLabel>
+                            <div className="border rounded-md">
+                              <ScrollArea className="h-[150px]" scrollHideDelay={0} type="always">
+                                <div className="space-y-2 p-4">
+                                  {programs.length > 0 ? (
+                                    programs.map((program) => (
+                                      <div key={program.id} className="flex items-center space-x-2">
+                                        <Checkbox
+                                          id={`program-${program.id}`}
+                                          checked={field.value?.includes(program.id)}
+                                          onCheckedChange={(checked) => {
+                                            const updatedValue = checked
+                                              ? [...(field.value || []), program.id]
+                                              : (field.value || []).filter((id) => id !== program.id)
+                                            field.onChange(updatedValue)
+                                          }}
+                                        />
+                                        <label
+                                          htmlFor={`program-${program.id}`}
+                                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                        >
+                                          {program.name}
+                                        </label>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground">No programs available</p>
+                                  )}
+                                </div>
+                              </ScrollArea>
+                            </div>
+                            <FormDescription>Select the programs this course belongs to</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="semesterIds"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Semesters</FormLabel>
+                            <div className="border rounded-md">
+                              <ScrollArea className="h-[150px]" scrollHideDelay={0} type="always">
+                                <div className="space-y-2 p-4">
+                                  {semesters.length > 0 ? (
+                                    semesters.map((semester) => (
+                                      <div key={semester.id} className="flex items-center space-x-2">
+                                        <Checkbox
+                                          id={`semester-${semester.id}`}
+                                          checked={field.value?.includes(semester.id)}
+                                          onCheckedChange={(checked) => {
+                                            const updatedValue = checked
+                                              ? [...(field.value || []), semester.id]
+                                              : (field.value || []).filter((id) => id !== semester.id)
+                                            field.onChange(updatedValue)
+                                          }}
+                                        />
+                                        <label
+                                          htmlFor={`semester-${semester.id}`}
+                                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                        >
+                                          {semester.name} ({semester.academicYear?.name || "Unknown Academic Year"})
+                                        </label>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground">No semesters available</p>
+                                  )}
+                                </div>
+                              </ScrollArea>
+                            </div>
+                            <FormDescription>Select the semesters this course is offered in</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Description</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Enter course description"
+                                className="resize-none min-h-[100px]"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormDescription>A brief description of the course content</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="h-4"></div> {/* Spacer for bottom padding in scroll area */}
+                    </form>
+                  </Form>
+                </div>
+              </ScrollArea>
+            </div>
+          )}
 
-              <FormField
-                control={form.control}
-                name="departmentId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Department <span className="text-red-500">*</span>
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select department" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {departments.map((dept) => (
-                          <SelectItem key={dept.id} value={dept.id}>
-                            {dept.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>The department offering this course</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Enter course description" className="resize-none" {...field} />
-                    </FormControl>
-                    <FormDescription>A brief description of the course content</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {isEditing ? "Updating..." : "Creating..."}
-                    </>
-                  ) : isEditing ? (
-                    "Update Course"
-                  ) : (
-                    "Create Course"
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          <DialogFooter className="mt-4 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={form.handleSubmit(onSubmit)} disabled={isLoading || isFetchingDetails}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {isEditing ? "Updating..." : "Creating..."}
+                </>
+              ) : isEditing ? (
+                "Update Course"
+              ) : (
+                "Create Course"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

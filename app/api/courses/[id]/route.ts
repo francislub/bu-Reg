@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 
+// Update the GET method to include program and semester associations
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
@@ -15,9 +16,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
       where: { id: params.id },
       include: {
         department: true,
+        programCourses: true,
         semesterCourses: {
           include: {
-            semester: true,
+            semester: {
+              include: {
+                academicYear: true,
+              },
+            },
           },
         },
       },
