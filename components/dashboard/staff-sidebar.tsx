@@ -16,6 +16,7 @@ import {
   Users,
   BarChart,
 } from "lucide-react"
+import { useSidebarStore } from "@/lib/stores/sidebar-store"
 import {
   Sidebar,
   SidebarContent,
@@ -43,6 +44,7 @@ interface NavGroup {
 
 export function StaffSidebar() {
   const pathname = usePathname()
+  const { isOpen, close } = useSidebarStore()
 
   const navGroups: NavGroup[] = [
     {
@@ -116,8 +118,16 @@ export function StaffSidebar() {
     },
   ]
 
+  const handleLinkClick = () => {
+    if (window.innerWidth < 768) {
+      close()
+    }
+  }
+
   return (
-    <Sidebar className="w-64 bg-gradient-to-b from-green-900 to-green-950 border-r border-green-800">
+    <Sidebar
+      className={`fixed top-14 h-[calc(100vh-3.5rem)] z-40 transition-all duration-300 ease-in-out ${isOpen ? "left-0" : "-left-64 md:left-0"} w-64 bg-gradient-to-b from-green-900 to-green-950 border-r border-green-800`}
+    >
       <SidebarHeader className="h-14 flex items-center px-4 border-b border-green-800">
         <div className="flex items-center gap-2">
           <GraduationCap className="h-6 w-6 text-green-200" />
@@ -137,7 +147,7 @@ export function StaffSidebar() {
                       isActive={item.isActive}
                       className="hover:bg-green-800 active:bg-green-700"
                     >
-                      <Link href={item.href} className="flex items-center gap-3 px-3 py-2">
+                      <Link href={item.href} className="flex items-center gap-3 px-3 py-2" onClick={handleLinkClick}>
                         {item.icon}
                         {item.title}
                       </Link>

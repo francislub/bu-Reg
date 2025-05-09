@@ -1,15 +1,16 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Menu } from "lucide-react"
-import { useSidebar } from "@/components/ui/sidebar"
+import { Menu, X } from "lucide-react"
+import { useSidebarStore } from "@/lib/stores/sidebar-store"
 
 export function SidebarToggle() {
-  const { toggleSidebar } = useSidebar()
+  const { isOpen, toggle } = useSidebarStore()
 
   return (
-    <Button variant="ghost" size="icon" className="md:hidden" onClick={toggleSidebar} aria-label="Toggle sidebar">
-      <Menu className="h-5 w-5" />
+    <Button variant="ghost" size="icon" onClick={toggle} className="md:hidden">
+      {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+      <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )
 }

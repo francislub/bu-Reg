@@ -95,7 +95,18 @@ export function SemesterRegistrationClient({
       fetch(`/api/semesters/${selectedSemester}/courses?programId=${programId}`)
         .then((res) => res.json())
         .then((data) => {
-          setAvailableCourses(data)
+          if (data.success) {
+            setAvailableCourses(data.courses || [])
+            console.log(`Fetched ${data.courses.length} courses for program ID: ${programId}`)
+          } else {
+            console.error("API returned error:", data.error)
+            toast({
+              title: "Error",
+              description: data.error || "Failed to load available courses",
+              variant: "destructive",
+            })
+            setAvailableCourses([])
+          }
           setLoading(false)
         })
         .catch((error) => {
@@ -105,6 +116,7 @@ export function SemesterRegistrationClient({
             description: "Failed to load available courses. Please try again.",
             variant: "destructive",
           })
+          setAvailableCourses([])
           setLoading(false)
         })
     } else {
@@ -199,6 +211,7 @@ export function SemesterRegistrationClient({
           userId,
           semesterId: selectedSemester,
           courseIds: selectedCourses,
+          programId: programId, // Include programId in the registration data
         }),
       })
 
@@ -272,7 +285,7 @@ export function SemesterRegistrationClient({
       <Card>
         <CardHeader>
           <CardTitle>Course Registration</CardTitle>
-          <CardDescription>Add and drop courses for the semester (Maximum: 24 credit units)</CardDescription>
+          <CardDescription>Add and drop courses for the semester (Maximum: {MAX_CREDITS} credit units)</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6">
@@ -347,11 +360,13 @@ export function SemesterRegistrationClient({
 
                           {availableCourses.length === 0 ? (
                             <div className="rounded-md border p-4 text-center">
-                              <p className="text-muted-foreground">No courses available for this semester</p>
+                              <p className="text-muted-foreground">
+                                No courses available for this semester in your program
+                              </p>
                             </div>
                           ) : (
-                            <ScrollArea className="h-[300px]">
-                              <div className="space-y-4">
+                            <ScrollArea className="h-[300px]" type="always" scrollHideDelay={0}>
+                              <div className="space-y-4 pr-4">
                                 {availableCourses
                                   .filter((course) => !selectedCourses.includes(course.id))
                                   .map((course) => (
@@ -393,8 +408,8 @@ export function SemesterRegistrationClient({
                               <p className="text-muted-foreground">No courses selected yet</p>
                             </div>
                           ) : (
-                            <ScrollArea className="h-[300px]">
-                              <div className="space-y-4">
+                            <ScrollArea className="h-[300px]" type="always" scrollHideDelay={0}>
+                              <div className="space-y-4 pr-4">
                                 {availableCourses
                                   .filter((course) => selectedCourses.includes(course.id))
                                   .map((course) => (
@@ -435,8 +450,8 @@ export function SemesterRegistrationClient({
                         <h3 className="mb-3 font-medium">Registered Courses</h3>
                         <Separator className="mb-4" />
 
-                        <ScrollArea className="h-[300px]">
-                          <div className="space-y-4">
+                        <ScrollArea className="h-[300px]" type="always" scrollHideDelay={0}>
+                          <div className="space-y-4 pr-4">
                             {availableCourses
                               .filter((course) => selectedCourses.includes(course.id))
                               .map((course) => (

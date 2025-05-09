@@ -35,17 +35,46 @@ export default async function SemesterRegistrationPage() {
     },
   })
 
-  // Fetch student's program
+  // Fetch student's profile to get program information
   const student = await db.user.findUnique({
     where: {
       id: session.user.id,
     },
     include: {
-      profile: true,
+      profile: {
+        include: {
+          // Include program details to display program name
+          program: true,
+        },
+      },
     },
   })
 
   const programId = student?.profile?.programId
+  const programName = student?.profile?.program?.name || "Unknown Program"
+
+  if (!programId) {
+    // If student doesn't have a program assigned, show a message
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Semester Registration</h2>
+            <p className="text-muted-foreground">Register for courses in the current semester</p>
+          </div>
+        </div>
+        <div className="grid gap-8">
+          <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <h3 className="text-lg font-medium text-yellow-800 mb-2">Program Not Assigned</h3>
+            <p className="text-yellow-700">
+              You don't have a program assigned to your profile. Please contact the registrar's office to have your
+              program assigned before you can register for courses.
+            </p>
+          </div>
+        </div>
+      </DashboardShell>
+    )
+  }
 
   // Fetch student's existing registrations
   const existingRegistrations = await db.registration.findMany({
@@ -71,6 +100,11 @@ export default async function SemesterRegistrationPage() {
         </div>
       </div>
       <div className="grid gap-8">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-blue-700">
+            You are registering for courses in the <strong>{programName}</strong> program.
+          </p>
+        </div>
         <SemesterRegistrationClient
           semesters={activeSemesters}
           programId={programId}

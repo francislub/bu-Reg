@@ -7,8 +7,7 @@ import { UserAccountNav } from "@/components/dashboard/user-account-nav"
 import { StudentSidebar } from "@/components/dashboard/student-sidebar"
 import { StaffSidebar } from "@/components/dashboard/staff-sidebar"
 import { AdminSidebar } from "@/components/dashboard/admin-sidebar"
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
-import { MainNav } from "@/components/dashboard/main-nav"
+import { SidebarProvider } from "@/components/ui/sidebar"
 import { SidebarToggle } from "@/components/dashboard/sidebar-toggle"
 import { AutoLogout } from "@/components/auto-logout"
 
@@ -42,15 +41,11 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           />
         </SiteHeader>
         <div className="flex flex-1 relative">
-          <div className="fixed left-0 top-14 h-[calc(100vh-3.5rem)] z-30">
-            {userRole === "REGISTRAR" && <AdminSidebar />}
-            {userRole === "STAFF" && <StaffSidebar />}
-            {userRole === "STUDENT" && <StudentSidebar />}
-          </div>
-          <SidebarInset className="ml-0 md:ml-56 sm:w-[300px] md:w-[600px] lg:w-[1100px]">
-            <main className="flex flex-1 flex-col overflow-hidden p-6">{children}</main>
+          {userRole === "REGISTRAR" && <AdminSidebar />}
+          {userRole === "STAFF" && <StaffSidebar />}
+          {userRole === "STUDENT" && <StudentSidebar />}
 
-          </SidebarInset>
+          <main className="flex-1 transition-all duration-300 ease-in-out md:ml-64 p-6 overflow-auto">{children}</main>
         </div>
       </div>
       <AutoLogout timeoutMinutes={30} />

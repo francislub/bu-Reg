@@ -4,7 +4,8 @@ import type React from "react"
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BookOpen, Calendar, CheckSquare, ClipboardList, FileText, GraduationCap, Home, Settings, User, Bell } from 'lucide-react'
+import { BookOpen, CheckSquare, FileText, GraduationCap, Home, Settings, User, Bell } from "lucide-react"
+import { useSidebarStore } from "@/lib/stores/sidebar-store"
 import {
   Sidebar,
   SidebarContent,
@@ -32,6 +33,7 @@ interface NavGroup {
 
 export function StudentSidebar() {
   const pathname = usePathname()
+  const { isOpen, close } = useSidebarStore()
 
   const navGroups: NavGroup[] = [
     {
@@ -60,18 +62,6 @@ export function StudentSidebar() {
           icon: <BookOpen className="h-5 w-5" />,
           isActive: pathname === "/dashboard/courses",
         },
-        // {
-        //   title: "Attendance",
-        //   href: "/dashboard/attendance",
-        //   icon: <ClipboardList className="h-5 w-5" />,
-        //   isActive: pathname === "/dashboard/attendance",
-        // },
-        // {
-        //   title: "Timetable",
-        //   href: "/dashboard/timetable",
-        //   icon: <Calendar className="h-5 w-5" />,
-        //   isActive: pathname === "/dashboard/timetable",
-        // },
       ],
     },
     {
@@ -116,8 +106,16 @@ export function StudentSidebar() {
     },
   ]
 
+  const handleLinkClick = () => {
+    if (window.innerWidth < 768) {
+      close()
+    }
+  }
+
   return (
-    <Sidebar className="w-64 bg-gradient-to-b from-blue-900 to-blue-950 border-r border-blue-800">
+    <Sidebar
+      className={`fixed top-14 h-[calc(100vh-3.5rem)] z-40 transition-all duration-300 ease-in-out ${isOpen ? "left-0" : "-left-64 md:left-0"} w-64 bg-gradient-to-b from-blue-900 to-blue-950 border-r border-blue-800`}
+    >
       <SidebarHeader className="h-14 flex items-center px-4 border-b border-blue-800">
         <div className="flex items-center gap-2">
           <GraduationCap className="h-6 w-6 text-blue-200" />
@@ -137,7 +135,7 @@ export function StudentSidebar() {
                       isActive={item.isActive}
                       className="hover:bg-blue-800 active:bg-blue-700"
                     >
-                      <Link href={item.href} className="flex items-center gap-3 px-3 py-2">
+                      <Link href={item.href} className="flex items-center gap-3 px-3 py-2" onClick={handleLinkClick}>
                         {item.icon}
                         {item.title}
                       </Link>

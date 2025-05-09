@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { RecentAnnouncements } from "@/components/dashboard/recent-announcements"
 import { UpcomingEvents } from "@/components/dashboard/upcoming-events"
-import { CalendarIcon, BookOpenIcon, ClipboardCheckIcon, AlertCircleIcon } from "lucide-react"
+import { CalendarIcon, BookOpenIcon, ClipboardCheckIcon, AlertCircleIcon, GraduationCap } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 
 interface StudentDashboardProps {
   user: User
@@ -15,6 +16,10 @@ interface StudentDashboardProps {
   pendingApprovals: any[]
   attendanceRecords: any[]
   attendancePercentage: number
+  programInfo?: {
+    name: string
+    department: string
+  }
 }
 
 export function StudentDashboard({
@@ -25,6 +30,7 @@ export function StudentDashboard({
   pendingApprovals,
   attendanceRecords,
   attendancePercentage,
+  programInfo,
 }: StudentDashboardProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -33,6 +39,19 @@ export function StudentDashboard({
           <CardTitle>Welcome back, {user.name}!</CardTitle>
           <CardDescription>Here's what's happening with your courses today.</CardDescription>
         </CardHeader>
+        {programInfo && (
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                Program: <Badge variant="outline">{programInfo.name}</Badge>
+              </span>
+              <span className="text-sm text-muted-foreground">
+                Department: <Badge variant="outline">{programInfo.department}</Badge>
+              </span>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       <Card>
@@ -138,6 +157,9 @@ export function StudentDashboard({
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
                     <p className="text-sm text-muted-foreground">{registration.course.credits} Credits</p>
+                    <Badge className="mt-2" variant={registration.status === "APPROVED" ? "default" : "outline"}>
+                      {registration.status}
+                    </Badge>
                   </CardContent>
                 </Card>
               ))}
@@ -147,7 +169,7 @@ export function StudentDashboard({
               <div className="flex flex-col items-center space-y-2 text-center">
                 <div className="text-sm text-muted-foreground">You are not enrolled in any courses yet.</div>
                 <Button asChild size="sm">
-                  <Link href="/dashboard/course-registration">Register for Courses</Link>
+                  <Link href="/dashboard/registration">Register for Courses</Link>
                 </Button>
               </div>
             </div>

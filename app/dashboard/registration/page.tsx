@@ -7,6 +7,8 @@ import ClientRegistrationPage from "@/components/dashboard/client-registration-p
 import { getActiveSemester } from "@/lib/actions/semester-actions"
 import { getStudentRegistration } from "@/lib/actions/registration-actions"
 import { getAllCourses } from "@/lib/actions/course-actions"
+import { getUserProfile } from "@/lib/actions/user-actions"
+import { getCoursesByProgramAndDepartment } from "@/lib/actions/program-actions"
 
 export const metadata = {
   title: "Course Registration",
@@ -38,9 +40,25 @@ export default async function RegistrationPage() {
     }
   }
 
-  // Get all available courses
-  const coursesResult = await getAllCourses()
-  const availableCourses = coursesResult.success ? coursesResult.courses : []
+  // Get user profile to determine program and department
+  const userProfileResult = await getUserProfile(session.user.id)
+  const userProfile = userProfileResult.success ? userProfileResult.user : null
+
+  // Get courses based on user's program and department if available
+  let availableCourses = []
+  if (userProfile?.profile?.programId && userProfile?.profile?.departmentId) {
+    const coursesResult = await getCoursesByProgramAndDepartment(
+      userProfile.profile.programId,
+      userProfile.profile.departmentId,
+    )
+    if (coursesResult.success) {
+      availableCourses = coursesResult.courses
+    }
+  } else {
+    // Fallback to all courses if program/department not set
+    const coursesResult = await getAllCourses()
+    availableCourses = coursesResult.success ? coursesResult.courses : []
+  }
 
   return (
     <DashboardShell>

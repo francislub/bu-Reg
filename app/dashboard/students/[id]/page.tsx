@@ -10,6 +10,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import {
   ArrowLeft,
@@ -22,10 +31,11 @@ import {
   Phone,
   MapPin,
   User,
+  AlertCircle,
 } from "lucide-react"
 import { getUserProfile } from "@/lib/actions/user-actions"
 import { getStudentCourses } from "@/lib/actions/course-actions"
-import { approveRegistration, rejectRegistration } from "@/lib/actions/registration-actions"
+import { approveCourseUpload, rejectCourseUpload } from "@/lib/actions/course-upload-actions"
 
 export default function StudentDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -36,13 +46,16 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const [isLoading, setIsLoading] = useState(true)
   const [isApproving, setIsApproving] = useState<Record<string, boolean>>({})
   const [isRejecting, setIsRejecting] = useState<Record<string, boolean>>({})
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null)
+  const [rejectionReason, setRejectionReason] = useState("")
 
   useEffect(() => {
     if (
       !session ||
       (session.user.role !== "STAFF" && session.user.role !== "REGISTRAR" && session.user.role !== "ADMIN")
     ) {
-      router.push("/dashboard/students/$[id]")
+      router.push("/dashboard")
       return
     }
 
@@ -87,74 +100,92 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     fetchStudentData()
   }, [session, router, params.id, toast])
 
-  const handleApprove = async (registrationId: string) => {
-    setIsApproving((prev) => ({ ...prev, [registrationId]: true }))
+  const handleApprove = async (courseUploadId: string) => {
+    setIsApproving((prev) => ({ ...prev, [courseUploadId]: true }))
     try {
-      const result = await approveRegistration(registrationId, session?.user.id || "")
+      const result = await approveCourseUpload(courseUploadId)
       if (result.success) {
         toast({
           title: "Success",
-          description: "Registration approved successfully",
+          description: "Course approved successfully",
         })
 
-        // Refresh courses data
-        const coursesResult = await getStudentCourses(params.id)
-        if (coursesResult.success) {
-          setCourses(coursesResult.courseUploads)
-        }
+        // Update the course status in the local state
+        setCourses((prevCourses) =>
+          prevCourses.map((course) => (course.id === courseUploadId ? { ...course, status: "APPROVED" } : course)),
+        )
       } else {
         toast({
           title: "Error",
-          description: result.message || "Failed to approve registration",
+          description: result.message || "Failed to approve course",
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("Error approving registration:", error)
+      console.error("Error approving course:", error)
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       })
     } finally {
-      setIsApproving((prev) => ({ ...prev, [registrationId]: false }))
+      setIsApproving((prev) => ({ ...prev, [courseUploadId]: false }))
       router.refresh()
     }
   }
 
-  const handleReject = async (registrationId: string) => {
-    setIsRejecting((prev) => ({ ...prev, [registrationId]: true }))
+  const openRejectDialog = (courseUploadId: string) => {
+    setSelectedCourseId(courseUploadId)
+    setRejectionReason("")
+    setIsDialogOpen(true)
+  }
+
+  const handleReject = async () => {
+    if (!selectedCourseId) return
+
+    setIsRejecting((prev) => ({ ...prev, [selectedCourseId]: true }))
     try {
-      const result = await rejectRegistration(registrationId, session?.user.id || "")
+      const result = await rejectCourseUpload(selectedCourseId, rejectionReason)
       if (result.success) {
         toast({
           title: "Success",
-          description: "Registration rejected successfully",
+          description: "Course rejected successfully",
         })
 
-        // Refresh courses data
-        const coursesResult = await getStudentCourses(params.id)
-        if (coursesResult.success) {
-          setCourses(coursesResult.courseUploads)
-        }
+        // Update the course status in the local state
+        setCourses((prevCourses) =>
+          prevCourses.map((course) =>
+            course.id === selectedCourseId ? { ...course, status: "REJECTED", rejectionReason } : course,
+          ),
+        )
+
+        setIsDialogOpen(false)
       } else {
         toast({
           title: "Error",
-          description: result.message || "Failed to reject registration",
+          description: result.message || "Failed to reject course",
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("Error rejecting registration:", error)
+      console.error("Error rejecting course:", error)
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       })
     } finally {
-      setIsRejecting((prev) => ({ ...prev, [registrationId]: false }))
+      setIsRejecting((prev) => ({ ...prev, [selectedCourseId]: false }))
+      setSelectedCourseId(null)
       router.refresh()
     }
+  }
+
+  // Calculate total credits
+  const calculateTotalCredits = () => {
+    return courses
+      .filter((course) => course.status === "APPROVED" || course.status === "PENDING")
+      .reduce((total, course) => total + course.course.credits, 0)
   }
 
   if (
@@ -245,6 +276,32 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                 </div>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Academic Information</CardTitle>
+                <CardDescription>Student's program and department details.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <GraduationCap className="h-4 w-4 mr-2" /> Program
+                    </span>
+                    <span className="text-base">{student.profile?.program || "Not assigned"}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <GraduationCap className="h-4 w-4 mr-2" /> Department
+                    </span>
+                    <span className="text-base">{student.profile?.departmentId ? "Assigned" : "Not assigned"}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="courses" className="space-y-4">
@@ -254,6 +311,22 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                 <CardDescription>Courses the student is currently enrolled in.</CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="mb-4 p-4 bg-muted rounded-md flex justify-between items-center">
+                  <div>
+                    <span className="font-medium">Total Credits: </span>
+                    <span className={`${calculateTotalCredits() > 24 ? "text-red-500 font-bold" : ""}`}>
+                      {calculateTotalCredits()}
+                    </span>
+                    <span className="text-sm text-muted-foreground ml-2">(Maximum allowed: 24)</span>
+                  </div>
+                  {calculateTotalCredits() > 24 && (
+                    <div className="flex items-center text-red-500">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      <span className="text-sm">Credit limit exceeded</span>
+                    </div>
+                  )}
+                </div>
+
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -310,6 +383,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                     <TableRow>
                       <TableHead>Course</TableHead>
                       <TableHead>Semester</TableHead>
+                      <TableHead>Credits</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Submitted On</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -325,6 +399,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                               {courseUpload.course.code} - {courseUpload.course.title}
                             </TableCell>
                             <TableCell>{courseUpload.semester.name}</TableCell>
+                            <TableCell>{courseUpload.course.credits}</TableCell>
                             <TableCell>
                               <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
                             </TableCell>
@@ -349,7 +424,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                                   variant="outline"
                                   size="sm"
                                   className="h-8 text-red-600 border-red-600 hover:bg-red-50"
-                                  onClick={() => handleReject(courseUpload.id)}
+                                  onClick={() => openRejectDialog(courseUpload.id)}
                                   disabled={isRejecting[courseUpload.id]}
                                 >
                                   {isRejecting[courseUpload.id] ? (
@@ -365,14 +440,14 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                         ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                           No registration requests found for this student.
                         </TableCell>
                       </TableRow>
                     )}
                     {courses.length > 0 && courses.filter((c) => c.status === "PENDING").length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                           No pending registration requests for this student.
                         </TableCell>
                       </TableRow>
@@ -392,6 +467,39 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           </CardContent>
         </Card>
       )}
+
+      {/* Rejection Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Course Registration</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this course registration. This will be visible to the student.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              placeholder="Enter rejection reason..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              className="min-h-[100px]"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleReject}
+              disabled={!rejectionReason.trim() || isRejecting[selectedCourseId || ""]}
+            >
+              {isRejecting[selectedCourseId || ""] ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Reject Course
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardShell>
   )
 }

@@ -1,151 +1,78 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { db } from "@/lib/db"
 import { authOptions } from "@/lib/auth"
+import { db } from "@/lib/db"
 
-export async function GET(req: Request) {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
+
     if (!session) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const url = new URL(req.url)
-    const semesterId = url.searchParams.get("semesterId")
-    const userId = url.searchParams.get("userId") || session.user.id
-    const status = url.searchParams.get("status")
-
-    // Build where clause based on parameters
-    const whereClause: any = {}
-
-    if (semesterId) {
-      whereClause.semesterId = semesterId
-    }
-
-    if (userId) {
-      whereClause.userId = userId
-    }
-
-    if (status) {
-      whereClause.status = status
-    }
-
-    // Check if user has permission to view course uploads
-    if (session.user.role !== "REGISTRAR" && session.user.id !== userId) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 })
-    }
-
-    const courseUploads = await db.courseUpload.findMany({
-      where: whereClause,
-      include: {
-        course: {
-          include: {
-            department: true,
-          },
-        },
-        user: {
-          include: {
-            profile: true,
-          },
-        },
-        semester: true,
-        approvals: {
-          include: {
-            approver: {
-              include: {
-                profile: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    })
-
-    return NextResponse.json({ success: true, courseUploads })
-  } catch (error) {
-    console.error("Error fetching course uploads:", error)
-    return NextResponse.json(
-      { success: false, message: "An error occurred while fetching course uploads" },
-      { status: 500 },
-    )
-  }
-}
-
-export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    const body = await req.json()
+    const body = await request.json()
     const { registrationId, courseId, userId, semesterId } = body
 
     // Validate required fields
     if (!registrationId || !courseId || !userId || !semesterId) {
-      return NextResponse.json(
-        { success: false, message: "Registration ID, course ID, user ID, and semester ID are required" },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
+    // Check if user is authorized to register courses for this user
+    if (session.user.id !== userId && session.user.role !== "ADMIN" && session.user.role !== "REGISTRAR") {
+      return NextResponse.json({ error: "Unauthorized to register courses for this user" }, { status: 403 })
     }
 
     // Check if course upload already exists
     const existingCourseUpload = await db.courseUpload.findFirst({
       where: {
+        registrationId,
+        courseId,
         userId,
         semesterId,
-        courseId,
       },
     })
 
     if (existingCourseUpload) {
-      return NextResponse.json(
-        { success: false, message: "You are already registered for this course" },
-        { status: 400 },
-      )
+      return NextResponse.json({
+        courseUpload: existingCourseUpload,
+        message: "Course already registered",
+      })
     }
 
-    // Get current total credit hours for this semester
-    const currentCourseUploads = await db.courseUpload.findMany({
+    // Calculate total credits for this registration
+    const existingCourseUploads = await db.courseUpload.findMany({
       where: {
-        userId,
-        semesterId,
+        registrationId,
+        status: {
+          in: ["PENDING", "APPROVED"],
+        },
       },
       include: {
         course: true,
       },
     })
 
-    // Get the course to be added
-    const courseToAdd = await db.course.findUnique({
+    const existingCredits = existingCourseUploads.reduce((total, upload) => total + upload.course.credits, 0)
+
+    // Get the course to check its credits
+    const course = await db.course.findUnique({
       where: { id: courseId },
     })
 
-    if (!courseToAdd) {
-      return NextResponse.json({ success: false, message: "Course not found" }, { status: 404 })
+    if (!course) {
+      return NextResponse.json({ error: "Course not found" }, { status: 404 })
     }
 
-    // Calculate total credit hours including the new course
-    const currentCreditHours = currentCourseUploads.reduce((total, cu) => total + cu.course.credits, 0)
-    const newTotalCreditHours = currentCreditHours + courseToAdd.credits
-
-    // Check if adding this course would exceed the maximum credit hours (24)
-    if (newTotalCreditHours > 24) {
+    // Check if adding this course would exceed the credit limit (24)
+    if (existingCredits + course.credits > 24) {
       return NextResponse.json(
         {
-          success: false,
-          message: `Adding this course would exceed the maximum of 24 credit hours. Current: ${currentCreditHours}, Course: ${courseToAdd.credits}`,
+          error: "Adding this course would exceed the maximum of 24 credits",
         },
         { status: 400 },
       )
-    }
-
-    // Check if the course has the minimum required credit hours (3)
-    if (courseToAdd.credits < 3) {
-      return NextResponse.json({ success: false, message: "Course must have at least 3 credit hours" }, { status: 400 })
     }
 
     // Create course upload
@@ -159,9 +86,64 @@ export async function POST(req: Request) {
       },
     })
 
-    return NextResponse.json({ success: true, courseUpload })
+    return NextResponse.json({
+      courseUpload,
+      message: "Course registration submitted successfully",
+    })
   } catch (error) {
-    console.error("Error adding course:", error)
-    return NextResponse.json({ success: false, message: "An error occurred while adding the course" }, { status: 500 })
+    console.error("Error creating course upload:", error)
+    return NextResponse.json({ error: "Failed to register course" }, { status: 500 })
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Get query parameters
+    const url = new URL(request.url)
+    const userId = url.searchParams.get("userId")
+    const semesterId = url.searchParams.get("semesterId")
+    const status = url.searchParams.get("status")
+
+    // Build where clause
+    const where: any = {}
+    if (userId) where.userId = userId
+    if (semesterId) where.semesterId = semesterId
+    if (status) where.status = status
+
+    // If not admin or registrar, only allow viewing own course uploads
+    if (session.user.role !== "ADMIN" && session.user.role !== "REGISTRAR" && session.user.id !== userId) {
+      return NextResponse.json({ error: "Unauthorized to view these course uploads" }, { status: 403 })
+    }
+
+    const courseUploads = await db.courseUpload.findMany({
+      where,
+      include: {
+        course: {
+          include: {
+            department: true,
+          },
+        },
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
+        registration: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+
+    return NextResponse.json({ courseUploads })
+  } catch (error) {
+    console.error("Error fetching course uploads:", error)
+    return NextResponse.json({ error: "Failed to fetch course uploads" }, { status: 500 })
   }
 }

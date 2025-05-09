@@ -47,6 +47,9 @@ const registerSchema = z
     programId: z.string({
       required_error: "Please select a program",
     }),
+    departmentId: z.string({
+      required_error: "Please select a department",
+    }),
     password: z
       .string()
       .min(8, "Password must be at least 8 characters")
@@ -69,7 +72,9 @@ export default function RegisterPage() {
   const [step, setStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [programs, setPrograms] = useState<any[]>([])
+  const [departments, setDepartments] = useState<any[]>([])
   const [isLoadingPrograms, setIsLoadingPrograms] = useState(true)
+  const [isLoadingDepartments, setIsLoadingDepartments] = useState(false)
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -87,6 +92,7 @@ export default function RegisterPage() {
       referralSource: "",
       physicallyDisabled: false,
       programId: "",
+      departmentId: "",
       password: "",
       confirmPassword: "",
     },
@@ -115,12 +121,40 @@ export default function RegisterPage() {
     fetchPrograms()
   }, [])
 
+  // Fetch departments when program changes
+  useEffect(() => {
+    const programId = form.watch("programId")
+    if (!programId) return
+
+    const fetchDepartments = async () => {
+      try {
+        setIsLoadingDepartments(true)
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/api/departments/by-program/${programId}`,
+        )
+        const data = await response.json()
+
+        if (data.success) {
+          setDepartments(data.departments)
+        } else {
+          console.error("Failed to fetch departments:", data.message)
+        }
+      } catch (error) {
+        console.error("Error fetching departments:", error)
+      } finally {
+        setIsLoadingDepartments(false)
+      }
+    }
+
+    fetchDepartments()
+  }, [form.watch("programId")])
+
   function nextStep() {
     const fieldsToValidate =
       step === 1
         ? ["firstName", "lastName", "email", "dateOfBirth", "gender", "nationality"]
         : step === 2
-          ? ["programId", "maritalStatus", "religion"]
+          ? ["programId", "departmentId", "maritalStatus", "religion"]
           : ["password", "confirmPassword"]
 
     const isValid = fieldsToValidate.every((field) => {
@@ -164,6 +198,7 @@ export default function RegisterPage() {
             referralSource: data.referralSource,
             physicallyDisabled: data.physicallyDisabled,
             programId: data.programId,
+            departmentId: data.departmentId,
           },
         }),
       })
@@ -441,7 +476,14 @@ export default function RegisterPage() {
                             <FormLabel>
                               Select Program <span className="text-red-500">*</span>
                             </FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select
+                              onValueChange={(value) => {
+                                field.onChange(value)
+                                // Reset department when program changes
+                                form.setValue("departmentId", "")
+                              }}
+                              defaultValue={field.value}
+                            >
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select a program" />
@@ -466,6 +508,58 @@ export default function RegisterPage() {
                               </SelectContent>
                             </Select>
                             <FormDescription>Choose the academic program you wish to enroll in</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="departmentId"
+                        render={({ field }) => (
+                          <FormItem className="col-span-2">
+                            <FormLabel>
+                              Select Department <span className="text-red-500">*</span>
+                            </FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              disabled={!form.watch("programId") || isLoadingDepartments}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue
+                                    placeholder={
+                                      !form.watch("programId")
+                                        ? "Select a program first"
+                                        : isLoadingDepartments
+                                          ? "Loading departments..."
+                                          : "Select a department"
+                                    }
+                                  />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {isLoadingDepartments ? (
+                                  <SelectItem value="" disabled>
+                                    Loading departments...
+                                  </SelectItem>
+                                ) : departments.length > 0 ? (
+                                  departments.map((department) => (
+                                    <SelectItem key={department.id} value={department.id}>
+                                      {department.name} ({department.code})
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <SelectItem value="" disabled>
+                                    {form.watch("programId")
+                                      ? "No departments available for this program"
+                                      : "Select a program first"}
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>Choose the department within your selected program</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -732,6 +826,14 @@ export default function RegisterPage() {
                           <p>
                             {programs.find((p) => p.id === form.getValues("programId"))?.name ||
                               form.getValues("programId")}
+                          </p>
+                        </div>
+
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-gray-500">Department</p>
+                          <p>
+                            {departments.find((d) => d.id === form.getValues("departmentId"))?.name ||
+                              form.getValues("departmentId")}
                           </p>
                         </div>
 

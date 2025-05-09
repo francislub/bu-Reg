@@ -1,35 +1,94 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 
-export async function GET(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
+
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { searchParams } = new URL(request.url)
-    const semesterId = searchParams.get("semesterId")
-    const userId = searchParams.get("userId") || session.user.id
+    const body = await request.json()
+    const { userId, semesterId } = body
 
-    // Only admin and registrars can view other users' registrations
-    if (userId !== session.user.id && session.user.role !== "ADMIN" && session.user.role !== "REGISTRAR") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    // Validate required fields
+    if (!userId || !semesterId) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // Build query
-    const where = semesterId ? { userId, semesterId } : { userId }
+    // Check if user is authorized to create registrations for this user
+    if (session.user.id !== userId && session.user.role !== "ADMIN" && session.user.role !== "REGISTRAR") {
+      return NextResponse.json({ error: "Unauthorized to create registrations for this user" }, { status: 403 })
+    }
+
+    // Check if registration already exists
+    const existingRegistration = await db.registration.findFirst({
+      where: {
+        userId,
+        semesterId,
+      },
+    })
+
+    if (existingRegistration) {
+      return NextResponse.json({
+        registration: existingRegistration,
+        message: "Registration already exists",
+      })
+    }
+
+    // Create registration
+    const registration = await db.registration.create({
+      data: {
+        userId,
+        semesterId,
+        status: "PENDING",
+      },
+    })
+
+    return NextResponse.json({
+      registration,
+      message: "Registration created successfully",
+    })
+  } catch (error) {
+    console.error("Error creating registration:", error)
+    return NextResponse.json({ error: "Failed to create registration" }, { status: 500 })
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Get query parameters
+    const url = new URL(request.url)
+    const userId = url.searchParams.get("userId")
+    const semesterId = url.searchParams.get("semesterId")
+    const status = url.searchParams.get("status")
+
+    // Build where clause
+    const where: any = {}
+    if (userId) where.userId = userId
+    if (semesterId) where.semesterId = semesterId
+    if (status) where.status = status
+
+    // If not admin or registrar, only allow viewing own registrations
+    if (session.user.role !== "ADMIN" && session.user.role !== "REGISTRAR" && session.user.id !== userId) {
+      return NextResponse.json({ error: "Unauthorized to view these registrations" }, { status: 403 })
+    }
 
     const registrations = await db.registration.findMany({
       where,
       include: {
         user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+          include: {
+            profile: true,
           },
         },
         semester: {
@@ -39,11 +98,7 @@ export async function GET(request: NextRequest) {
         },
         courseUploads: {
           include: {
-            course: {
-              include: {
-                department: true,
-              },
-            },
+            course: true,
           },
         },
       },
@@ -56,98 +111,5 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Error fetching registrations:", error)
     return NextResponse.json({ error: "Failed to fetch registrations" }, { status: 500 })
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Parse request body
-    const body = await request.json()
-    const { userId, semesterId, courseIds } = body
-
-    // Validate required fields
-    if (!semesterId || !courseIds || courseIds.length === 0) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
-    }
-
-    // For non-admin users, they can only create registrations for themselves
-    if (userId !== session.user.id && session.user.role !== "ADMIN" && session.user.role !== "REGISTRAR") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
-    // Check credit units total - maximum allowed is 24
-    const courses = await db.course.findMany({
-      where: {
-        id: {
-          in: courseIds,
-        },
-      },
-    })
-
-    const totalCredits = courses.reduce((sum, course) => sum + course.credits, 0)
-
-    if (totalCredits > 24) {
-      return NextResponse.json(
-        {
-          error: "Total credit units exceed the maximum of 24",
-          totalCredits,
-        },
-        { status: 400 },
-      )
-    }
-
-    // Check if student already has a registration for this semester
-    const existingRegistration = await db.registration.findFirst({
-      where: {
-        userId,
-        semesterId,
-      },
-    })
-
-    if (existingRegistration) {
-      return NextResponse.json(
-        {
-          error: "Registration already exists for this semester",
-          registrationId: existingRegistration.id,
-        },
-        { status: 409 },
-      )
-    }
-
-    // Create new registration
-    const registration = await db.registration.create({
-      data: {
-        userId,
-        semesterId,
-        status: "DRAFT",
-        courseUploads: {
-          create: courseIds.map((courseId) => ({
-            courseId,
-            userId,
-            semesterId,
-            status: "PENDING",
-          })),
-        },
-      },
-      include: {
-        user: true,
-        semester: true,
-        courseUploads: {
-          include: {
-            course: true,
-          },
-        },
-      },
-    })
-
-    return NextResponse.json({ registration })
-  } catch (error) {
-    console.error("Error creating registration:", error)
-    return NextResponse.json({ error: "Failed to create registration" }, { status: 500 })
   }
 }

@@ -17,6 +17,7 @@ import {
   Bell,
   Calendar,
 } from "lucide-react"
+import { useSidebarStore } from "@/lib/stores/sidebar-store"
 import {
   Sidebar,
   SidebarContent,
@@ -44,6 +45,7 @@ interface NavGroup {
 
 export function AdminSidebar() {
   const pathname = usePathname()
+  const { isOpen, close } = useSidebarStore()
 
   const navGroups: NavGroup[] = [
     {
@@ -84,12 +86,6 @@ export function AdminSidebar() {
           icon: <Users className="h-5 w-5" />,
           isActive: pathname === "/dashboard/students",
         },
-        // {
-        //   title: "Staff",
-        //   href: "/dashboard/staff",
-        //   icon: <User className="h-5 w-5" />,
-        //   isActive: pathname === "/dashboard/staff",
-        // },
         {
           title: "Departments",
           href: "/dashboard/departments",
@@ -141,8 +137,16 @@ export function AdminSidebar() {
     },
   ]
 
+  const handleLinkClick = () => {
+    if (window.innerWidth < 768) {
+      close()
+    }
+  }
+
   return (
-    <Sidebar className="w-64 bg-gradient-to-b from-purple-900 to-purple-950 border-r border-purple-800">
+    <Sidebar
+      className={`fixed top-14 h-[calc(100vh-3.5rem)] z-40 transition-all duration-300 ease-in-out ${isOpen ? "left-0" : "-left-64 md:left-0"} w-64 bg-gradient-to-b from-purple-900 to-purple-950 border-r border-purple-800`}
+    >
       <SidebarHeader className="h-14 flex items-center px-4 border-b border-purple-800">
         <div className="flex items-center gap-2">
           <GraduationCap className="h-6 w-6 text-purple-200" />
@@ -162,7 +166,7 @@ export function AdminSidebar() {
                       isActive={item.isActive}
                       className="hover:bg-purple-800 active:bg-purple-700"
                     >
-                      <Link href={item.href} className="flex items-center gap-3 px-3 py-2">
+                      <Link href={item.href} className="flex items-center gap-3 px-3 py-2" onClick={handleLinkClick}>
                         {item.icon}
                         {item.title}
                       </Link>
