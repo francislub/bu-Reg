@@ -21,7 +21,7 @@ export default async function ApprovalsPage() {
 
   // Only registrars and admins can access this page
   if (session.user.role !== "REGISTRAR" && session.user.role !== "ADMIN") {
-    redirect("/dashboard")
+    redirect("/dashboard/approvals")
   }
 
   // Fetch pending registrations with better error handling
