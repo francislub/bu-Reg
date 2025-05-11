@@ -3,6 +3,7 @@ import { hash } from "bcryptjs"
 import { db } from "@/lib/db"
 import { sendWelcomeEmail } from "@/lib/email" // Add this import
 
+// Update the POST function to properly handle programId and departmentId
 export async function POST(req: Request) {
   try {
     const body = await req.json()
@@ -36,6 +37,13 @@ export async function POST(req: Request) {
         responsibility: profileData?.responsibility || "",
         referralSource: profileData?.referralSource || "",
         physicallyDisabled: profileData?.physicallyDisabled || false,
+        program: profileData?.programId
+          ? (await db.program.findUnique({ where: { id: profileData.programId } }))?.name || ""
+          : "",
+        programId: profileData?.programId || undefined,
+        departmentId: profileData?.departmentId || undefined,
+        phone: profileData?.phone || "",
+        address: profileData?.address || "",
       },
     })
 

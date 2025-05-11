@@ -16,7 +16,7 @@ import {
   Users,
   BarChart,
 } from "lucide-react"
-import { useSidebarStore } from "@/lib/stores/sidebar-store"
+import { useSidebarStore } from "@/lib/store/sidebar-store"
 import {
   Sidebar,
   SidebarContent,

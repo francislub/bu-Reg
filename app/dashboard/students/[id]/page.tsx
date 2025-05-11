@@ -18,6 +18,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -29,9 +40,15 @@ import {
   GraduationCap,
   Mail,
   Phone,
-  MapPin,
   User,
   AlertCircle,
+  Trash2,
+  Home,
+  Globe,
+  Heart,
+  Church,
+  BookOpen,
+  Info,
 } from "lucide-react"
 import { getUserProfile } from "@/lib/actions/user-actions"
 import { getStudentCourses } from "@/lib/actions/course-actions"
@@ -46,6 +63,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const [isLoading, setIsLoading] = useState(true)
   const [isApproving, setIsApproving] = useState<Record<string, boolean>>({})
   const [isRejecting, setIsRejecting] = useState<Record<string, boolean>>({})
+  const [isDeleting, setIsDeleting] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null)
   const [rejectionReason, setRejectionReason] = useState("")
@@ -181,6 +199,35 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     }
   }
 
+  const handleDeleteStudent = async () => {
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/users/${params.id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete student")
+      }
+
+      toast({
+        title: "Success",
+        description: "Student deleted successfully",
+      })
+
+      router.push("/dashboard/students")
+    } catch (error) {
+      console.error("Error deleting student:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete student. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   // Calculate total credits
   const calculateTotalCredits = () => {
     return courses
@@ -198,10 +245,41 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   return (
     <DashboardShell>
       <DashboardHeader heading="Student Details" text="View and manage student information">
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Student
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the student account and all associated data
+                  from the system.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteStudent}
+                  className="bg-red-600 hover:bg-red-700"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </DashboardHeader>
 
       {isLoading ? (
@@ -250,6 +328,13 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                         : "Not specified"}
                     </span>
                   </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <User className="h-4 w-4 mr-2" /> Gender
+                    </span>
+                    <span className="text-base">{student.profile?.gender || "Not specified"}</span>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
@@ -257,12 +342,12 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                     <span className="text-sm font-medium text-muted-foreground flex items-center">
                       <GraduationCap className="h-4 w-4 mr-2" /> Student ID
                     </span>
-                    <span className="text-base">{student.id}</span>
+                    <span className="text-base">{student.profile?.studentId || student.id}</span>
                   </div>
 
                   <div className="flex flex-col space-y-1">
                     <span className="text-sm font-medium text-muted-foreground flex items-center">
-                      <MapPin className="h-4 w-4 mr-2" /> Nationality
+                      <Globe className="h-4 w-4 mr-2" /> Nationality
                     </span>
                     <span className="text-base">{student.profile?.nationality || "Not specified"}</span>
                   </div>
@@ -272,6 +357,13 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                       <Phone className="h-4 w-4 mr-2" /> Contact
                     </span>
                     <span className="text-base">{student.profile?.phone || "Not specified"}</span>
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <Home className="h-4 w-4 mr-2" /> Address
+                    </span>
+                    <span className="text-base">{student.profile?.address || "Not specified"}</span>
                   </div>
                 </div>
               </CardContent>
@@ -290,6 +382,13 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                     </span>
                     <span className="text-base">{student.profile?.program || "Not assigned"}</span>
                   </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <BookOpen className="h-4 w-4 mr-2" /> Program ID
+                    </span>
+                    <span className="text-base">{student.profile?.programId || "Not assigned"}</span>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
@@ -297,7 +396,70 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                     <span className="text-sm font-medium text-muted-foreground flex items-center">
                       <GraduationCap className="h-4 w-4 mr-2" /> Department
                     </span>
-                    <span className="text-base">{student.profile?.departmentId ? "Assigned" : "Not assigned"}</span>
+                    <span className="text-base">
+                      {student.profile?.departmentId ? student.profile.departmentId : "Not assigned"}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <Calendar className="h-4 w-4 mr-2" /> Registration Date
+                    </span>
+                    <span className="text-base">{new Date(student.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Additional Information</CardTitle>
+                <CardDescription>Other personal details.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <Heart className="h-4 w-4 mr-2" /> Marital Status
+                    </span>
+                    <span className="text-base">{student.profile?.maritalStatus || "Not specified"}</span>
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <Church className="h-4 w-4 mr-2" /> Religion
+                    </span>
+                    <span className="text-base">{student.profile?.religion || "Not specified"}</span>
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <Church className="h-4 w-4 mr-2" /> Church
+                    </span>
+                    <span className="text-base">{student.profile?.church || "Not specified"}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <Info className="h-4 w-4 mr-2" /> Responsibility
+                    </span>
+                    <span className="text-base">{student.profile?.responsibility || "Not specified"}</span>
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <Info className="h-4 w-4 mr-2" /> Referral Source
+                    </span>
+                    <span className="text-base">{student.profile?.referralSource || "Not specified"}</span>
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-2" /> Physically Disabled
+                    </span>
+                    <span className="text-base">{student.profile?.physicallyDisabled ? "Yes" : "No"}</span>
                   </div>
                 </div>
               </CardContent>

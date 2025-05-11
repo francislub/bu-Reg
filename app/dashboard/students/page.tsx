@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   description: "Manage university students",
 }
 
+// Update the getStudents function to include more profile information
 async function getStudents() {
   try {
     const students = await db.user.findMany({
@@ -18,7 +19,11 @@ async function getStudents() {
         role: "STUDENT",
       },
       include: {
-        profile: true,
+        profile: {
+          include: {
+            // Include related program and department information if needed
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -27,6 +32,21 @@ async function getStudents() {
     return students
   } catch (error) {
     console.error("Error fetching students:", error)
+    return []
+  }
+}
+
+// Update the getPrograms function to fetch programs for filtering
+async function getPrograms() {
+  try {
+    const programs = await db.program.findMany({
+      orderBy: {
+        name: "asc",
+      },
+    })
+    return programs
+  } catch (error) {
+    console.error("Error fetching programs:", error)
     return []
   }
 }
@@ -60,10 +80,11 @@ export default async function StudentsPage() {
 
   const students = await getStudents()
   const departments = await getDepartments()
+  const programs = await getPrograms()
 
   return (
     <DashboardShell>
-      <StudentsClient initialStudents={students} departments={departments} />
+      <StudentsClient initialStudents={students} departments={departments} programs={programs} />
     </DashboardShell>
   )
 }

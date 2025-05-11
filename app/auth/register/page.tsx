@@ -9,18 +9,19 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/hooks/use-toast"
-import { CalendarIcon, ChevronLeft, Loader2 } from "lucide-react"
+import { AlertCircle, CalendarIcon, ChevronLeft, Loader2 } from 'lucide-react'
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-const registerSchema = z
-  .object({
+// Create a conditional schema based on whether departments are available
+const createRegisterSchema = (hasDepartments: boolean) => {
+  const baseSchema = {
     firstName: z.string().min(2, "First name must be at least 2 characters"),
     middleName: z.string().optional(),
     lastName: z.string().min(2, "Last name must be at least 2 characters"),
@@ -47,9 +48,6 @@ const registerSchema = z
     programId: z.string({
       required_error: "Please select a program",
     }),
-    departmentId: z.string({
-      required_error: "Please select a department",
-    }),
     password: z
       .string()
       .min(8, "Password must be at least 8 characters")
@@ -58,13 +56,36 @@ const registerSchema = z
         "Password must contain at least one uppercase letter, one lowercase letter, and one number",
       ),
     confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  })
+  }
 
-type RegisterFormValues = z.infer<typeof registerSchema>
+  // If departments are available, make departmentId required
+  if (hasDepartments) {
+    return z
+      .object({
+        ...baseSchema,
+        departmentId: z.string({
+          required_error: "Please select a department",
+        }),
+      })
+      .refine((data) => data.password === data.confirmPassword, {
+        message: "Passwords do not match",
+        path: ["confirmPassword"],
+      })
+  }
+
+  // If no departments are available, make departmentId optional
+  return z
+    .object({
+      ...baseSchema,
+      departmentId: z.string().optional(),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
+    })
+}
+
+type RegisterFormValues = z.infer<ReturnType<typeof createRegisterSchema>>
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -75,6 +96,12 @@ export default function RegisterPage() {
   const [departments, setDepartments] = useState<any[]>([])
   const [isLoadingPrograms, setIsLoadingPrograms] = useState(true)
   const [isLoadingDepartments, setIsLoadingDepartments] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
+  const [noDepartmentsForProgram, setNoDepartmentsForProgram] = useState(false)
+  const [selectedProgramName, setSelectedProgramName] = useState<string>("")
+
+  // Create schema based on whether departments are available
+  const registerSchema = createRegisterSchema(!noDepartmentsForProgram)
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -98,21 +125,45 @@ export default function RegisterPage() {
     },
   })
 
+  // Update form validation when noDepartmentsForProgram changes
+  useEffect(() => {
+    form.clearErrors("departmentId")
+    // Force re-validation with the new schema
+    form.trigger()
+  }, [noDepartmentsForProgram, form])
+
   // Fetch programs on component mount
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
         setIsLoadingPrograms(true)
+        setApiError(null)
         const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/api/programs`)
+
+        if (!response.ok) {
+          throw new Error(`API request failed with status ${response.status}`)
+        }
+
         const data = await response.json()
 
-        if (data.success) {
+        if (data && Array.isArray(data)) {
+          // Handle case where API returns an array directly
+          setPrograms(data)
+        } else if (data && data.success && Array.isArray(data.programs)) {
+          // Handle case with success property
           setPrograms(data.programs)
+        } else if (data && Array.isArray(data.data)) {
+          // Handle case with data property
+          setPrograms(data.data)
         } else {
-          console.error("Failed to fetch programs:", data.message)
+          console.error("Failed to fetch programs:", data?.message || "Invalid response format")
+          setApiError("Failed to load programs. Please try again later.")
+          setPrograms([])
         }
       } catch (error) {
         console.error("Error fetching programs:", error)
+        setApiError("Failed to load programs. Please try again later.")
+        setPrograms([])
       } finally {
         setIsLoadingPrograms(false)
       }
@@ -124,47 +175,89 @@ export default function RegisterPage() {
   // Fetch departments when program changes
   useEffect(() => {
     const programId = form.watch("programId")
-    if (!programId) return
+    if (!programId) {
+      setNoDepartmentsForProgram(false)
+      return
+    }
+
+    // Update selected program name for display
+    const selectedProgram = programs.find(p => p.id === programId)
+    if (selectedProgram) {
+      setSelectedProgramName(selectedProgram.name)
+    }
 
     const fetchDepartments = async () => {
       try {
         setIsLoadingDepartments(true)
+        setApiError(null)
+        setNoDepartmentsForProgram(false)
+        
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/api/departments/by-program/${programId}`,
         )
-        const data = await response.json()
 
-        if (data.success) {
-          setDepartments(data.departments)
+        if (!response.ok) {
+          throw new Error(`API request failed with status ${response.status}`)
+        }
+
+        const data = await response.json()
+        let departmentsData: any[] = []
+
+        if (data && Array.isArray(data)) {
+          departmentsData = data
+        } else if (data && data.success && Array.isArray(data.departments)) {
+          departmentsData = data.departments
+        } else if (data && Array.isArray(data.data)) {
+          departmentsData = data.data
         } else {
-          console.error("Failed to fetch departments:", data.message)
+          console.error("Failed to fetch departments:", data?.message || "Invalid response format")
+          departmentsData = []
+        }
+
+        setDepartments(departmentsData)
+        
+        // Check if there are no departments for this program
+        if (departmentsData.length === 0) {
+          setNoDepartmentsForProgram(true)
+          // Clear department selection if there are no departments
+          form.setValue("departmentId", "")
+          
+          toast({
+            title: "No Departments Available",
+            description: `There are no departments available for the selected program: ${selectedProgramName}. You can continue with your application.`,
+            variant: "default",
+          })
+        } else {
+          setNoDepartmentsForProgram(false)
         }
       } catch (error) {
         console.error("Error fetching departments:", error)
+        setApiError("Failed to load departments. Please try again later.")
+        setDepartments([])
+        setNoDepartmentsForProgram(true)
       } finally {
         setIsLoadingDepartments(false)
       }
     }
 
     fetchDepartments()
-  }, [form.watch("programId")])
+  }, [form.watch("programId"), programs, form, toast])
 
   function nextStep() {
     const fieldsToValidate =
       step === 1
         ? ["firstName", "lastName", "email", "dateOfBirth", "gender", "nationality"]
         : step === 2
-          ? ["programId", "departmentId", "maritalStatus", "religion"]
+          ? noDepartmentsForProgram 
+            ? ["programId", "maritalStatus", "religion"] // Skip departmentId validation if no departments
+            : ["programId", "departmentId", "maritalStatus", "religion"]
           : ["password", "confirmPassword"]
 
-    const isValid = fieldsToValidate.every((field) => {
-      const result = form.trigger(field as any)
-      return result
+    form.trigger(fieldsToValidate as any).then((isValid) => {
+      if (isValid) {
+        setStep(step + 1)
+      }
     })
-
-    if (isValid) {
-      setStep(step + 1)
-    }
   }
 
   function prevStep() {
@@ -198,7 +291,7 @@ export default function RegisterPage() {
             referralSource: data.referralSource,
             physicallyDisabled: data.physicallyDisabled,
             programId: data.programId,
-            departmentId: data.departmentId,
+            departmentId: data.departmentId || null, // Handle case where departmentId is not required
           },
         }),
       })
@@ -244,6 +337,16 @@ export default function RegisterPage() {
           <div className="bg-[#1e3a8a] text-white p-4">
             <h2 className="text-xl font-bold text-center">ONLINE APPLICATION</h2>
           </div>
+
+          {apiError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-4 mx-6 mt-6">
+              <span className="block sm:inline">{apiError}</span>
+              <button className="absolute top-0 bottom-0 right-0 px-4 py-3" onClick={() => setApiError(null)}>
+                <span className="sr-only">Dismiss</span>
+                <span className="text-xl">&times;</span>
+              </button>
+            </div>
+          )}
 
           <div className="p-6">
             <div className="mb-8">
@@ -384,13 +487,18 @@ export default function RegisterPage() {
                                 </FormControl>
                               </PopoverTrigger>
                               <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                  mode="single"
-                                  selected={field.value}
-                                  onSelect={field.onChange}
-                                  disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                                  initialFocus
-                                />
+                                <div className="p-3 border rounded-md bg-white">
+                                  <input
+                                    type="date"
+                                    className="w-full p-2 border rounded"
+                                    onChange={(e) => {
+                                      const date = new Date(e.target.value)
+                                      field.onChange(date)
+                                    }}
+                                    max={new Date().toISOString().split("T")[0]}
+                                    min="1900-01-01"
+                                  />
+                                </div>
                               </PopoverContent>
                             </Popover>
                             <FormMessage />
@@ -491,7 +599,7 @@ export default function RegisterPage() {
                               </FormControl>
                               <SelectContent>
                                 {isLoadingPrograms ? (
-                                  <SelectItem value="" disabled>
+                                  <SelectItem value="loading" disabled>
                                     Loading programs...
                                   </SelectItem>
                                 ) : programs.length > 0 ? (
@@ -501,7 +609,7 @@ export default function RegisterPage() {
                                     </SelectItem>
                                   ))
                                 ) : (
-                                  <SelectItem value="" disabled>
+                                  <SelectItem value="none" disabled>
                                     No programs available
                                   </SelectItem>
                                 )}
@@ -513,57 +621,72 @@ export default function RegisterPage() {
                         )}
                       />
 
-                      <FormField
-                        control={form.control}
-                        name="departmentId"
-                        render={({ field }) => (
-                          <FormItem className="col-span-2">
-                            <FormLabel>
-                              Select Department <span className="text-red-500">*</span>
-                            </FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                              disabled={!form.watch("programId") || isLoadingDepartments}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue
-                                    placeholder={
-                                      !form.watch("programId")
-                                        ? "Select a program first"
-                                        : isLoadingDepartments
-                                          ? "Loading departments..."
-                                          : "Select a department"
-                                    }
-                                  />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {isLoadingDepartments ? (
-                                  <SelectItem value="" disabled>
-                                    Loading departments...
-                                  </SelectItem>
-                                ) : departments.length > 0 ? (
-                                  departments.map((department) => (
-                                    <SelectItem key={department.id} value={department.id}>
-                                      {department.name} ({department.code})
+                      {noDepartmentsForProgram && form.watch("programId") && (
+                        <div className="col-span-2">
+                          <Alert variant="warning" className="bg-amber-50 border-amber-200">
+                            <AlertCircle className="h-4 w-4 text-amber-600" />
+                            <AlertTitle className="text-amber-800">No Departments Available</AlertTitle>
+                            <AlertDescription className="text-amber-700">
+                              There are no departments available for the selected program: <strong>{selectedProgramName}</strong>. 
+                              You can continue with your application without selecting a department.
+                            </AlertDescription>
+                          </Alert>
+                        </div>
+                      )}
+
+                      {!noDepartmentsForProgram && (
+                        <FormField
+                          control={form.control}
+                          name="departmentId"
+                          render={({ field }) => (
+                            <FormItem className="col-span-2">
+                              <FormLabel>
+                                Select Department <span className="text-red-500">*</span>
+                              </FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                                disabled={!form.watch("programId") || isLoadingDepartments}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue
+                                      placeholder={
+                                        !form.watch("programId")
+                                          ? "Select a program first"
+                                          : isLoadingDepartments
+                                            ? "Loading departments..."
+                                            : "Select a department"
+                                      }
+                                    />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {isLoadingDepartments ? (
+                                    <SelectItem value="loading" disabled>
+                                      Loading departments...
                                     </SelectItem>
-                                  ))
-                                ) : (
-                                  <SelectItem value="" disabled>
-                                    {form.watch("programId")
-                                      ? "No departments available for this program"
-                                      : "Select a program first"}
-                                  </SelectItem>
-                                )}
-                              </SelectContent>
-                            </Select>
-                            <FormDescription>Choose the department within your selected program</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                                  ) : departments.length > 0 ? (
+                                    departments.map((department) => (
+                                      <SelectItem key={department.id} value={department.id}>
+                                        {department.name} ({department.code})
+                                      </SelectItem>
+                                    ))
+                                  ) : (
+                                    <SelectItem value="none" disabled>
+                                      {form.watch("programId")
+                                        ? "No departments available for this program"
+                                        : "Select a program first"}
+                                    </SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                              <FormDescription>Choose the department within your selected program</FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
 
                       <FormField
                         control={form.control}
@@ -832,8 +955,10 @@ export default function RegisterPage() {
                         <div className="space-y-1">
                           <p className="text-sm font-medium text-gray-500">Department</p>
                           <p>
-                            {departments.find((d) => d.id === form.getValues("departmentId"))?.name ||
-                              form.getValues("departmentId")}
+                            {noDepartmentsForProgram 
+                              ? "No department available for this program" 
+                              : departments.find((d) => d.id === form.getValues("departmentId"))?.name ||
+                                form.getValues("departmentId") || "N/A"}
                           </p>
                         </div>
 

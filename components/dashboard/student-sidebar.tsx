@@ -5,7 +5,7 @@ import type React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { BookOpen, CheckSquare, FileText, GraduationCap, Home, Settings, User, Bell } from "lucide-react"
-import { useSidebarStore } from "@/lib/stores/sidebar-store"
+import { useSidebarStore } from "@/lib/store/sidebar-store"
 import {
   Sidebar,
   SidebarContent,
