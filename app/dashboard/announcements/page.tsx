@@ -4,8 +4,8 @@ import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 
 import { db } from "@/lib/db"
-import { AnnouncementsPage } from "./AnnouncementsClientPage"
-import { AnnouncementsSkeleton } from "./AnnouncementsClientPage"
+import { AnnouncementsPage } from "./AnnouncementClientPage"
+import { AnnouncementsSkeleton } from "./AnnouncementClientPage"
 
 export const metadata = {
   title: "Announcements | University Portal",
