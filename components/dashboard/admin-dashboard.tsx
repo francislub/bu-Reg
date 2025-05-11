@@ -2,6 +2,9 @@
 import { RecentAnnouncements } from "@/components/dashboard/recent-announcements"
 import { UpcomingEvents } from "@/components/dashboard/upcoming-events"
 import { AdminStatsChart } from "@/components/dashboard/admin-stats-chart"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { Printer } from "lucide-react"
 
 interface AdminDashboardProps {
   user: any
@@ -29,6 +32,16 @@ export function AdminDashboard({ user, announcements, events, adminData }: Admin
 
   return (
     <div className="grid gap-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold">Admin Dashboard</h2>
+        <Button asChild variant="outline">
+          <Link href="/dashboard/registration-reports">
+            <Printer className="mr-2 h-4 w-4" />
+            Registration Reports
+          </Link>
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-6 shadow-sm transition-all duration-200 hover:shadow-md">
           <h3 className="mb-1 text-sm font-medium text-muted-foreground">Students</h3>

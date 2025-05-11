@@ -45,7 +45,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           {userRole === "STAFF" && <StaffSidebar />}
           {userRole === "STUDENT" && <StudentSidebar />}
 
-          <main className="flex-1 transition-all duration-300 ease-in-out md:ml-64 p-6 overflow-auto">{children}</main>
+          <main className="flex-1 transition-all duration-300 ease-in-out p-6 overflow-auto">{children}</main>
         </div>
       </div>
       <AutoLogout timeoutMinutes={30} />

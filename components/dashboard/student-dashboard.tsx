@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { RecentAnnouncements } from "@/components/dashboard/recent-announcements"
 import { UpcomingEvents } from "@/components/dashboard/upcoming-events"
-import { CalendarIcon, BookOpenIcon, ClipboardCheckIcon, AlertCircleIcon, GraduationCap } from "lucide-react"
+import { CalendarIcon, BookOpenIcon, ClipboardCheckIcon, AlertCircleIcon, GraduationCap, Printer } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 interface StudentDashboardProps {
@@ -20,6 +20,7 @@ interface StudentDashboardProps {
     name: string
     department: string
   }
+  activeSemesterId?: string
 }
 
 export function StudentDashboard({
@@ -31,13 +32,24 @@ export function StudentDashboard({
   attendanceRecords,
   attendancePercentage,
   programInfo,
+  activeSemesterId,
 }: StudentDashboardProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card className="col-span-4">
-        <CardHeader>
-          <CardTitle>Welcome back, {user.name}!</CardTitle>
-          <CardDescription>Here's what's happening with your courses today.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Welcome back, {user.name}!</CardTitle>
+            <CardDescription>Here's what's happening with your courses today.</CardDescription>
+          </div>
+          {activeSemesterId && (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/dashboard/registration/card?semesterId=${activeSemesterId}`}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print Registration Card
+              </Link>
+            </Button>
+          )}
         </CardHeader>
         {programInfo && (
           <CardContent>

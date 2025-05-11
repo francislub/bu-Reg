@@ -16,7 +16,7 @@ export const metadata = {
 export default async function RegistrationCardPage({
   searchParams,
 }: {
-  searchParams: { id?: string; semesterId?: string }
+  searchParams: { id?: string; semesterId?: string; studentId?: string }
 }) {
   const session = await getServerSession(authOptions)
 
@@ -27,6 +27,10 @@ export default async function RegistrationCardPage({
   // Get registration ID from query params or use the active semester
   const registrationId = searchParams.id
   const semesterId = searchParams.semesterId
+  const studentId = searchParams.studentId
+
+  // Determine which user ID to use (for registrars viewing student cards)
+  const userId = session.user.role === "REGISTRAR" && studentId ? studentId : session.user.id
 
   if (!registrationId && !semesterId) {
     return (
@@ -58,17 +62,17 @@ export default async function RegistrationCardPage({
     }
   } else if (semesterId) {
     // Fetch by semester ID
-    const cardResult = await getRegistrationCard(session.user.id, semesterId)
+    const cardResult = await getRegistrationCard(userId, semesterId)
     if (cardResult.success) {
       registration = {
         id: registrationId || "temp-id",
-        userId: session.user.id,
+        userId: userId,
         semesterId: semesterId,
         status: "APPROVED",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         user: {
-          id: session.user.id,
+          id: userId,
           name: session.user.name,
           email: session.user.email,
           profile: cardResult.registrationCard.user.profile,
@@ -94,10 +98,13 @@ export default async function RegistrationCardPage({
     )
   }
 
+  // For registrars, we allow viewing cards even if not approved
+  const canViewCard = session.user.role === "REGISTRAR" || registration.status === "APPROVED"
+
   return (
     <DashboardShell>
       <DashboardHeader heading="Registration Card" text="View and print your registration card" />
-      {registration.status !== "APPROVED" ? (
+      {!canViewCard ? (
         <Alert variant="warning">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Registration Not Approved</AlertTitle>
