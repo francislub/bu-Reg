@@ -41,17 +41,23 @@ export default async function SemesterRegistrationPage() {
       id: session.user.id,
     },
     include: {
-      profile: {
-        include: {
-          // Include program details to display program name
-          program: true,
-        },
-      },
+      profile: true,
     },
   })
 
+  // Get program name if programId exists
+  let programName = "Unknown Program"
+  if (student?.profile?.programId) {
+    const program = await db.program.findUnique({
+      where: {
+        id: student.profile.programId,
+      },
+    })
+    programName = program?.name || student?.profile?.program || "Unknown Program"
+  }
+
   const programId = student?.profile?.programId
-  const programName = student?.profile?.program?.name || "Unknown Program"
+  // programName is now defined above
 
   if (!programId) {
     // If student doesn't have a program assigned, show a message

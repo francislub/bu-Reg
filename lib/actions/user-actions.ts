@@ -217,6 +217,27 @@ export async function getUserProfile(userId: string) {
       return { success: false, message: "User not found" }
     }
 
+    // If profile has programId, fetch the program details
+    if (user.profile?.programId) {
+      const program = await db.program.findUnique({
+        where: { id: user.profile.programId },
+      })
+
+      if (program) {
+        // Add program details to the response
+        return {
+          success: true,
+          user: {
+            ...user,
+            profile: {
+              ...user.profile,
+              programDetails: program,
+            },
+          },
+        }
+      }
+    }
+
     return { success: true, user }
   } catch (error) {
     console.error("Error fetching user profile:", error)
