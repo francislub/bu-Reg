@@ -77,12 +77,12 @@ export default async function AcademicYearsPage() {
                   <Button variant="outline" size="sm" asChild>
                     <Link href={`/dashboard/academic-years/${academicYear.id}`}>View Details</Link>
                   </Button>
-                  <Button variant="outline" size="sm" asChild>
+                  {/* <Button variant="outline" size="sm" asChild>
                     <Link href={`/dashboard/academic-years/${academicYear.id}/semesters`}>
                       <School className="mr-2 h-4 w-4" />
                       Manage Semesters
                     </Link>
-                  </Button>
+                  </Button> */}
                 </div>
               </CardContent>
             </Card>
