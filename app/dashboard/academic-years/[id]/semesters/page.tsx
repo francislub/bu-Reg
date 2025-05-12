@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AcademicYearSemestersClient } from "@/components/dashboard/academic-year-semesters-client"
-import { prisma } from "@/lib/db"
+import { db } from "@/lib/db"
 
 interface AcademicYearSemestersPageProps {
   params: {
@@ -19,7 +19,7 @@ export default async function AcademicYearSemestersPage({ params }: AcademicYear
     notFound()
   }
 
-  const academicYear = await prisma.academicYear.findUnique({
+  const academicYear = await db.academicYear.findUnique({
     where: {
       id: params.id,
     },
@@ -29,7 +29,7 @@ export default async function AcademicYearSemestersPage({ params }: AcademicYear
     notFound()
   }
 
-  const semesters = await prisma.semester.findMany({
+  const semesters = await db.semester.findMany({
     where: {
       academicYearId: params.id,
     },
