@@ -29,14 +29,16 @@ export async function GET(req: Request) {
     let approvedRegistrations = 0
 
     if (activeSemester) {
-      // Active students
-      activeStudents = await db.registration.count({
+      // Active students - fixed to use findMany with distinct and then count the results
+      const distinctStudents = await db.registration.findMany({
         where: {
           semesterId: activeSemester.id,
           status: "APPROVED",
         },
         distinct: ["userId"],
+        select: { userId: true },
       })
+      activeStudents = distinctStudents.length
 
       // Active courses
       activeCourses = await db.semesterCourse.count({
@@ -93,53 +95,41 @@ export async function GET(req: Request) {
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 
-    const registrationsByMonth = await db.registration.groupBy({
-      by: [
-        {
-          month: {
-            datepart: "month",
-            date: "createdAt",
-          },
-        },
-        {
-          year: {
-            datepart: "year",
-            date: "createdAt",
-          },
-        },
-      ],
+    // Use a simpler approach for registrations by month to avoid potential issues
+    const recentRegistrations = await db.registration.findMany({
       where: {
         createdAt: {
           gte: sixMonthsAgo,
         },
       },
-      _count: {
-        id: true,
+      select: {
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: "asc",
       },
     })
 
+    // Process the registrations to group by month
+    const registrationsByMonth = recentRegistrations.reduce(
+      (acc, reg) => {
+        const date = new Date(reg.createdAt)
+        const monthYear = `${date.toLocaleString("default", { month: "long" })} ${date.getFullYear()}`
+
+        if (!acc[monthYear]) {
+          acc[monthYear] = 0
+        }
+        acc[monthYear]++
+        return acc
+      },
+      {} as Record<string, number>,
+    )
+
     // Format registrations by month
-    const formattedRegistrationsByMonth = registrationsByMonth.map((item) => {
-      const monthNames = [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-      ]
-      const monthName = monthNames[item.month - 1]
-      return {
-        month: `${monthName} ${item.year}`,
-        count: item._count.id,
-      }
-    })
+    const formattedRegistrationsByMonth = Object.entries(registrationsByMonth).map(([month, count]) => ({
+      month,
+      count,
+    }))
 
     // Get students by program
     const studentsByProgram = await db.profile.groupBy({
@@ -170,16 +160,23 @@ export async function GET(req: Request) {
         where: { departmentId: dept.id },
       })
 
-      const registrations = activeSemester
-        ? await db.courseUpload.count({
+      // Use a safer approach for registrations count
+      let registrations = 0
+      if (activeSemester) {
+        const courseIds = await db.course.findMany({
+          where: { departmentId: dept.id },
+          select: { id: true },
+        })
+
+        if (courseIds.length > 0) {
+          registrations = await db.courseUpload.count({
             where: {
               semesterId: activeSemester.id,
-              course: {
-                departmentId: dept.id,
-              },
+              courseId: { in: courseIds.map((c) => c.id) },
             },
           })
-        : 0
+        }
+      }
 
       departmentStats.push({
         department: dept.name,
@@ -189,34 +186,36 @@ export async function GET(req: Request) {
       })
     }
 
-    // Get popular courses
-    const popularCourses = await db.courseUpload.groupBy({
+    // Get popular courses - using a safer approach
+    const courseUploads = await db.courseUpload.groupBy({
       by: ["courseId"],
       _count: {
         id: true,
       },
-      orderBy: {
-        _count: {
-          id: "desc",
-        },
-      },
-      take: 10,
     })
+
+    // Sort by count and take top 10
+    const topCourseIds = courseUploads
+      .sort((a, b) => b._count.id - a._count.id)
+      .slice(0, 10)
+      .map((item) => item.courseId)
 
     // Format popular courses
     const formattedPopularCourses = []
-    for (const item of popularCourses) {
+    for (const courseId of topCourseIds) {
       const course = await db.course.findUnique({
-        where: { id: item.courseId },
+        where: { id: courseId },
         include: { department: true },
       })
 
       if (course) {
+        const registrationCount = courseUploads.find((c) => c.courseId === courseId)?._count.id || 0
+
         formattedPopularCourses.push({
           course: course.title,
           code: course.code,
           department: course.department.name,
-          registrations: item._count.id,
+          registrations: registrationCount,
         })
       }
     }
