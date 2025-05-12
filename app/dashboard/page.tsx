@@ -55,8 +55,10 @@ export default async function DashboardPage() {
   // For student dashboard
   let courses = []
   let pendingApprovals = []
-  let attendanceRecords = []
-  let attendancePercentage = 0
+  
+  // Set default values for attendance data
+  const attendanceRecords = []
+  const attendancePercentage = 0
 
   if (session.user.role === "STUDENT") {
     // Get student's courses
@@ -84,59 +86,13 @@ export default async function DashboardPage() {
 
     // Get pending approvals
     pendingApprovals = studentCourses.filter((course) => course.status === "PENDING")
-
-    // Get attendance records
-    attendanceRecords = await db.attendance
-      .findMany({
-        where: {
-          userId: session.user.id,
-        },
-        include: {
-          course: true,
-        },
-        orderBy: {
-          date: "desc",
-        },
-        take: 10,
-      })
-      .catch(() => [])
-
-    // Calculate attendance percentage
-    if (courses.length > 0) {
-      const attendanceQuery = await db.attendance
-        .groupBy({
-          by: ["userId"],
-          where: {
-            userId: session.user.id,
-          },
-          _count: {
-            id: true,
-          },
-          _sum: {
-            present: true,
-          },
-        })
-        .catch(() => [{ _count: { id: 0 }, _sum: { present: 0 } }])
-
-      if (attendanceQuery.length > 0) {
-        const totalClasses = attendanceQuery[0]._count.id
-        const presentClasses = attendanceQuery[0]._sum.present || 0
-        attendancePercentage = totalClasses > 0 ? Math.round((presentClasses / totalClasses) * 100) : 0
-      }
-    }
   }
 
   return (
     <DashboardShell>
-      {session.user.role === "ADMIN" && (
-        <AdminDashboard user={session.user} announcements={announcements} />
-      )}
-      {session.user.role === "STAFF" && (
-        <StaffDashboard user={session.user} announcements={announcements} />
-      )}
-      {session.user.role === "REGISTRAR" && (
-        <AdminDashboard user={session.user} announcements={announcements} />
-      )}
+      {session.user.role === "ADMIN" && <AdminDashboard user={session.user} announcements={announcements} />}
+      {session.user.role === "STAFF" && <StaffDashboard user={session.user} announcements={announcements} />}
+      {session.user.role === "REGISTRAR" && <AdminDashboard user={session.user} announcements={announcements} />}
       {session.user.role === "STUDENT" && (
         <StudentDashboard
           user={session.user}
