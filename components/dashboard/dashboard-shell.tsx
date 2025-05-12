@@ -1,47 +1,71 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
-import { useSession } from "next-auth/react"
-
-import { DashboardHeader } from "@/components/dashboard/dashboard-header"
-import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar"
+import { cn } from "@/lib/utils"
+import { SiteHeader } from "@/components/dashboard/site-header"
 import { AdminSidebar } from "@/components/dashboard/admin-sidebar"
-import { StaffSidebar } from "@/components/dashboard/staff-sidebar"
 import { StudentSidebar } from "@/components/dashboard/student-sidebar"
+import { StaffSidebar } from "@/components/dashboard/staff-sidebar"
+import { useSession } from "next-auth/react"
+import { useSidebarStore } from "@/lib/store/sidebar-store"
+import { AutoLogout } from "@/components/auto-logout"
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const pathname = usePathname()
+interface DashboardShellProps {
+  children: React.ReactNode
+}
+
+export function DashboardShell({ children }: DashboardShellProps) {
   const { data: session } = useSession()
+  const pathname = usePathname()
+  const { isOpen } = useSidebarStore()
+  const [mounted, setMounted] = useState(false)
 
-  // Determine which sidebar to show based on user role
-  const renderSidebar = () => {
-    if (!session) return null
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
-    switch (session.user.role) {
-      case "ADMIN":
-        return <AdminSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
-      case "REGISTRAR":
-        return <AdminSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
-      case "STAFF":
-        return <StaffSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
-      case "STUDENT":
-        return <StudentSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
-      default:
-        return <DashboardSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
-    }
+  if (!mounted) {
+    return null
   }
 
+  const userRole = session?.user?.role || "STUDENT"
+
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[240px_1fr] lg:grid-cols-[280px_1fr]">
-      {renderSidebar()}
-      <div className="flex flex-col w-full">
-        <DashboardHeader onSidebarOpen={() => setSidebarOpen(true)} />
-        <main className="flex-1 w-full overflow-y-auto p-6 pt-16">{children}</main>
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader />
+      <div className="flex flex-1">
+        {/* Sidebar */}
+        <div
+          className={cn(
+            "fixed left-0 top-14 z-30 h-[calc(100vh-3.5rem)] w-64 transform border-r bg-background transition-transform duration-300 ease-in-out",
+            isOpen ? "translate-x-0" : "-translate-x-full",
+            "md:translate-x-0" // Always show on medium screens and above
+          )}
+        >
+          {userRole === "ADMIN" || userRole === "REGISTRAR" ? (
+            <AdminSidebar />
+          ) : userRole === "STAFF" ? (
+            <StaffSidebar />
+          ) : (
+            <StudentSidebar />
+          )}
+        </div>
+
+        {/* Main content */}
+        <main
+          className={cn(
+            "flex-1 px-4 py-6 md:px-6 md:py-8",
+            isOpen ? "md:ml-64" : "", // Add margin when sidebar is open on medium screens and above
+            "transition-all duration-300 ease-in-out" // Smooth transition
+          )}
+        >
+          <div className="mx-auto w-full">
+            {children}
+          </div>
+        </main>
       </div>
+      <AutoLogout />
     </div>
   )
 }

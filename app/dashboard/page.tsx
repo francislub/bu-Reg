@@ -52,22 +52,6 @@ export default async function DashboardPage() {
     take: 5,
   })
 
-  // Placeholder for events (in a real app, this would come from a database)
-  const events = [
-    {
-      id: "1",
-      title: "Semester Registration Deadline",
-      date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-      description: "Last day to register for the current semester",
-    },
-    {
-      id: "2",
-      title: "Mid-term Examinations",
-      date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-      description: "Mid-term examinations begin",
-    },
-  ]
-
   // For student dashboard
   let courses = []
   let pendingApprovals = []
@@ -101,21 +85,62 @@ export default async function DashboardPage() {
     // Get pending approvals
     pendingApprovals = studentCourses.filter((course) => course.status === "PENDING")
 
-    // Placeholder for attendance records (in a real app, this would come from a database)
-    attendanceRecords = []
-    attendancePercentage = studentCourses.length > 0 ? 85 : 0 // Placeholder value
+    // Get attendance records
+    attendanceRecords = await db.attendance
+      .findMany({
+        where: {
+          userId: session.user.id,
+        },
+        include: {
+          course: true,
+        },
+        orderBy: {
+          date: "desc",
+        },
+        take: 10,
+      })
+      .catch(() => [])
+
+    // Calculate attendance percentage
+    if (courses.length > 0) {
+      const attendanceQuery = await db.attendance
+        .groupBy({
+          by: ["userId"],
+          where: {
+            userId: session.user.id,
+          },
+          _count: {
+            id: true,
+          },
+          _sum: {
+            present: true,
+          },
+        })
+        .catch(() => [{ _count: { id: 0 }, _sum: { present: 0 } }])
+
+      if (attendanceQuery.length > 0) {
+        const totalClasses = attendanceQuery[0]._count.id
+        const presentClasses = attendanceQuery[0]._sum.present || 0
+        attendancePercentage = totalClasses > 0 ? Math.round((presentClasses / totalClasses) * 100) : 0
+      }
+    }
   }
 
   return (
     <DashboardShell>
-      {session.user.role === "ADMIN" && <AdminDashboard user={session.user} announcements={announcements} />}
-      {session.user.role === "STAFF" && <StaffDashboard user={session.user} announcements={announcements} />}
-      {session.user.role === "REGISTRAR" && <AdminDashboard user={session.user} announcements={announcements} />}
+      {session.user.role === "ADMIN" && (
+        <AdminDashboard user={session.user} announcements={announcements} />
+      )}
+      {session.user.role === "STAFF" && (
+        <StaffDashboard user={session.user} announcements={announcements} />
+      )}
+      {session.user.role === "REGISTRAR" && (
+        <AdminDashboard user={session.user} announcements={announcements} />
+      )}
       {session.user.role === "STUDENT" && (
         <StudentDashboard
           user={session.user}
           announcements={announcements}
-          events={events}
           courses={courses}
           pendingApprovals={pendingApprovals}
           attendanceRecords={attendanceRecords}

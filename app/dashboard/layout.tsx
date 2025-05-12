@@ -27,7 +27,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   return (
     <SidebarProvider>
       <div className="flex min-h-screen flex-col">
-        <SiteHeader>
+        <SiteHeader className="fixed top-0 left-0 right-0 z-50">
           <div className="flex items-center">
             <SidebarToggle />
           </div>
@@ -40,12 +40,16 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
             }}
           />
         </SiteHeader>
-        <div className="flex flex-1 relative">
+        <div className="flex flex-1 pt-14 min-h-screen w-full">
           {userRole === "REGISTRAR" && <AdminSidebar />}
           {userRole === "STAFF" && <StaffSidebar />}
           {userRole === "STUDENT" && <StudentSidebar />}
 
-          <main className="flex-1 transition-all duration-300 ease-in-out p-6 overflow-auto">{children}</main>
+          <div className="flex-1 w-full transition-all duration-300 ease-in-out">
+            <main className="w-full h-full px-4 py-6">
+              {children}
+            </main>
+          </div>
         </div>
       </div>
       <AutoLogout timeoutMinutes={30} />

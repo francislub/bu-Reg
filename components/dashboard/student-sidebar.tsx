@@ -114,9 +114,11 @@ export function StudentSidebar() {
 
   return (
     <Sidebar
-      className={`fixed top-14 h-[calc(100vh-3.5rem)] z-40 transition-all duration-300 ease-in-out ${isOpen ? "left-0" : "-left-64 md:left-0"} w-64 bg-gradient-to-b from-blue-900 to-blue-950 border-r border-blue-800`}
+      className={`fixed top-14 h-[calc(100vh-3.5rem)] z-40 transition-all duration-300 ease-in-out ${
+        isOpen ? "left-0" : "-left-64 md:left-0"
+      } w-64 bg-gradient-to-b from-blue-900 to-blue-950 border-r border-blue-800 overflow-y-auto`}
     >
-      <SidebarHeader className="h-14 flex items-center px-4 border-b border-blue-800">
+      <SidebarHeader className="h-14 flex items-center px-4 border-b border-blue-800 sticky top-0 z-10 bg-blue-900">
         <div className="flex items-center gap-2">
           <GraduationCap className="h-6 w-6 text-blue-200" />
           <span className="font-bold text-white">Student Portal</span>

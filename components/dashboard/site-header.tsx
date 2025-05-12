@@ -1,16 +1,17 @@
 import type React from "react"
-import { MainNav } from "@/components/dashboard/main-nav"
+import { cn } from "@/lib/utils"
+// import { MainNav } from "@/components/dashboard/main-nav"
 
 interface SiteHeaderProps {
   children?: React.ReactNode
+  className?: string
 }
 
-export function SiteHeader({ children }: SiteHeaderProps) {
+export function SiteHeader({ children, className }: SiteHeaderProps) {
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background">
-      <div className="container flex h-14 items-center">
-        <MainNav />
-        <div className="flex flex-1 items-center justify-end space-x-4">{children}</div>
+    <header className={cn("bg-background border-b h-14 flex items-center px-4", className)}>
+      <div className="flex w-full justify-between items-center">
+        {children}
       </div>
     </header>
   )

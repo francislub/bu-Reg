@@ -93,3 +93,45 @@
   background-color: #374151; /* bg-gray-700 */
   color: white;
 }
+
+/* Improved scrollbar for sidebars */
+[data-sidebar="sidebar"]::-webkit-scrollbar {
+  width: 6px;
+}
+
+[data-sidebar="sidebar"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-sidebar="sidebar"]::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+[data-sidebar="sidebar"]::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Ensure content doesn't get hidden under fixed header on anchor links */
+html {
+  scroll-padding-top: 4rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .md\:ml-64 {
+    margin-left: 0 !important;
+  }
+}
+
+/* Fix for main content area */
+.dashboard-content {
+  width: 100%;
+  margin-left: 0;
+}
+
+@media (min-width: 768px) {
+  .dashboard-content {
+    margin-left: 16rem; /* 64px or 16rem */
+  }
+}

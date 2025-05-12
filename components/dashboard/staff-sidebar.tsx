@@ -14,7 +14,7 @@ import {
   Settings,
   User,
   Users,
-  BarChart,
+  Bell,
 } from "lucide-react"
 import { useSidebarStore } from "@/lib/store/sidebar-store"
 import {
@@ -68,10 +68,16 @@ export function StaffSidebar() {
       title: "Teaching",
       items: [
         {
-          title: "My Courses",
+          title: "Courses",
           href: "/dashboard/courses",
           icon: <BookOpen className="h-5 w-5" />,
           isActive: pathname === "/dashboard/courses",
+        },
+        {
+          title: "Attendance",
+          href: "/dashboard/attendance",
+          icon: <ClipboardList className="h-5 w-5" />,
+          isActive: pathname === "/dashboard/attendance",
         },
         {
           title: "Timetable",
@@ -79,34 +85,33 @@ export function StaffSidebar() {
           icon: <Calendar className="h-5 w-5" />,
           isActive: pathname === "/dashboard/timetable",
         },
+      ],
+    },
+    {
+      title: "Students",
+      items: [
         {
-          title: "Attendance",
-          href: "/dashboard/attendance",
-          icon: <CheckSquare className="h-5 w-5" />,
-          isActive: pathname === "/dashboard/attendance",
-        },
-        {
-          title: "Students",
+          title: "Student List",
           href: "/dashboard/students",
           icon: <Users className="h-5 w-5" />,
           isActive: pathname === "/dashboard/students",
         },
+        {
+          title: "Course Approvals",
+          href: "/dashboard/course-approvals",
+          icon: <CheckSquare className="h-5 w-5" />,
+          isActive: pathname === "/dashboard/course-approvals",
+        },
       ],
     },
     {
-      title: "Administration",
+      title: "Communication",
       items: [
         {
-          title: "Approvals",
-          href: "/dashboard/approvals",
-          icon: <ClipboardList className="h-5 w-5" />,
-          isActive: pathname === "/dashboard/approvals",
-        },
-        {
-          title: "Reports",
-          href: "/dashboard/reports",
-          icon: <BarChart className="h-5 w-5" />,
-          isActive: pathname === "/dashboard/reports",
+          title: "Announcements",
+          href: "/dashboard/announcements",
+          icon: <Bell className="h-5 w-5" />,
+          isActive: pathname === "/dashboard/announcements",
         },
         {
           title: "Settings",
@@ -126,9 +131,11 @@ export function StaffSidebar() {
 
   return (
     <Sidebar
-      className={`fixed top-14 h-[calc(100vh-3.5rem)] z-40 transition-all duration-300 ease-in-out ${isOpen ? "left-0" : "-left-64 md:left-0"} w-64 bg-gradient-to-b from-green-900 to-green-950 border-r border-green-800`}
+      className={`fixed top-14 h-[calc(100vh-3.5rem)] z-40 transition-all duration-300 ease-in-out ${
+        isOpen ? "left-0" : "-left-64 md:left-0"
+      } w-64 bg-gradient-to-b from-green-900 to-green-950 border-r border-green-800 overflow-y-auto`}
     >
-      <SidebarHeader className="h-14 flex items-center px-4 border-b border-green-800">
+      <SidebarHeader className="h-14 flex items-center px-4 border-b border-green-800 sticky top-0 z-10 bg-green-900">
         <div className="flex items-center gap-2">
           <GraduationCap className="h-6 w-6 text-green-200" />
           <span className="font-bold text-white">Staff Portal</span>

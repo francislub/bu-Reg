@@ -145,7 +145,7 @@ export function AdminSidebar() {
 
   return (
     <Sidebar
-      className={`fixed top-14 h-[calc(100vh-3.5rem)] z-40 transition-all duration-300 ease-in-out ${isOpen ? "left-0" : "-left-64 md:left-0"} w-64 bg-gradient-to-b from-purple-900 to-purple-950 border-r border-purple-800`}
+      className={`fixed top-14 z-40 transition-all duration-300 ease-in-out ${isOpen ? "left-0" : "-left-64 md:left-0"} w-64 bg-gradient-to-b from-purple-900 to-purple-950 border-r border-purple-800`}
     >
       <SidebarHeader className="h-14 flex items-center px-4 border-b border-purple-800">
         <div className="flex items-center gap-2">
