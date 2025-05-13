@@ -32,9 +32,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
                 lastName: true,
                 studentId: true,
                 program: true,
-                phoneNumber: true,
+                // Fix: Use 'phone' instead of 'phoneNumber'
+                phone: true,
                 address: true,
-                photoUrl: true,
+                avatar: true, // Use avatar instead of photoUrl
               },
             },
           },
@@ -53,7 +54,6 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             },
           },
         },
-        registrationCard: true,
       },
     })
 
@@ -76,6 +76,16 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     // Check if registration is pending or has pending courses
     const isPending =
       registration.status === "PENDING" || registration.courseUploads.some((upload) => upload.status === "PENDING")
+
+    // Get registration card separately
+    const registrationCard = await db.registrationCard
+      .findFirst({
+        where: {
+          userId: registration.userId,
+          semesterId: registration.semesterId,
+        },
+      })
+      .catch(() => null)
 
     // Get payment information if available
     let paymentInfo = { status: "Pending", amount: 0 }
@@ -106,7 +116,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       studentId: registration.user.profile?.studentId || registration.user.id,
       email: registration.user.email || "N/A",
       program: registration.user.profile?.program || "Not specified",
-      phoneNumber: registration.user.profile?.phoneNumber || "N/A",
+      // Fix: Use phone instead of phoneNumber
+      phoneNumber: registration.user.profile?.phone || "N/A",
       address: registration.user.profile?.address || "N/A",
       semester: registration.semester.name,
       academicYear: registration.semester.academicYear.name,
@@ -117,9 +128,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       }),
       status: registration.status,
       isPending: isPending,
-      cardNumber: registration.registrationCard?.cardNumber || "Not Issued",
-      cardIssueDate: registration.registrationCard
-        ? new Date(registration.registrationCard.issuedDate).toLocaleDateString("en-US", {
+      cardNumber: registrationCard?.cardNumber || "Not Issued",
+      cardIssueDate: registrationCard
+        ? new Date(registrationCard.issuedDate).toLocaleDateString("en-US", {
             year: "numeric",
             month: "long",
             day: "numeric",

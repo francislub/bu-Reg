@@ -216,10 +216,10 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
                   {registration.user.profile?.firstName || ""} {registration.user.profile?.lastName || ""}
                 </p>
               </div>
-              <div>
+              {/* <div>
                 <p className="text-sm text-gray-500">Student ID</p>
                 <p className="font-medium">{registration.user.profile?.studentId || registration.user.id}</p>
-              </div>
+              </div> */}
               <div>
                 <p className="text-sm text-gray-500">Program</p>
                 <p className="font-medium">{registration.user.profile?.program || "Not specified"}</p>
