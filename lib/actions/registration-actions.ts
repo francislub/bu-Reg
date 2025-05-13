@@ -523,6 +523,16 @@ export async function getRegistrationCard(userId: string, semesterId: string) {
         semesterId,
       },
       include: {
+        user: {
+          include: {
+            profile: true,
+          },
+        },
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
         courseUploads: {
           include: {
             course: {
@@ -532,6 +542,7 @@ export async function getRegistrationCard(userId: string, semesterId: string) {
             },
           },
         },
+        registrationCard: true,
       },
     })
 
@@ -550,11 +561,23 @@ export async function getRegistrationCard(userId: string, semesterId: string) {
       return { success: false, message: "Registration not found" }
     }
 
+    // Get payment information if available
+    const paymentInfo = await db.payment.findFirst({
+      where: {
+        userId,
+        semesterId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+
     return {
       success: true,
       registrationCard,
       courses: registration?.courseUploads || [],
       registration: registration,
+      paymentInfo: paymentInfo || null,
     }
   } catch (error) {
     console.error("Error fetching registration card:", error)

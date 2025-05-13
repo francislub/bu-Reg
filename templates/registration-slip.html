@@ -24,6 +24,10 @@
       border-bottom: 2px solid #f0f0f0;
       padding-bottom: 10px;
     }
+    .logo {
+      max-height: 80px;
+      margin-bottom: 10px;
+    }
     .university-name {
       font-size: 24px;
       font-weight: bold;
@@ -46,9 +50,28 @@
     }
     .student-info {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 2fr 1fr;
       gap: 15px;
       margin-bottom: 20px;
+    }
+    .student-details {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    .student-photo {
+      text-align: center;
+    }
+    .photo-container {
+      border: 1px solid #ddd;
+      padding: 5px;
+      background-color: #f9f9f9;
+      display: inline-block;
+    }
+    .photo {
+      width: 120px;
+      height: 150px;
+      object-fit: cover;
     }
     .info-group {
       margin-bottom: 10px;
@@ -61,13 +84,15 @@
     .info-value {
       font-weight: 500;
     }
-    .courses-section {
+    .section {
       margin-bottom: 20px;
     }
     .section-title {
       font-size: 16px;
       font-weight: bold;
       margin-bottom: 10px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
     }
     table {
       width: 100%;
@@ -109,6 +134,24 @@
       background-color: #f5f5f5;
       font-weight: bold;
     }
+    .academic-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 15px;
+      background-color: #f9f9f9;
+      padding: 10px;
+      border: 1px solid #eee;
+      border-radius: 4px;
+    }
+    .payment-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      background-color: #f9f9f9;
+      padding: 10px;
+      border: 1px solid #eee;
+      border-radius: 4px;
+    }
     .signatures {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -136,6 +179,18 @@
       z-index: -1;
       white-space: nowrap;
     }
+    .qr-code {
+      text-align: center;
+      margin-top: 20px;
+    }
+    .qr-code img {
+      width: 100px;
+      height: 100px;
+    }
+    .qr-code-text {
+      font-size: 10px;
+      margin-top: 5px;
+    }
   </style>
 </head>
 <body>
@@ -145,6 +200,7 @@
     {{/if}}
     
     <div class="header">
+      <img src="{{appUrl}}/logo.png" alt="Bugema University Logo" class="logo" onerror="this.style.display='none'">
       <h1 class="university-name">BUGEMA UNIVERSITY</h1>
       <p class="card-title">STUDENT REGISTRATION CARD</p>
       <p class="semester-info">{{semester}} - {{academicYear}}</p>
@@ -154,25 +210,51 @@
     </div>
 
     <div class="student-info">
-      <div class="info-group">
-        <div class="info-label">Student Name</div>
-        <div class="info-value">{{studentName}}</div>
+      <div class="student-details">
+        <div class="info-group">
+          <div class="info-label">Student Name</div>
+          <div class="info-value">{{studentName}}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Student ID</div>
+          <div class="info-value">{{studentId}}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Program</div>
+          <div class="info-value">{{program}}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Registration Date</div>
+          <div class="info-value">{{registrationDate}}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Email</div>
+          <div class="info-value">{{email}}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Phone Number</div>
+          <div class="info-value">{{phoneNumber}}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Registration Status</div>
+          <div class="info-value">{{status}}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Card Number</div>
+          <div class="info-value">{{cardNumber}}</div>
+        </div>
       </div>
-      <div class="info-group">
-        <div class="info-label">Student ID</div>
-        <div class="info-value">{{studentId}}</div>
-      </div>
-      <div class="info-group">
-        <div class="info-label">Program</div>
-        <div class="info-value">{{program}}</div>
-      </div>
-      <div class="info-group">
-        <div class="info-label">Registration Date</div>
-        <div class="info-value">{{registrationDate}}</div>
+      <div class="student-photo">
+        <div class="photo-container">
+          <!-- Placeholder for student photo -->
+          <div style="width: 120px; height: 150px; background-color: #eee; display: flex; align-items: center; justify-content: center; color: #999;">
+            Student Photo
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="courses-section">
+    <div class="section">
       <h3 class="section-title">Registered Courses</h3>
       <table>
         <thead>
@@ -211,6 +293,40 @@
       </table>
     </div>
 
+    {{#if academicInfo}}
+    <div class="section">
+      <h3 class="section-title">Academic Information</h3>
+      <div class="academic-info">
+        <div class="info-group">
+          <div class="info-label">Current GPA</div>
+          <div class="info-value">{{academicInfo.gpa}}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Academic Standing</div>
+          <div class="info-value">{{academicInfo.standing}}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Year of Study</div>
+          <div class="info-value">{{academicInfo.yearOfStudy}}</div>
+        </div>
+      </div>
+    </div>
+    {{/if}}
+
+    <div class="section">
+      <h3 class="section-title">Payment Information</h3>
+      <div class="payment-info">
+        <div class="info-group">
+          <div class="info-label">Payment Status</div>
+          <div class="info-value">{{paymentStatus}}</div>
+        </div>
+        <div class="info-group">
+          <div class="info-label">Amount Paid</div>
+          <div class="info-value">{{amountPaid}} UGX</div>
+        </div>
+      </div>
+    </div>
+
     <div class="signatures">
       <div>
         <div class="signature-line">Student Signature</div>
@@ -218,6 +334,14 @@
       <div>
         <div class="signature-line">Registrar Signature</div>
       </div>
+    </div>
+
+    <div class="qr-code">
+      <!-- Placeholder for QR code -->
+      <div style="width: 100px; height: 100px; background-color: #eee; margin: 0 auto; display: flex; align-items: center; justify-content: center; color: #999;">
+        QR Code
+      </div>
+      <p class="qr-code-text">Scan to verify registration</p>
     </div>
 
     <div class="footer">
@@ -228,12 +352,5 @@
       {{/if}}
     </div>
   </div>
-
-  <script>
-    // Helper function for handlebars to compare values
-    Handlebars.registerHelper('eq', function(a, b) {
-      return a === b;
-    });
-  </script>
 </body>
 </html>

@@ -16,7 +16,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     const registrationId = params.id
 
-    // Check if the registration exists
+    // Check if the registration exists with expanded data
     const registration = await db.registration.findUnique({
       where: { id: registrationId },
       include: {
@@ -25,7 +25,19 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             id: true,
             name: true,
             email: true,
-            profile: true,
+            profile: {
+              select: {
+                firstName: true,
+                middleName: true,
+                lastName: true,
+                studentId: true,
+                program: true,
+                phoneNumber: true,
+                address: true,
+                photoUrl: true,
+                academicInfo: true,
+              },
+            },
           },
         },
         semester: {
@@ -51,9 +63,6 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }
 
     // Check if the user is authorized to view this registration
-    // Allow access if:
-    // 1. The user is the owner of the registration
-    // 2. The user is a registrar or admin
     if (registration.userId !== session.user.id && session.user.role !== "REGISTRAR" && session.user.role !== "ADMIN") {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 })
     }
@@ -69,11 +78,27 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const isPending =
       registration.status === "PENDING" || registration.courseUploads.some((upload) => upload.status === "PENDING")
 
+    // Get payment information if available
+    const paymentInfo = (await db.payment.findFirst({
+      where: {
+        userId: registration.userId,
+        semesterId: registration.semesterId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })) || { status: "Pending", amount: 0 }
+
+    // Register handlebars helpers
+    handlebars.registerHelper("eq", (a, b) => a === b)
+
     const templateData = {
       studentName: fullName,
       studentId: registration.user.profile?.studentId || "N/A",
       email: registration.user.email,
       program: registration.user.profile?.program || "N/A",
+      phoneNumber: registration.user.profile?.phoneNumber || "N/A",
+      address: registration.user.profile?.address || "N/A",
       semester: registration.semester.name,
       academicYear: registration.semester.academicYear.name,
       registrationDate: new Date(registration.createdAt).toLocaleDateString("en-US", {
@@ -104,10 +129,17 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         month: "long",
         day: "numeric",
       }),
+      academicInfo: registration.user.profile?.academicInfo || null,
+      paymentStatus: paymentInfo.status,
+      amountPaid: paymentInfo.amount.toLocaleString(),
+      appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://bugema-university.edu",
     }
 
     // Generate PDF using puppeteer
-    const browser = await puppeteer.launch({ headless: true })
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    })
     const page = await browser.newPage()
 
     // Read the HTML template
@@ -144,6 +176,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     })
   } catch (error) {
     console.error("Error generating PDF:", error)
-    return NextResponse.json({ success: false, message: "An error occurred while generating the PDF" }, { status: 500 })
+    return NextResponse.json(
+      { success: false, message: `An error occurred while generating the PDF: ${error.message}` },
+      { status: 500 },
+    )
   }
 }

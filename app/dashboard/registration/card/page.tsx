@@ -4,8 +4,9 @@ import { authOptions } from "@/lib/auth"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { PrintRegistrationCard } from "@/components/dashboard/print-registration-card"
-import { getActiveSemester } from "@/lib/actions/semester-actions"
-import { getStudentRegistration } from "@/lib/actions/registration-actions"
+import { getRegistrationCard } from "@/lib/actions/registration-actions"
+import { AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { db } from "@/lib/db"
 
 export const metadata = {
@@ -13,22 +14,45 @@ export const metadata = {
   description: "View and print your registration card",
 }
 
-export default async function RegistrationCardPage({ searchParams }) {
+export default async function RegistrationCardPage({
+  searchParams,
+}: {
+  searchParams: { id?: string; semesterId?: string; studentId?: string }
+}) {
   const session = await getServerSession(authOptions)
 
   if (!session || !session.user) {
     redirect("/auth/login")
   }
 
-  // Determine which registration to show
-  const registrationId = searchParams?.id
-  const userId = session.user.id
-  const semesterId = null
+  // Get registration ID from query params or use the active semester
+  const registrationId = searchParams.id
+  const semesterId = searchParams.semesterId
+  const studentId = searchParams.studentId
 
-  // If a registrar/admin is viewing a specific registration
-  if (registrationId && (session.user.role === "REGISTRAR" || session.user.role === "ADMIN")) {
-    // Get the registration directly by ID
-    const registration = await db.registration.findUnique({
+  // Determine which user ID to use (for registrars viewing student cards)
+  const userId = session.user.role === "REGISTRAR" && studentId ? studentId : session.user.id
+
+  if (!registrationId && !semesterId) {
+    return (
+      <DashboardShell>
+        <DashboardHeader heading="Registration Card" text="View and print your registration card" />
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            No registration ID or semester ID provided. Please go to your registrations and select a card to print.
+          </AlertDescription>
+        </Alert>
+      </DashboardShell>
+    )
+  }
+
+  // Fetch registration data
+  let registration
+  if (registrationId) {
+    // Fetch by registration ID with expanded data
+    const response = await db.registration.findUnique({
       where: { id: registrationId },
       include: {
         user: {
@@ -54,63 +78,51 @@ export default async function RegistrationCardPage({ searchParams }) {
       },
     })
 
-    if (registration) {
-      return (
-        <DashboardShell>
-          <DashboardHeader heading="Registration Card" text="View and print the registration card for this student." />
-          <PrintRegistrationCard registration={registration} />
-        </DashboardShell>
-      )
-    } else {
-      return (
-        <DashboardShell>
-          <DashboardHeader heading="Registration Card" text="Registration not found." />
-          <div className="bg-white p-8 rounded-lg border shadow-sm">
-            <p className="text-center text-muted-foreground">The requested registration could not be found.</p>
-          </div>
-        </DashboardShell>
-      )
+    if (response) {
+      registration = response
+    }
+  } else if (semesterId) {
+    // Fetch by semester ID
+    const cardResult = await getRegistrationCard(userId, semesterId)
+    if (cardResult.success) {
+      registration = cardResult.registration || {
+        id: "temp-id",
+        userId: userId,
+        semesterId: semesterId,
+        status: "APPROVED",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        user: {
+          id: userId,
+          name: session.user.name,
+          email: session.user.email,
+          profile: cardResult.registrationCard?.user.profile,
+        },
+        semester: cardResult.registrationCard?.semester,
+        courseUploads: cardResult.courses,
+        registrationCard: cardResult.registrationCard,
+      }
     }
   }
-
-  // For students viewing their own registration
-  // Get active semester
-  const semesterResult = await getActiveSemester()
-  const activeSemester = semesterResult.success ? semesterResult.semester : null
-
-  if (!activeSemester) {
-    return (
-      <DashboardShell>
-        <DashboardHeader heading="Registration Card" text="No active semester found." />
-        <div className="bg-white p-8 rounded-lg border shadow-sm">
-          <p className="text-center text-muted-foreground">
-            There is no active semester at the moment. Please check back later.
-          </p>
-        </div>
-      </DashboardShell>
-    )
-  }
-
-  // Get student registration for active semester
-  const registrationResult = await getStudentRegistration(userId, activeSemester.id)
-  const registration = registrationResult.success ? registrationResult.registration : null
 
   if (!registration) {
     return (
       <DashboardShell>
-        <DashboardHeader heading="Registration Card" text="No registration found for the current semester." />
-        <div className="bg-white p-8 rounded-lg border shadow-sm">
-          <p className="text-center text-muted-foreground">
-            You have not registered for the current semester. Please complete your registration first.
-          </p>
-        </div>
+        <DashboardHeader heading="Registration Card" text="View and print your registration card" />
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Not Found</AlertTitle>
+          <AlertDescription>
+            Registration card not found. Make sure your registration has been approved by the registrar.
+          </AlertDescription>
+        </Alert>
       </DashboardShell>
     )
   }
 
   return (
     <DashboardShell>
-      <DashboardHeader heading="Registration Card" text="View and print your registration card." />
+      <DashboardHeader heading="Registration Card" text="View and print your registration card" />
       <PrintRegistrationCard registration={registration} />
     </DashboardShell>
   )

@@ -24,6 +24,13 @@ type Registration = {
       lastName: string
       studentId: string
       program: string
+      phoneNumber?: string
+      photoUrl?: string
+      academicInfo?: {
+        gpa?: string
+        standing?: string
+        yearOfStudy?: string
+      }
     }
   }
   semester: {
@@ -50,6 +57,11 @@ type Registration = {
       }
     }
   }[]
+  paymentStatus?: string
+  amountPaid?: string
+  registrationCard?: {
+    cardNumber: string
+  }
 }
 
 export function PrintRegistrationCard({ registration }: { registration: Registration }) {
@@ -75,15 +87,30 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
         description: "Registration card printed successfully",
       })
     },
+    onPrintError: (error) => {
+      setIsGenerating(false)
+      console.error("Print error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to print registration card",
+        variant: "destructive",
+      })
+    },
   })
 
   const handleDownloadPDF = async () => {
     setIsGenerating(true)
     try {
+      // Make sure we have a registration ID
+      if (!registration.id) {
+        throw new Error("Registration ID is missing")
+      }
+
       const response = await fetch(`/api/registrations/${registration.id}/pdf`)
 
       if (!response.ok) {
-        throw new Error("Failed to generate PDF")
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to generate PDF")
       }
 
       const blob = await response.blob()
@@ -104,7 +131,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
       console.error("Error downloading PDF:", error)
       toast({
         title: "Error",
-        description: "Failed to download registration card",
+        description: `Failed to download registration card: ${error.message}`,
         variant: "destructive",
       })
     } finally {
@@ -156,6 +183,17 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
 
       <div ref={printRef} className="bg-white p-8 rounded-lg border shadow-sm">
         <div className="text-center mb-6">
+          <div className="flex justify-center mb-4">
+            <img
+              src="/logo.png"
+              alt="Bugema University Logo"
+              className="h-16 w-auto"
+              onError={(e) => {
+                e.currentTarget.src = "/placeholder.svg?height=64&width=64"
+                e.currentTarget.alt = "University Logo"
+              }}
+            />
+          </div>
           <h1 className="text-2xl font-bold">BUGEMA UNIVERSITY</h1>
           <p className="text-lg font-semibold">STUDENT REGISTRATION CARD</p>
           <p className="text-md">
@@ -164,24 +202,70 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
           {isPending && <p className="text-sm text-amber-600 font-medium mt-1">PROVISIONAL - PENDING APPROVAL</p>}
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div>
-            <p className="text-sm text-gray-500">Student Name</p>
-            <p className="font-medium">
-              {registration.user.profile?.firstName} {registration.user.profile?.lastName}
-            </p>
+        <div className="grid md:grid-cols-3 gap-4 mb-6">
+          <div className="md:col-span-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-500">Student Name</p>
+                <p className="font-medium">
+                  {registration.user.profile?.firstName} {registration.user.profile?.lastName}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Student ID</p>
+                <p className="font-medium">{registration.user.profile?.studentId || registration.user.id}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Program</p>
+                <p className="font-medium">{registration.user.profile?.program || "Not specified"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Registration Date</p>
+                <p className="font-medium">{new Date(registration.createdAt).toLocaleDateString()}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Email</p>
+                <p className="font-medium">{registration.user.email}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Registration Status</p>
+                <p
+                  className={`font-medium ${
+                    registration.status === "APPROVED"
+                      ? "text-green-600"
+                      : registration.status === "REJECTED"
+                        ? "text-red-600"
+                        : "text-amber-600"
+                  }`}
+                >
+                  {registration.status}
+                </p>
+              </div>
+              {registration.user.profile?.phoneNumber && (
+                <div>
+                  <p className="text-sm text-gray-500">Phone Number</p>
+                  <p className="font-medium">{registration.user.profile.phoneNumber}</p>
+                </div>
+              )}
+              {registration.registrationCard && (
+                <div>
+                  <p className="text-sm text-gray-500">Card Number</p>
+                  <p className="font-medium">{registration.registrationCard.cardNumber}</p>
+                </div>
+              )}
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-gray-500">Student ID</p>
-            <p className="font-medium">{registration.user.profile?.studentId || registration.user.id}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Program</p>
-            <p className="font-medium">{registration.user.profile?.program || "Not specified"}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Registration Date</p>
-            <p className="font-medium">{new Date(registration.createdAt).toLocaleDateString()}</p>
+          <div className="flex justify-center items-start">
+            <div className="border p-1 bg-gray-50">
+              <img
+                src={registration.user.profile?.photoUrl || "/placeholder.svg?height=150&width=120"}
+                alt="Student Photo"
+                className="h-[150px] w-[120px] object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = "/placeholder.svg?height=150&width=120"
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -228,6 +312,42 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
               </tr>
             </tbody>
           </table>
+        </div>
+
+        {registration.user.profile?.academicInfo && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-2">Academic Information</h3>
+            <div className="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded border">
+              <div>
+                <p className="text-sm text-gray-500">Current GPA</p>
+                <p className="font-medium">{registration.user.profile.academicInfo.gpa || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Academic Standing</p>
+                <p className="font-medium">{registration.user.profile.academicInfo.standing || "Good Standing"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Year of Study</p>
+                <p className="font-medium">{registration.user.profile.academicInfo.yearOfStudy || "N/A"}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold mb-2">Payment Information</h3>
+          <div className="bg-gray-50 p-4 rounded border">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-500">Payment Status</p>
+                <p className="font-medium">{registration.paymentStatus || "Pending"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Amount Paid</p>
+                <p className="font-medium">{registration.amountPaid || "0.00"} UGX</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-8 mt-12">
