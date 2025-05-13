@@ -35,7 +35,6 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
                 phoneNumber: true,
                 address: true,
                 photoUrl: true,
-                academicInfo: true,
               },
             },
           },
@@ -79,24 +78,34 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       registration.status === "PENDING" || registration.courseUploads.some((upload) => upload.status === "PENDING")
 
     // Get payment information if available
-    const paymentInfo = (await db.payment.findFirst({
-      where: {
-        userId: registration.userId,
-        semesterId: registration.semesterId,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    })) || { status: "Pending", amount: 0 }
+    let paymentInfo = { status: "Pending", amount: 0 }
+    try {
+      const payment = await db.payment.findFirst({
+        where: {
+          userId: registration.userId,
+          semesterId: registration.semesterId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      })
+
+      if (payment) {
+        paymentInfo = { status: payment.status, amount: payment.amount }
+      }
+    } catch (error) {
+      console.error("Error fetching payment info:", error)
+      // Continue with default payment info
+    }
 
     // Register handlebars helpers
     handlebars.registerHelper("eq", (a, b) => a === b)
 
     const templateData = {
-      studentName: fullName,
-      studentId: registration.user.profile?.studentId || "N/A",
-      email: registration.user.email,
-      program: registration.user.profile?.program || "N/A",
+      studentName: fullName || registration.user.name || "Unknown",
+      studentId: registration.user.profile?.studentId || registration.user.id,
+      email: registration.user.email || "N/A",
+      program: registration.user.profile?.program || "Not specified",
       phoneNumber: registration.user.profile?.phoneNumber || "N/A",
       address: registration.user.profile?.address || "N/A",
       semester: registration.semester.name,
@@ -129,7 +138,6 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         month: "long",
         day: "numeric",
       }),
-      academicInfo: registration.user.profile?.academicInfo || null,
       paymentStatus: paymentInfo.status,
       amountPaid: paymentInfo.amount.toLocaleString(),
       appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://bugema-university.edu",
@@ -137,18 +145,119 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     // Generate PDF using puppeteer
     const browser = await puppeteer.launch({
-      headless: true,
+      headless: "new",
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     })
     const page = await browser.newPage()
 
-    // Read the HTML template
-    const templatePath = path.resolve(process.cwd(), "templates", "registration-slip.html")
-    const templateHtml = readFileSync(templatePath, "utf8")
+    // Create a simple HTML template if the file doesn't exist
+    let html = ""
+    try {
+      // Read the HTML template
+      const templatePath = path.resolve(process.cwd(), "templates", "registration-slip.html")
+      const templateHtml = readFileSync(templatePath, "utf8")
 
-    // Compile the template
-    const template = handlebars.compile(templateHtml)
-    const html = template(templateData)
+      // Compile the template
+      const template = handlebars.compile(templateHtml)
+      html = template(templateData)
+    } catch (error) {
+      console.error("Error reading template file:", error)
+      // Create a basic template if file doesn't exist
+      html = `
+        <html>
+          <head>
+            <title>Registration Card</title>
+            <style>
+              body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+              .header { text-align: center; margin-bottom: 20px; }
+              .student-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+              .courses { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+              .courses th, .courses td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              .courses th { background-color: #f2f2f2; }
+              .signature { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 40px; }
+              .signature-line { border-top: 1px dashed #000; padding-top: 5px; text-align: center; }
+              .footer { margin-top: 40px; font-size: 12px; color: #666; }
+              .pending { color: #f59e0b; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>BUGEMA UNIVERSITY</h1>
+              <h2>STUDENT REGISTRATION CARD</h2>
+              <p>${templateData.semester} - ${templateData.academicYear}</p>
+              ${templateData.isPending ? '<p class="pending">PROVISIONAL - PENDING APPROVAL</p>' : ""}
+            </div>
+            
+            <div class="student-info">
+              <div>
+                <p><strong>Student Name:</strong> ${templateData.studentName}</p>
+                <p><strong>Student ID:</strong> ${templateData.studentId}</p>
+                <p><strong>Program:</strong> ${templateData.program}</p>
+                <p><strong>Email:</strong> ${templateData.email}</p>
+              </div>
+              <div>
+                <p><strong>Registration Date:</strong> ${templateData.registrationDate}</p>
+                <p><strong>Status:</strong> ${templateData.status}</p>
+                <p><strong>Card Number:</strong> ${templateData.cardNumber}</p>
+                <p><strong>Phone:</strong> ${templateData.phoneNumber}</p>
+              </div>
+            </div>
+            
+            <h3>Registered Courses</h3>
+            <table class="courses">
+              <thead>
+                <tr>
+                  <th>Course Code</th>
+                  <th>Course Title</th>
+                  <th>Department</th>
+                  <th>Credits</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${templateData.courses
+                  .map(
+                    (course) => `
+                  <tr>
+                    <td>${course.code}</td>
+                    <td>${course.title}</td>
+                    <td>${course.department}</td>
+                    <td>${course.credits}</td>
+                    <td>${course.status}</td>
+                  </tr>
+                `,
+                  )
+                  .join("")}
+                <tr>
+                  <td colspan="3" style="text-align: right;"><strong>Total Credit Hours:</strong></td>
+                  <td><strong>${templateData.totalCredits}</strong></td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+            
+            <h3>Payment Information</h3>
+            <p><strong>Payment Status:</strong> ${templateData.paymentStatus}</p>
+            <p><strong>Amount Paid:</strong> ${templateData.amountPaid} UGX</p>
+            
+            <div class="signature">
+              <div>
+                <div class="signature-line">Student Signature</div>
+              </div>
+              <div>
+                <div class="signature-line">Registrar Signature</div>
+              </div>
+            </div>
+            
+            <div class="footer">
+              <p>This registration card is an official document of Bugema University. Any alteration renders it invalid.</p>
+              <p>Printed on: ${templateData.printDate}</p>
+              ${templateData.isPending ? '<p class="pending">PROVISIONAL COPY - This card is pending final approval from the registrar\'s office.</p>' : ""}
+            </div>
+          </body>
+        </html>
+      `
+    }
 
     // Set the HTML content
     await page.setContent(html, { waitUntil: "networkidle0" })

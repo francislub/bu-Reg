@@ -17,20 +17,20 @@ type Registration = {
   updatedAt: string
   user: {
     id: string
-    name: string
-    email: string
+    name: string | null
+    email: string | null
     profile: {
-      firstName: string
-      lastName: string
-      studentId: string
-      program: string
-      phoneNumber?: string
-      photoUrl?: string
+      firstName?: string | null
+      lastName?: string | null
+      studentId?: string | null
+      program?: string | null
+      phoneNumber?: string | null
+      photoUrl?: string | null
       academicInfo?: {
-        gpa?: string
-        standing?: string
-        yearOfStudy?: string
-      }
+        gpa?: string | null
+        standing?: string | null
+        yearOfStudy?: string | null
+      } | null
     }
   }
   semester: {
@@ -61,7 +61,7 @@ type Registration = {
   amountPaid?: string
   registrationCard?: {
     cardNumber: string
-  }
+  } | null
 }
 
 export function PrintRegistrationCard({ registration }: { registration: Registration }) {
@@ -102,15 +102,15 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
     setIsGenerating(true)
     try {
       // Make sure we have a registration ID
-      if (!registration.id) {
-        throw new Error("Registration ID is missing")
+      if (!registration.id || registration.id === "temp-id") {
+        throw new Error("Valid registration ID is required for PDF download")
       }
 
       const response = await fetch(`/api/registrations/${registration.id}/pdf`)
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || "Failed to generate PDF")
+        const errorText = await response.text()
+        throw new Error(`Failed to generate PDF: ${errorText}`)
       }
 
       const blob = await response.blob()
@@ -164,7 +164,12 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
               </>
             )}
           </Button>
-          <Button variant="outline" onClick={handleDownloadPDF} disabled={isGenerating}>
+          <Button
+            variant="outline"
+            onClick={handleDownloadPDF}
+            disabled={isGenerating || registration.id === "temp-id"}
+            title={registration.id === "temp-id" ? "PDF download requires a saved registration" : "Download as PDF"}
+          >
             <Download className="mr-2 h-4 w-4" />
             Download PDF
           </Button>
@@ -208,7 +213,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
               <div>
                 <p className="text-sm text-gray-500">Student Name</p>
                 <p className="font-medium">
-                  {registration.user.profile?.firstName} {registration.user.profile?.lastName}
+                  {registration.user.profile?.firstName || ""} {registration.user.profile?.lastName || ""}
                 </p>
               </div>
               <div>
@@ -225,7 +230,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
               </div>
               <div>
                 <p className="text-sm text-gray-500">Email</p>
-                <p className="font-medium">{registration.user.email}</p>
+                <p className="font-medium">{registration.user.email || "N/A"}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Registration Status</p>
@@ -282,27 +287,35 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
               </tr>
             </thead>
             <tbody>
-              {registration.courseUploads.map((upload) => (
-                <tr key={upload.id}>
-                  <td className="border p-2">{upload.course.code}</td>
-                  <td className="border p-2">{upload.course.title}</td>
-                  <td className="border p-2">{upload.course.department?.name || "N/A"}</td>
-                  <td className="border p-2 text-center">{upload.course.credits}</td>
-                  <td className="border p-2 text-center">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        upload.status === "APPROVED"
-                          ? "bg-green-100 text-green-800"
-                          : upload.status === "REJECTED"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {upload.status}
-                    </span>
+              {registration.courseUploads.length > 0 ? (
+                registration.courseUploads.map((upload) => (
+                  <tr key={upload.id}>
+                    <td className="border p-2">{upload.course.code}</td>
+                    <td className="border p-2">{upload.course.title}</td>
+                    <td className="border p-2">{upload.course.department?.name || "N/A"}</td>
+                    <td className="border p-2 text-center">{upload.course.credits}</td>
+                    <td className="border p-2 text-center">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs ${
+                          upload.status === "APPROVED"
+                            ? "bg-green-100 text-green-800"
+                            : upload.status === "REJECTED"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {upload.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="border p-4 text-center text-gray-500">
+                    No courses registered yet
                   </td>
                 </tr>
-              ))}
+              )}
               <tr className="bg-gray-50">
                 <td colSpan={3} className="border p-2 text-right font-semibold">
                   Total Credit Hours:

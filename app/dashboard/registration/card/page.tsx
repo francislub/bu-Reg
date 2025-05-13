@@ -48,82 +48,110 @@ export default async function RegistrationCardPage({
     )
   }
 
-  // Fetch registration data
-  let registration
-  if (registrationId) {
-    // Fetch by registration ID with expanded data
-    const response = await db.registration.findUnique({
-      where: { id: registrationId },
-      include: {
-        user: {
-          include: {
-            profile: true,
+  try {
+    // Fetch registration data
+    let registration
+    if (registrationId) {
+      // Fetch by registration ID with expanded data
+      const response = await db.registration.findUnique({
+        where: { id: registrationId },
+        include: {
+          user: {
+            include: {
+              profile: true,
+            },
           },
-        },
-        semester: {
-          include: {
-            academicYear: true,
+          semester: {
+            include: {
+              academicYear: true,
+            },
           },
-        },
-        courseUploads: {
-          include: {
-            course: {
-              include: {
-                department: true,
+          courseUploads: {
+            include: {
+              course: {
+                include: {
+                  department: true,
+                },
               },
             },
           },
+          registrationCard: true,
         },
-        registrationCard: true,
-      },
-    })
+      })
 
-    if (response) {
-      registration = response
-    }
-  } else if (semesterId) {
-    // Fetch by semester ID
-    const cardResult = await getRegistrationCard(userId, semesterId)
-    if (cardResult.success) {
-      registration = cardResult.registration || {
-        id: "temp-id",
-        userId: userId,
-        semesterId: semesterId,
-        status: "APPROVED",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        user: {
-          id: userId,
-          name: session.user.name,
-          email: session.user.email,
-          profile: cardResult.registrationCard?.user.profile,
-        },
-        semester: cardResult.registrationCard?.semester,
-        courseUploads: cardResult.courses,
-        registrationCard: cardResult.registrationCard,
+      if (response) {
+        registration = response
+      }
+    } else if (semesterId) {
+      // Fetch by semester ID
+      const cardResult = await getRegistrationCard(userId, semesterId)
+      if (cardResult.success) {
+        registration = cardResult.registration || {
+          id: "temp-id",
+          userId: userId,
+          semesterId: semesterId,
+          status: "APPROVED",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          user: {
+            id: userId,
+            name: session.user.name,
+            email: session.user.email,
+            profile: cardResult.registrationCard?.user.profile,
+          },
+          semester: cardResult.registrationCard?.semester,
+          courseUploads: cardResult.courses,
+          registrationCard: cardResult.registrationCard,
+        }
       }
     }
-  }
 
-  if (!registration) {
+    if (!registration) {
+      return (
+        <DashboardShell>
+          <DashboardHeader heading="Registration Card" text="View and print your registration card" />
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Not Found</AlertTitle>
+            <AlertDescription>
+              Registration card not found. Make sure your registration has been approved by the registrar.
+            </AlertDescription>
+          </Alert>
+        </DashboardShell>
+      )
+    }
+
+    // Add default values for any potentially missing properties to prevent errors
+    const safeRegistration = {
+      ...registration,
+      user: {
+        ...registration.user,
+        profile: registration.user.profile || {},
+      },
+      courseUploads: registration.courseUploads || [],
+      paymentStatus: "Pending", // Default payment status
+      amountPaid: "0.00", // Default amount paid
+    }
+
+    return (
+      <DashboardShell>
+        <DashboardHeader heading="Registration Card" text="View and print your registration card" />
+        <PrintRegistrationCard registration={safeRegistration} />
+      </DashboardShell>
+    )
+  } catch (error) {
+    console.error("Error loading registration card:", error)
     return (
       <DashboardShell>
         <DashboardHeader heading="Registration Card" text="View and print your registration card" />
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Not Found</AlertTitle>
+          <AlertTitle>Error</AlertTitle>
           <AlertDescription>
-            Registration card not found. Make sure your registration has been approved by the registrar.
+            An error occurred while loading the registration card. Please try again later or contact support.
           </AlertDescription>
         </Alert>
       </DashboardShell>
     )
   }
-
-  return (
-    <DashboardShell>
-      <DashboardHeader heading="Registration Card" text="View and print your registration card" />
-      <PrintRegistrationCard registration={registration} />
-    </DashboardShell>
-  )
 }
