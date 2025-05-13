@@ -21,7 +21,7 @@ export default function Home() {
                   Apply Now
                 </Button>
               </Link>
-              <Link href="/academics">
+              <Link href="/academics/programs">
               <Button size="lg" variant="outline" className="border-white text-black hover:bg-white/10">
                 Explore Programs
               </Button>
@@ -113,19 +113,19 @@ export default function Home() {
                 title: "Business Administration",
                 description: "Develop essential business skills and knowledge for today's global marketplace.",
                 image: "/images/business.jpg",
-                link: "/academics/undergraduate/business",
+                link: "/academics/undergraduate",
               },
               {
                 title: "Computer Science",
                 description: "Learn cutting-edge technologies and software development practices.",
                 image: "/images/computer-science.jpg",
-                link: "/academics/undergraduate/computer-science",
+                link: "/academics/undergraduate",
               },
               {
                 title: "Education",
                 description: "Prepare for a rewarding career shaping the minds of future generations.",
                 image: "/images/education.jpg",
-                link: "/academics/undergraduate/education",
+                link: "/academics/undergraduate",
               },
             ].map((program, index) => (
               <div
@@ -155,7 +155,7 @@ export default function Home() {
           </div>
 
           <div className="text-center mt-10">
-            <Link href="/academics">
+            <Link href="/academics/programs">
               <Button className="bg-blue-700 hover:bg-blue-800">
                 View All Programs <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
@@ -206,7 +206,7 @@ export default function Home() {
                   <p>{event.location}</p>
                 </div>
                 <p className="text-gray-600 mb-4">{event.description}</p>
-                <Link href="/events" className="text-blue-700 flex items-center gap-1 hover:underline font-medium">
+                <Link href="/contact" className="text-blue-700 flex items-center gap-1 hover:underline font-medium">
                   Learn more <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
@@ -214,7 +214,7 @@ export default function Home() {
           </div>
 
           <div className="text-center mt-10">
-            <Link href="/events">
+            <Link href="/sports">
               <Button variant="outline" className="border-blue-700 text-blue-700 hover:bg-blue-50">
                 View All Events <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
@@ -308,13 +308,13 @@ export default function Home() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { title: "Student Portal", link: "/auth/login" },
-              { title: "Academic Calendar", link: "/academics/calendar" },
-              { title: "Library Resources", link: "/resources/library" },
-              { title: "Campus Life", link: "/campus-life" },
-              { title: "Admissions", link: "/admissions" },
-              { title: "Research", link: "/research" },
-              { title: "Alumni", link: "/alumni" },
-              { title: "Careers", link: "/careers" },
+              { title: "Academic Calendar", link: "/academics/programs" },
+              { title: "Library Resources", link: "/academics/programs" },
+              { title: "Campus Life", link: "/academics/programs" },
+              { title: "Admissions", link: "/academics/programs" },
+              { title: "Research", link: "/academics/programs" },
+              { title: "Alumni", link: "/academics/programs" },
+              { title: "Careers", link: "/academics/programs" },
             ].map((link, index) => (
               <Link
                 key={index}
