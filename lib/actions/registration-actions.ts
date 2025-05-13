@@ -516,11 +516,7 @@ export async function getRegistrationCard(userId: string, semesterId: string) {
       },
     })
 
-    if (!registrationCard) {
-      return { success: false, message: "Registration card not found" }
-    }
-
-    // Get courses for this registration
+    // Get registration and all courses regardless of approval status
     const registration = await db.registration.findFirst({
       where: {
         userId,
@@ -528,9 +524,6 @@ export async function getRegistrationCard(userId: string, semesterId: string) {
       },
       include: {
         courseUploads: {
-          where: {
-            status: "APPROVED",
-          },
           include: {
             course: {
               include: {
@@ -542,10 +535,26 @@ export async function getRegistrationCard(userId: string, semesterId: string) {
       },
     })
 
+    // If registration card doesn't exist but registration does, return registration data anyway
+    // This allows printing even before official approval
+    if (!registrationCard && registration) {
+      return {
+        success: true,
+        registrationCard: null,
+        courses: registration.courseUploads || [],
+        registration: registration,
+      }
+    }
+
+    if (!registrationCard && !registration) {
+      return { success: false, message: "Registration not found" }
+    }
+
     return {
       success: true,
       registrationCard,
       courses: registration?.courseUploads || [],
+      registration: registration,
     }
   } catch (error) {
     console.error("Error fetching registration card:", error)

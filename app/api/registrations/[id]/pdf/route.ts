@@ -62,6 +62,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     const totalCredits = registration.courseUploads.reduce((total, upload) => total + upload.course.credits, 0)
 
+    // Check if registration is pending or has pending courses
+    const isPending =
+      registration.status === "PENDING" || registration.courseUploads.some((upload) => upload.status === "PENDING")
+
     const templateData = {
       studentName: fullName,
       studentId: registration.user.profile?.studentId || "N/A",
@@ -75,6 +79,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         day: "numeric",
       }),
       status: registration.status,
+      isPending: isPending,
       cardNumber: registration.registrationCard?.cardNumber || "Not Issued",
       cardIssueDate: registration.registrationCard
         ? new Date(registration.registrationCard.issuedDate).toLocaleDateString("en-US", {

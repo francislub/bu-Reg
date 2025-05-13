@@ -280,10 +280,10 @@ export default function UndergraduatePage() {
 
           <div className="flex flex-col sm:flex-row gap-4">
             <Button asChild>
-              <Link href="/admissions/apply">Apply Now</Link>
+              <Link href="/admissions">Apply Now</Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link href="/admissions/requirements">View Detailed Requirements</Link>
+              <Link href="/admissions">View Detailed Requirements</Link>
             </Button>
           </div>
         </div>

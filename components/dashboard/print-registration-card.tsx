@@ -2,10 +2,11 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Printer, Download, Loader2 } from "lucide-react"
+import { Printer, Download, Loader2, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useReactToPrint } from "react-to-print"
 import { useRef } from "react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 type Registration = {
   id: string
@@ -58,7 +59,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
 
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
-    documentTitle: `Registration_Card_${registration.user.profile.studentId || registration.user.id}`,
+    documentTitle: `Registration_Card_${registration.user.profile?.studentId || registration.user.id}`,
     onBeforeGetContent: () => {
       setIsGenerating(true)
       return new Promise<void>((resolve) => {
@@ -89,7 +90,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `Registration_Card_${registration.user.profile.studentId || registration.user.id}.pdf`
+      a.download = `Registration_Card_${registration.user.profile?.studentId || registration.user.id}.pdf`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -113,6 +114,10 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
 
   // Calculate total credit hours
   const totalCreditHours = registration.courseUploads.reduce((total, upload) => total + (upload.course.credits || 0), 0)
+
+  // Check if registration is pending or has pending courses
+  const isPending =
+    registration.status === "PENDING" || registration.courseUploads.some((upload) => upload.status === "PENDING")
 
   return (
     <div className="space-y-6">
@@ -139,6 +144,16 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
         </div>
       </div>
 
+      {isPending && (
+        <Alert variant="warning" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Pending Approval</AlertTitle>
+          <AlertDescription>
+            This registration card contains courses that are still pending approval. The final approved card may differ.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div ref={printRef} className="bg-white p-8 rounded-lg border shadow-sm">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold">BUGEMA UNIVERSITY</h1>
@@ -146,6 +161,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
           <p className="text-md">
             {registration.semester.name} - {registration.semester.academicYear.name}
           </p>
+          {isPending && <p className="text-sm text-amber-600 font-medium mt-1">PROVISIONAL - PENDING APPROVAL</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4 mb-6">
@@ -230,6 +246,11 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
         <div className="mt-12 text-xs text-gray-500">
           <p>This registration card is an official document of Bugema University. Any alteration renders it invalid.</p>
           <p>Printed on: {new Date().toLocaleString()}</p>
+          {isPending && (
+            <p className="text-amber-600 font-medium mt-1">
+              PROVISIONAL COPY - This card is pending final approval from the registrar's office.
+            </p>
+          )}
         </div>
       </div>
     </div>
