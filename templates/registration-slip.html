@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registration Slip</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      border: 1px solid #ddd;
+      padding: 20px;
+      position: relative;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #f0f0f0;
+      padding-bottom: 10px;
+    }
+    .university-name {
+      font-size: 24px;
+      font-weight: bold;
+      margin: 0;
+    }
+    .card-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin: 5px 0;
+    }
+    .semester-info {
+      font-size: 16px;
+      margin: 5px 0;
+    }
+    .provisional {
+      color: #e67e22;
+      font-weight: bold;
+      margin: 5px 0;
+      font-size: 14px;
+    }
+    .student-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .info-group {
+      margin-bottom: 10px;
+    }
+    .info-label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 3px;
+    }
+    .info-value {
+      font-weight: 500;
+    }
+    .courses-section {
+      margin-bottom: 20px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f5f5f5;
+    }
+    .status-approved {
+      background-color: #e6f7e6;
+      color: #2e7d32;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      display: inline-block;
+    }
+    .status-pending {
+      background-color: #fff8e1;
+      color: #f57c00;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      display: inline-block;
+    }
+    .status-rejected {
+      background-color: #ffebee;
+      color: #c62828;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      display: inline-block;
+    }
+    .total-row {
+      background-color: #f5f5f5;
+      font-weight: bold;
+    }
+    .signatures {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin-top: 60px;
+    }
+    .signature-line {
+      border-top: 1px dashed #000;
+      padding-top: 5px;
+      text-align: center;
+    }
+    .footer {
+      margin-top: 60px;
+      font-size: 11px;
+      color: #666;
+    }
+    .watermark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-45deg);
+      font-size: 60px;
+      color: rgba(230, 126, 34, 0.1);
+      font-weight: bold;
+      z-index: -1;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    {{#if isPending}}
+    <div class="watermark">PROVISIONAL</div>
+    {{/if}}
+    
+    <div class="header">
+      <h1 class="university-name">BUGEMA UNIVERSITY</h1>
+      <p class="card-title">STUDENT REGISTRATION CARD</p>
+      <p class="semester-info">{{semester}} - {{academicYear}}</p>
+      {{#if isPending}}
+      <p class="provisional">PROVISIONAL - PENDING APPROVAL</p>
+      {{/if}}
+    </div>
+
+    <div class="student-info">
+      <div class="info-group">
+        <div class="info-label">Student Name</div>
+        <div class="info-value">{{studentName}}</div>
+      </div>
+      <div class="info-group">
+        <div class="info-label">Student ID</div>
+        <div class="info-value">{{studentId}}</div>
+      </div>
+      <div class="info-group">
+        <div class="info-label">Program</div>
+        <div class="info-value">{{program}}</div>
+      </div>
+      <div class="info-group">
+        <div class="info-label">Registration Date</div>
+        <div class="info-value">{{registrationDate}}</div>
+      </div>
+    </div>
+
+    <div class="courses-section">
+      <h3 class="section-title">Registered Courses</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Course Code</th>
+            <th>Course Title</th>
+            <th>Department</th>
+            <th>Credits</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each courses}}
+          <tr>
+            <td>{{this.code}}</td>
+            <td>{{this.title}}</td>
+            <td>{{this.department}}</td>
+            <td style="text-align: center;">{{this.credits}}</td>
+            <td style="text-align: center;">
+              {{#if (eq this.status "APPROVED")}}
+              <span class="status-approved">Approved</span>
+              {{else if (eq this.status "PENDING")}}
+              <span class="status-pending">Pending</span>
+              {{else}}
+              <span class="status-rejected">Rejected</span>
+              {{/if}}
+            </td>
+          </tr>
+          {{/each}}
+          <tr class="total-row">
+            <td colspan="3" style="text-align: right;">Total Credit Hours:</td>
+            <td style="text-align: center;">{{totalCredits}}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="signatures">
+      <div>
+        <div class="signature-line">Student Signature</div>
+      </div>
+      <div>
+        <div class="signature-line">Registrar Signature</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>This registration card is an official document of Bugema University. Any alteration renders it invalid.</p>
+      <p>Printed on: {{printDate}}</p>
+      {{#if isPending}}
+      <p style="color: #e67e22; font-weight: 500;">PROVISIONAL COPY - This card is pending final approval from the registrar's office.</p>
+      {{/if}}
+    </div>
+  </div>
+
+  <script>
+    // Helper function for handlebars to compare values
+    Handlebars.registerHelper('eq', function(a, b) {
+      return a === b;
+    });
+  </script>
+</body>
+</html>

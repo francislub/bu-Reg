@@ -4,118 +4,114 @@ import { authOptions } from "@/lib/auth"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { PrintRegistrationCard } from "@/components/dashboard/print-registration-card"
-import { getRegistrationCard } from "@/lib/actions/registration-actions"
-import { AlertCircle } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { getActiveSemester } from "@/lib/actions/semester-actions"
+import { getStudentRegistration } from "@/lib/actions/registration-actions"
+import { db } from "@/lib/db"
 
 export const metadata = {
   title: "Registration Card",
   description: "View and print your registration card",
 }
 
-export default async function RegistrationCardPage({
-  searchParams,
-}: {
-  searchParams: { id?: string; semesterId?: string; studentId?: string }
-}) {
+export default async function RegistrationCardPage({ searchParams }) {
   const session = await getServerSession(authOptions)
 
   if (!session || !session.user) {
     redirect("/auth/login")
   }
 
-  // Get registration ID from query params or use the active semester
-  const registrationId = searchParams.id
-  const semesterId = searchParams.semesterId
-  const studentId = searchParams.studentId
+  // Determine which registration to show
+  const registrationId = searchParams?.id
+  const userId = session.user.id
+  const semesterId = null
 
-  // Determine which user ID to use (for registrars viewing student cards)
-  const userId = session.user.role === "REGISTRAR" && studentId ? studentId : session.user.id
+  // If a registrar/admin is viewing a specific registration
+  if (registrationId && (session.user.role === "REGISTRAR" || session.user.role === "ADMIN")) {
+    // Get the registration directly by ID
+    const registration = await db.registration.findUnique({
+      where: { id: registrationId },
+      include: {
+        user: {
+          include: {
+            profile: true,
+          },
+        },
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
+        courseUploads: {
+          include: {
+            course: {
+              include: {
+                department: true,
+              },
+            },
+          },
+        },
+        registrationCard: true,
+      },
+    })
 
-  if (!registrationId && !semesterId) {
+    if (registration) {
+      return (
+        <DashboardShell>
+          <DashboardHeader heading="Registration Card" text="View and print the registration card for this student." />
+          <PrintRegistrationCard registration={registration} />
+        </DashboardShell>
+      )
+    } else {
+      return (
+        <DashboardShell>
+          <DashboardHeader heading="Registration Card" text="Registration not found." />
+          <div className="bg-white p-8 rounded-lg border shadow-sm">
+            <p className="text-center text-muted-foreground">The requested registration could not be found.</p>
+          </div>
+        </DashboardShell>
+      )
+    }
+  }
+
+  // For students viewing their own registration
+  // Get active semester
+  const semesterResult = await getActiveSemester()
+  const activeSemester = semesterResult.success ? semesterResult.semester : null
+
+  if (!activeSemester) {
     return (
       <DashboardShell>
-        <DashboardHeader heading="Registration Card" text="View and print your registration card" />
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            No registration ID or semester ID provided. Please go to your registrations and select a card to print.
-          </AlertDescription>
-        </Alert>
+        <DashboardHeader heading="Registration Card" text="No active semester found." />
+        <div className="bg-white p-8 rounded-lg border shadow-sm">
+          <p className="text-center text-muted-foreground">
+            There is no active semester at the moment. Please check back later.
+          </p>
+        </div>
       </DashboardShell>
     )
   }
 
-  // Fetch registration data
-  let registration
-  if (registrationId) {
-    // Fetch by registration ID
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/registrations/${registrationId}/details`, {
-      cache: "no-store",
-    })
-    if (response.ok) {
-      const data = await response.json()
-      if (data.success) {
-        registration = data.registration
-      }
-    }
-  } else if (semesterId) {
-    // Fetch by semester ID
-    const cardResult = await getRegistrationCard(userId, semesterId)
-    if (cardResult.success) {
-      registration = {
-        id: registrationId || "temp-id",
-        userId: userId,
-        semesterId: semesterId,
-        status: "APPROVED",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        user: {
-          id: userId,
-          name: session.user.name,
-          email: session.user.email,
-          profile: cardResult.registrationCard.user.profile,
-        },
-        semester: cardResult.registrationCard.semester,
-        courseUploads: cardResult.courses,
-      }
-    }
-  }
+  // Get student registration for active semester
+  const registrationResult = await getStudentRegistration(userId, activeSemester.id)
+  const registration = registrationResult.success ? registrationResult.registration : null
 
   if (!registration) {
     return (
       <DashboardShell>
-        <DashboardHeader heading="Registration Card" text="View and print your registration card" />
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Not Found</AlertTitle>
-          <AlertDescription>
-            Registration card not found. Make sure your registration has been approved by the registrar.
-          </AlertDescription>
-        </Alert>
+        <DashboardHeader heading="Registration Card" text="No registration found for the current semester." />
+        <div className="bg-white p-8 rounded-lg border shadow-sm">
+          <p className="text-center text-muted-foreground">
+            You have not registered for the current semester. Please complete your registration first.
+          </p>
+        </div>
       </DashboardShell>
     )
   }
 
-  // For registrars, we allow viewing cards even if not approved
-  const canViewCard = session.user.role === "REGISTRAR" || registration.status === "APPROVED"
-
   return (
     <DashboardShell>
-      <DashboardHeader heading="Registration Card" text="View and print your registration card" />
-      {!canViewCard ? (
-        <Alert variant="warning">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Registration Not Approved</AlertTitle>
-          <AlertDescription>
-            Your registration has not been approved yet. You can print your registration card once it's approved by the
-            registrar.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <PrintRegistrationCard registration={registration} />
-      )}
+      <DashboardHeader heading="Registration Card" text="View and print your registration card." />
+      <PrintRegistrationCard registration={registration} />
     </DashboardShell>
   )
 }

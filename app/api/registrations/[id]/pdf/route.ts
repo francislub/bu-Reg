@@ -51,6 +51,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }
 
     // Check if the user is authorized to view this registration
+    // Allow access if:
+    // 1. The user is the owner of the registration
+    // 2. The user is a registrar or admin
     if (registration.userId !== session.user.id && session.user.role !== "REGISTRAR" && session.user.role !== "ADMIN") {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 })
     }
