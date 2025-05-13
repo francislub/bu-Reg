@@ -25,34 +25,35 @@ export default async function RegistrationCardPage({
     redirect("/auth/login")
   }
 
-  // Get registration ID from query params or use the active semester
-  const registrationId = searchParams.id
-  const semesterId = searchParams.semesterId
-  const studentId = searchParams.studentId
-
-  // Determine which user ID to use (for registrars viewing student cards)
-  const userId = session.user.role === "REGISTRAR" && studentId ? studentId : session.user.id
-
-  if (!registrationId && !semesterId) {
-    return (
-      <DashboardShell>
-        <DashboardHeader heading="Registration Card" text="View and print your registration card" />
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            No registration ID or semester ID provided. Please go to your registrations and select a card to print.
-          </AlertDescription>
-        </Alert>
-      </DashboardShell>
-    )
-  }
-
   try {
+    // Get registration ID from query params or use the active semester
+    // Fix: Use searchParams directly without accessing properties that need to be awaited
+    const registrationId = searchParams?.id
+    const semesterId = searchParams?.semesterId
+    const studentId = searchParams?.studentId
+
+    // Determine which user ID to use (for registrars viewing student cards)
+    const userId = session.user.role === "REGISTRAR" && studentId ? studentId : session.user.id
+
+    if (!registrationId && !semesterId) {
+      return (
+        <DashboardShell>
+          <DashboardHeader heading="Registration Card" text="View and print your registration card" />
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              No registration ID or semester ID provided. Please go to your registrations and select a card to print.
+            </AlertDescription>
+          </Alert>
+        </DashboardShell>
+      )
+    }
+
     // Fetch registration data
     let registration
     if (registrationId) {
-      // Fetch by registration ID with expanded data
+      // Fix: Remove registrationCard from include statement as it's not in the model
       const response = await db.registration.findUnique({
         where: { id: registrationId },
         include: {
@@ -75,7 +76,6 @@ export default async function RegistrationCardPage({
               },
             },
           },
-          registrationCard: true,
         },
       })
 
@@ -101,7 +101,6 @@ export default async function RegistrationCardPage({
           },
           semester: cardResult.registrationCard?.semester,
           courseUploads: cardResult.courses,
-          registrationCard: cardResult.registrationCard,
         }
       }
     }
@@ -132,6 +131,20 @@ export default async function RegistrationCardPage({
       paymentStatus: "Pending", // Default payment status
       amountPaid: "0.00", // Default amount paid
     }
+
+    // Fetch registration card separately if needed
+    let registrationCard = null
+    if (registrationId) {
+      registrationCard = await db.registrationCard.findFirst({
+        where: {
+          userId: registration.userId,
+          semesterId: registration.semesterId,
+        },
+      })
+    }
+
+    // Add the registration card to the safe registration object
+    safeRegistration.registrationCard = registrationCard
 
     return (
       <DashboardShell>

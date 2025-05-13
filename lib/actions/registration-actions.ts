@@ -542,7 +542,6 @@ export async function getRegistrationCard(userId: string, semesterId: string) {
             },
           },
         },
-        registrationCard: true,
       },
     })
 
@@ -562,15 +561,17 @@ export async function getRegistrationCard(userId: string, semesterId: string) {
     }
 
     // Get payment information if available
-    const paymentInfo = await db.payment.findFirst({
-      where: {
-        userId,
-        semesterId,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    })
+    const paymentInfo = await db.payment
+      .findFirst({
+        where: {
+          userId,
+          semesterId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      })
+      .catch(() => null) // Handle if Payment model doesn't exist
 
     return {
       success: true,

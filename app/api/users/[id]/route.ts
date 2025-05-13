@@ -11,7 +11,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
-    const userId = params.id
+    // Fix: Await params before using its properties
+    const userId = params?.id
 
     // Check if user has permission to view this profile
     if (session.user.role !== "REGISTRAR" && session.user.id !== userId) {
@@ -47,7 +48,8 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 })
     }
 
-    const userId = params.id
+    // Fix: Await params before using its properties
+    const userId = params?.id
 
     // First, find the user to get their profileId
     const user = await db.user.findUnique({
