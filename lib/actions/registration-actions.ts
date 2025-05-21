@@ -371,7 +371,7 @@ export async function approveRegistration(registrationId: string, approverId?: s
               <h2>Registration Approved</h2>
               <p>Good news! Your registration for ${registration.semester.name} has been approved.</p>
               <p>Your registration card number is: <strong>${cardNumber}</strong></p>
-              <p>You can now print your registration card from the <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/registration/card">dashboard</a>.</p>
+              <p>You can now print your registration card from the <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/registration">dashboard</a>.</p>
               <p>If you have any questions, please contact the registrar's office.</p>
             </div>
           `,

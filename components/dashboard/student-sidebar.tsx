@@ -71,7 +71,7 @@ export function StudentSidebar() {
           title: "Registration",
           href: "/dashboard/registration",
           icon: <FileText className="h-5 w-5" />,
-          isActive: pathname === "/dashboard/registration",
+          isActive: pathname.startsWith("/dashboard/registration"),
         },
         {
           title: "Semester Registration",

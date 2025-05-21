@@ -347,7 +347,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
           </div>
         )}
 
-        <div className="mb-6">
+        {/* <div className="mb-6">
           <h3 className="text-lg font-semibold mb-2">Payment Information</h3>
           <div className="bg-gray-50 p-4 rounded border">
             <div className="grid grid-cols-2 gap-4">
@@ -361,7 +361,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
 
         <div className="grid grid-cols-2 gap-8 mt-12">
           <div>

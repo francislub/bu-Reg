@@ -238,23 +238,23 @@ export default function Home() {
               {
                 quote:
                   "Bugema University provided me with not just academic knowledge, but also valuable life skills that have been crucial in my career.",
-                name: "Sarah Nakato",
+                name: "Ann Chance",
                 title: "Business Administration Graduate, 2021",
-                image: "/images/testimonial1.jpg",
+                image: "/ann.jpg",
               },
               {
                 quote:
                   "The supportive community and dedicated professors at Bugema helped me achieve my academic goals and prepared me for the professional world.",
-                name: "David Ochieng",
+                name: "Leone Chirodza",
                 title: "Computer Science Graduate, 2020",
-                image: "/images/testimonial2.jpg",
+                image: "/lio.jpg",
               },
               {
                 quote:
                   "My experience at Bugema University was transformative. The holistic education approach helped me grow intellectually and spiritually.",
-                name: "Rebecca Mutumba",
+                name: "Lubanjwa Francis",
                 title: "Education Graduate, 2022",
-                image: "/images/testimonial3.jpg",
+                image: "/lio.jpg",
               },
             ].map((testimonial, index) => (
               <div key={index} className="bg-white p-6 rounded-lg shadow-md">
