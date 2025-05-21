@@ -147,7 +147,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       }),
       paymentStatus: paymentInfo.status,
       amountPaid: paymentInfo.amount.toLocaleString(),
-      appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://bugema-university.edu",
+      appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://bu-reg.vercel.app",
     })
 
     // Generate PDF using puppeteer
@@ -274,12 +274,6 @@ function generateRegistrationCardHTML(data) {
             </tr>
           </tbody>
         </table>
-        
-        <div class="section-title">Payment Information</div>
-        <div class="payment-info">
-          <p><strong>Payment Status:</strong> ${data.paymentStatus}</p>
-          <p><strong>Amount Paid:</strong> ${data.amountPaid} UGX</p>
-        </div>
         
         <div class="signature">
           <div>
