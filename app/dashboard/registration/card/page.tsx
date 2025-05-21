@@ -27,10 +27,9 @@ export default async function RegistrationCardPage({
 
   try {
     // Get registration ID from query params or use the active semester
-    // Fix: Use searchParams directly without accessing properties that need to be awaited
-    const registrationId = searchParams?.id
-    const semesterId = searchParams?.semesterId
-    const studentId = searchParams?.studentId
+    const registrationId = searchParams.id || null
+    const semesterId = searchParams.semesterId || null
+    const studentId = searchParams.studentId || null
 
     // Determine which user ID to use (for registrars viewing student cards)
     const userId = session.user.role === "REGISTRAR" && studentId ? studentId : session.user.id

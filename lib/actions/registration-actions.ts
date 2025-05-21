@@ -284,6 +284,67 @@ export async function submitRegistration(registrationId: string) {
 }
 
 /**
+ * Generate a sequential registration number
+ */
+async function generateSequentialNumber() {
+  try {
+    // Get the count of existing registration cards and add 1
+    const count = await db.registrationCard.count()
+    // Format as 4-digit number with leading zeros
+    return String(count + 1).padStart(4, "0")
+  } catch (error) {
+    console.error("Error generating sequential number:", error)
+    // Fallback to random number if count fails
+    return String(Math.floor(1000 + Math.random() * 9000))
+  }
+}
+
+/**
+ * Get course code from user's profile or department
+ */
+async function getUserCourseCode(userId: string) {
+  try {
+    // Try to get the user's program/department information
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      include: {
+        profile: true,
+        department: true,
+      },
+    })
+
+    // Default course code if we can't determine it
+    let courseCode = "GEN"
+
+    // Try to extract course code from department or program
+    if (user?.department?.code) {
+      courseCode = user.department.code
+    } else if (user?.profile?.program) {
+      // Extract abbreviation from program name (e.g., "Bachelor of Science in Engineering" -> "BSE")
+      const programWords = user.profile.program.split(" ")
+      if (programWords.length > 0) {
+        // Try to create an abbreviation from the program name
+        courseCode = programWords
+          .filter((word) => word.length > 2 && !["and", "the", "of", "in"].includes(word.toLowerCase()))
+          .map((word) => word[0])
+          .join("")
+          .toUpperCase()
+
+        // If we couldn't create a meaningful abbreviation, use the first 3 letters of the program
+        if (!courseCode || courseCode.length < 2) {
+          courseCode = user.profile.program.substring(0, 3).toUpperCase()
+        }
+      }
+    }
+
+    return courseCode
+  } catch (error) {
+    console.error("Error getting user course code:", error)
+    return "GEN" // Generic fallback
+  }
+}
+
+/**
  * Approve a registration
  */
 export async function approveRegistration(registrationId: string, approverId?: string) {
@@ -335,8 +396,22 @@ export async function approveRegistration(registrationId: string, approverId?: s
       },
     })
 
-    // Generate a unique card number
-    const cardNumber = `REG-${registration.user.id.substring(0, 4)}-${registration.semester.id.substring(0, 4)}-${Date.now().toString().substring(9, 13)}`
+    // Generate a card number in the format YEAR/BU/COURSE/NUMBER (e.g., 22/BU/BSE/0001)
+
+    // 1. Get current year (last 2 digits)
+    const currentYear = new Date().getFullYear().toString().slice(-2)
+
+    // 2. University code is fixed as "BU"
+    const universityCode = "BU"
+
+    // 3. Get course code from user's profile or department
+    const courseCode = await getUserCourseCode(registration.userId)
+
+    // 4. Generate sequential number
+    const sequentialNumber = await generateSequentialNumber()
+
+    // Combine all parts to create the card number
+    const cardNumber = `${currentYear}/${universityCode}/${courseCode}/${sequentialNumber}`
 
     // Create registration card
     const registrationCard = await db.registrationCard.create({

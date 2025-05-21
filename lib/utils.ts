@@ -33,31 +33,63 @@ export function formatCreditHours(credits: number): string {
   return `${credits} credit${credits === 1 ? "" : "s"}`
 }
 
-// Generate a unique registration card number
+// Generate a unique registration card number in the format YEAR/BU/COURSE/NUMBER
 export async function generateRegistrationCardNumber(userId: string, semesterId: string): Promise<string> {
-  // Get current year
-  const currentYear = new Date().getFullYear().toString().slice(-2)
+  try {
+    // Get current year (last 2 digits)
+    const currentYear = new Date().getFullYear().toString().slice(-2)
 
-  // Get semester info for semester code
-  const semester = await prisma.semester.findUnique({
-    where: { id: semesterId },
-    include: { academicYear: true },
-  })
+    // University code is fixed as "BU"
+    const universityCode = "BU"
 
-  // Get user info for student number
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-  })
+    // Try to get the user's program/department information
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        profile: true,
+        department: true,
+      },
+    })
 
-  // Generate a random 4-digit number
-  const randomDigits = Math.floor(1000 + Math.random() * 9000)
+    // Default course code if we can't determine it
+    let courseCode = "GEN"
 
-  // Create card number format: BU-YEAR-SEM-STUDENTID-RANDOM
-  // Example: BU-23-1-12345-7890
-  const semesterCode = semester?.name.includes("1") ? "1" : "2"
-  const studentIdShort = user?.id.slice(-5) || randomDigits.toString()
+    // Try to extract course code from department or program
+    if (user?.department?.code) {
+      courseCode = user.department.code
+    } else if (user?.profile?.program) {
+      // Extract abbreviation from program name (e.g., "Bachelor of Science in Engineering" -> "BSE")
+      const programWords = user.profile.program.split(" ")
+      if (programWords.length > 0) {
+        // Try to create an abbreviation from the program name
+        courseCode = programWords
+          .filter((word) => word.length > 2 && !["and", "the", "of", "in"].includes(word.toLowerCase()))
+          .map((word) => word[0])
+          .join("")
+          .toUpperCase()
 
-  return `BU-${currentYear}-${semesterCode}-${studentIdShort}-${randomDigits}`
+        // If we couldn't create a meaningful abbreviation, use the first 3 letters of the program
+        if (!courseCode || courseCode.length < 2) {
+          courseCode = user.profile.program.substring(0, 3).toUpperCase()
+        }
+      }
+    }
+
+    // Get the count of existing registration cards and add 1
+    const count = await prisma.registrationCard.count()
+
+    // Format as 4-digit number with leading zeros
+    const sequentialNumber = String(count + 1).padStart(4, "0")
+
+    // Combine all parts to create the card number
+    return `${currentYear}/${universityCode}/${courseCode}/${sequentialNumber}`
+  } catch (error) {
+    console.error("Error generating registration card number:", error)
+    // Fallback to a simple format if there's an error
+    const currentYear = new Date().getFullYear().toString().slice(-2)
+    const randomDigits = Math.floor(1000 + Math.random() * 9000)
+    return `${currentYear}/BU/GEN/${randomDigits}`
+  }
 }
 
 // Format currency
