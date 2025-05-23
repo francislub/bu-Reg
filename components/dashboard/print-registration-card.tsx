@@ -1,11 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Printer, Loader2, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { useReactToPrint } from "react-to-print"
-import { useRef } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 type Registration = {
@@ -69,188 +67,235 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
   const [isGenerating, setIsGenerating] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
 
-  const handlePrint = useReactToPrint({
-    content: () => printRef.current,
-    documentTitle: `Registration_Card_${registration.user.profile?.studentId || registration.user.id}`,
-    pageStyle: `
-      @page {
-        size: A4;
-        margin: 0.5in;
-      }
-      @media print {
-        body {
-          -webkit-print-color-adjust: exact;
-          color-adjust: exact;
-          print-color-adjust: exact;
-        }
-        .no-print {
-          display: none !important;
-        }
-        .print-container {
-          width: 100% !important;
-          max-width: none !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          box-shadow: none !important;
-          border: none !important;
-          background: white !important;
-          font-size: 12px !important;
-          line-height: 1.3 !important;
-        }
-        .print-header {
-          text-align: center;
-          margin-bottom: 20px;
-        }
-        .print-logo {
-          max-height: 60px !important;
-          width: auto !important;
-        }
-        .print-title {
-          font-size: 18px !important;
-          font-weight: bold;
-          margin: 8px 0 !important;
-        }
-        .print-subtitle {
-          font-size: 14px !important;
-          margin: 4px 0 !important;
-        }
-        .print-info-grid {
-          display: grid !important;
-          grid-template-columns: 2fr 1fr !important;
-          gap: 15px !important;
-          margin-bottom: 20px !important;
-        }
-        .print-info-section {
-          display: grid !important;
-          grid-template-columns: 1fr 1fr !important;
-          gap: 10px !important;
-        }
-        .print-info-item {
-          margin-bottom: 8px !important;
-        }
-        .print-info-label {
-          font-size: 10px !important;
-          color: #666 !important;
-          margin-bottom: 2px !important;
-        }
-        .print-info-value {
-          font-weight: 500 !important;
-          font-size: 11px !important;
-        }
-        .print-photo-container {
-          border: 1px solid #ddd !important;
-          padding: 4px !important;
-          background-color: #f9f9f9 !important;
-          text-align: center !important;
-          height: fit-content !important;
-        }
-        .print-photo {
-          width: 100px !important;
-          height: 120px !important;
-          object-fit: cover !important;
-        }
-        .print-table {
-          width: 100% !important;
-          border-collapse: collapse !important;
-          margin-bottom: 15px !important;
-          font-size: 10px !important;
-        }
-        .print-table th,
-        .print-table td {
-          border: 1px solid #ddd !important;
-          padding: 4px !important;
-          text-align: left !important;
-        }
-        .print-table th {
-          background-color: #f2f2f2 !important;
-          font-weight: bold !important;
-          font-size: 10px !important;
-        }
-        .print-section-title {
-          font-size: 14px !important;
-          font-weight: bold !important;
-          margin: 15px 0 8px 0 !important;
-          border-bottom: 1px solid #ddd !important;
-          padding-bottom: 3px !important;
-        }
-        .print-signatures {
-          display: grid !important;
-          grid-template-columns: 1fr 1fr !important;
-          gap: 30px !important;
-          margin-top: 30px !important;
-        }
-        .print-signature-line {
-          border-top: 1px dashed #000 !important;
-          padding-top: 4px !important;
-          text-align: center !important;
-          font-size: 10px !important;
-        }
-        .print-footer {
-          margin-top: 20px !important;
-          font-size: 9px !important;
-          color: #666 !important;
-        }
-        .print-status-badge {
-          padding: 2px 6px !important;
-          border-radius: 8px !important;
-          font-size: 9px !important;
-          font-weight: 500 !important;
-        }
-        .print-status-approved {
-          background-color: #d1fae5 !important;
-          color: #065f46 !important;
-        }
-        .print-status-pending {
-          background-color: #fef3c7 !important;
-          color: #92400e !important;
-        }
-        .print-status-rejected {
-          background-color: #fee2e2 !important;
-          color: #b91c1c !important;
-        }
-        .print-total-row {
-          background-color: #f9f9f9 !important;
-          font-weight: bold !important;
-        }
-        .print-warning {
-          color: #92400e !important;
-          font-weight: bold !important;
-          font-size: 10px !important;
-        }
-      }
-    `,
-    onBeforeGetContent: () => {
-      setIsGenerating(true)
-      return new Promise<void>((resolve) => {
-        setTimeout(() => {
-          resolve()
-        }, 500)
-      })
-    },
-    onAfterPrint: () => {
-      setIsGenerating(false)
-      toast({
-        title: "Success",
-        description: "Registration card printed successfully",
-      })
-    },
-    onPrintError: (error) => {
-      setIsGenerating(false)
-      console.error("Print error:", error)
-      toast({
-        title: "Error",
-        description: "Failed to print registration card",
-        variant: "destructive",
-      })
-    },
-  })
-
   // Calculate total credit hours
   const totalCreditHours = registration.courseUploads.reduce((total, upload) => total + (upload.course.credits || 0), 0)
 
   // Check if registration is pending or has pending courses
   const isPending =
     registration.status === "PENDING" || registration.courseUploads.some((upload) => upload.status === "PENDING")
+
+  // Direct print function without using react-to-print
+  const handlePrint = () => {
+    setIsGenerating(true)
+
+    try {
+      // Create a new window for printing
+      const printWindow = window.open("", "_blank")
+
+      if (!printWindow) {
+        toast({
+          title: "Error",
+          description: "Could not open print window. Please check your popup blocker settings.",
+          variant: "destructive",
+        })
+        setIsGenerating(false)
+        return
+      }
+
+      // Get the HTML content to print
+      const contentToPrint = printRef.current
+
+      if (!contentToPrint) {
+        toast({
+          title: "Error",
+          description: "Could not find content to print.",
+          variant: "destructive",
+        })
+        printWindow.close()
+        setIsGenerating(false)
+        return
+      }
+
+      // Clone the content
+      const clonedContent = contentToPrint.cloneNode(true) as HTMLElement
+
+      // Create the print document
+      printWindow.document.open()
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Registration Card - ${registration.user.profile?.studentId || registration.user.id}</title>
+          <style>
+            @page {
+              size: A4;
+              margin: 0.5in;
+            }
+            body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              padding: 0;
+              -webkit-print-color-adjust: exact;
+              color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .print-container {
+              width: 100%;
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 20px;
+              box-sizing: border-box;
+            }
+            .print-header {
+              text-align: center;
+              margin-bottom: 20px;
+            }
+            .print-logo {
+              max-height: 60px;
+              width: auto;
+            }
+            .print-title {
+              font-size: 18px;
+              font-weight: bold;
+              margin: 8px 0;
+            }
+            .print-subtitle {
+              font-size: 14px;
+              margin: 4px 0;
+            }
+            .print-info-grid {
+              display: grid;
+              grid-template-columns: 2fr 1fr;
+              gap: 15px;
+              margin-bottom: 20px;
+            }
+            .print-info-section {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 10px;
+            }
+            .print-info-item {
+              margin-bottom: 8px;
+            }
+            .print-info-label {
+              font-size: 10px;
+              color: #666;
+              margin-bottom: 2px;
+            }
+            .print-info-value {
+              font-weight: 500;
+              font-size: 11px;
+            }
+            .print-photo-container {
+              border: 1px solid #ddd;
+              padding: 4px;
+              background-color: #f9f9f9;
+              text-align: center;
+              height: fit-content;
+            }
+            .print-photo {
+              width: 100px;
+              height: 120px;
+              object-fit: cover;
+            }
+            .print-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 15px;
+              font-size: 10px;
+            }
+            .print-table th,
+            .print-table td {
+              border: 1px solid #ddd;
+              padding: 4px;
+              text-align: left;
+            }
+            .print-table th {
+              background-color: #f2f2f2;
+              font-weight: bold;
+              font-size: 10px;
+            }
+            .print-section-title {
+              font-size: 14px;
+              font-weight: bold;
+              margin: 15px 0 8px 0;
+              border-bottom: 1px solid #ddd;
+              padding-bottom: 3px;
+            }
+            .print-signatures {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 30px;
+              margin-top: 30px;
+            }
+            .print-signature-line {
+              border-top: 1px dashed #000;
+              padding-top: 4px;
+              text-align: center;
+              font-size: 10px;
+            }
+            .print-footer {
+              margin-top: 20px;
+              font-size: 9px;
+              color: #666;
+            }
+            .print-status-badge {
+              padding: 2px 6px;
+              border-radius: 8px;
+              font-size: 9px;
+              font-weight: 500;
+            }
+            .print-status-approved {
+              background-color: #d1fae5;
+              color: #065f46;
+            }
+            .print-status-pending {
+              background-color: #fef3c7;
+              color: #92400e;
+            }
+            .print-status-rejected {
+              background-color: #fee2e2;
+              color: #b91c1c;
+            }
+            .print-total-row {
+              background-color: #f9f9f9;
+              font-weight: bold;
+            }
+            .print-warning {
+              color: #92400e;
+              font-weight: bold;
+              font-size: 10px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-container">
+            ${clonedContent.innerHTML}
+          </div>
+          <script>
+            // Auto print when loaded
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() {
+                  window.close();
+                }, 500);
+              }, 500);
+            };
+          </script>
+        </body>
+        </html>
+      `)
+      printWindow.document.close()
+
+      // Success message after a delay
+      setTimeout(() => {
+        setIsGenerating(false)
+        toast({
+          title: "Success",
+          description: "Registration card printed successfully",
+        })
+      }, 1500)
+    } catch (error) {
+      console.error("Print error:", error)
+      setIsGenerating(false)
+      toast({
+        title: "Error",
+        description: "Failed to print registration card. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
 
   return (
     <div className="space-y-6">
