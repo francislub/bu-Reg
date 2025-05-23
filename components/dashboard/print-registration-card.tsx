@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Printer, Download, Loader2, AlertCircle } from "lucide-react"
+import { Printer, Loader2, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useReactToPrint } from "react-to-print"
 import { useRef } from "react"
@@ -245,46 +245,6 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
     },
   })
 
-  const handleDownloadPDF = async () => {
-    setIsGenerating(true)
-    try {
-      if (!registration.id || registration.id === "temp-id") {
-        throw new Error("Valid registration ID is required for PDF download")
-      }
-
-      const response = await fetch(`/api/registrations/${registration.id}/pdf`)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Failed to generate PDF: ${errorText}`)
-      }
-
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `Registration_Card_${registration.user.profile?.studentId || registration.user.id}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-
-      toast({
-        title: "Success",
-        description: "Registration card downloaded successfully",
-      })
-    } catch (error) {
-      console.error("Error downloading PDF:", error)
-      toast({
-        title: "Error",
-        description: `Failed to download registration card: ${error.message}`,
-        variant: "destructive",
-      })
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
   // Calculate total credit hours
   const totalCreditHours = registration.courseUploads.reduce((total, upload) => total + (upload.course.credits || 0), 0)
 
@@ -296,7 +256,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
     <div className="space-y-6">
       <div className="flex justify-between items-center no-print">
         <h2 className="text-2xl font-bold">Registration Card</h2>
-        <div className="flex space-x-2">
+        <div>
           <Button onClick={handlePrint} disabled={isGenerating}>
             {isGenerating ? (
               <>
@@ -306,18 +266,9 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
             ) : (
               <>
                 <Printer className="mr-2 h-4 w-4" />
-                Print
+                Print Card
               </>
             )}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleDownloadPDF}
-            disabled={isGenerating || registration.id === "temp-id"}
-            title={registration.id === "temp-id" ? "PDF download requires a saved registration" : "Download as PDF"}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Download PDF
           </Button>
         </div>
       </div>
