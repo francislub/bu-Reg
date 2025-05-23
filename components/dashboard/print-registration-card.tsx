@@ -24,7 +24,7 @@ type Registration = {
       lastName?: string | null
       studentId?: string | null
       program?: string | null
-      phoneNumber?: string | null
+      phone?: string | null
       photoUrl?: string | null
       academicInfo?: {
         gpa?: string | null
@@ -72,6 +72,153 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
     documentTitle: `Registration_Card_${registration.user.profile?.studentId || registration.user.id}`,
+    pageStyle: `
+      @page {
+        size: A4;
+        margin: 0.5in;
+      }
+      @media print {
+        body {
+          -webkit-print-color-adjust: exact;
+          color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .no-print {
+          display: none !important;
+        }
+        .print-container {
+          width: 100% !important;
+          max-width: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          box-shadow: none !important;
+          border: none !important;
+          background: white !important;
+          font-size: 12px !important;
+          line-height: 1.3 !important;
+        }
+        .print-header {
+          text-align: center;
+          margin-bottom: 20px;
+        }
+        .print-logo {
+          max-height: 60px !important;
+          width: auto !important;
+        }
+        .print-title {
+          font-size: 18px !important;
+          font-weight: bold;
+          margin: 8px 0 !important;
+        }
+        .print-subtitle {
+          font-size: 14px !important;
+          margin: 4px 0 !important;
+        }
+        .print-info-grid {
+          display: grid !important;
+          grid-template-columns: 2fr 1fr !important;
+          gap: 15px !important;
+          margin-bottom: 20px !important;
+        }
+        .print-info-section {
+          display: grid !important;
+          grid-template-columns: 1fr 1fr !important;
+          gap: 10px !important;
+        }
+        .print-info-item {
+          margin-bottom: 8px !important;
+        }
+        .print-info-label {
+          font-size: 10px !important;
+          color: #666 !important;
+          margin-bottom: 2px !important;
+        }
+        .print-info-value {
+          font-weight: 500 !important;
+          font-size: 11px !important;
+        }
+        .print-photo-container {
+          border: 1px solid #ddd !important;
+          padding: 4px !important;
+          background-color: #f9f9f9 !important;
+          text-align: center !important;
+          height: fit-content !important;
+        }
+        .print-photo {
+          width: 100px !important;
+          height: 120px !important;
+          object-fit: cover !important;
+        }
+        .print-table {
+          width: 100% !important;
+          border-collapse: collapse !important;
+          margin-bottom: 15px !important;
+          font-size: 10px !important;
+        }
+        .print-table th,
+        .print-table td {
+          border: 1px solid #ddd !important;
+          padding: 4px !important;
+          text-align: left !important;
+        }
+        .print-table th {
+          background-color: #f2f2f2 !important;
+          font-weight: bold !important;
+          font-size: 10px !important;
+        }
+        .print-section-title {
+          font-size: 14px !important;
+          font-weight: bold !important;
+          margin: 15px 0 8px 0 !important;
+          border-bottom: 1px solid #ddd !important;
+          padding-bottom: 3px !important;
+        }
+        .print-signatures {
+          display: grid !important;
+          grid-template-columns: 1fr 1fr !important;
+          gap: 30px !important;
+          margin-top: 30px !important;
+        }
+        .print-signature-line {
+          border-top: 1px dashed #000 !important;
+          padding-top: 4px !important;
+          text-align: center !important;
+          font-size: 10px !important;
+        }
+        .print-footer {
+          margin-top: 20px !important;
+          font-size: 9px !important;
+          color: #666 !important;
+        }
+        .print-status-badge {
+          padding: 2px 6px !important;
+          border-radius: 8px !important;
+          font-size: 9px !important;
+          font-weight: 500 !important;
+        }
+        .print-status-approved {
+          background-color: #d1fae5 !important;
+          color: #065f46 !important;
+        }
+        .print-status-pending {
+          background-color: #fef3c7 !important;
+          color: #92400e !important;
+        }
+        .print-status-rejected {
+          background-color: #fee2e2 !important;
+          color: #b91c1c !important;
+        }
+        .print-total-row {
+          background-color: #f9f9f9 !important;
+          font-weight: bold !important;
+        }
+        .print-warning {
+          color: #92400e !important;
+          font-weight: bold !important;
+          font-size: 10px !important;
+        }
+      }
+    `,
     onBeforeGetContent: () => {
       setIsGenerating(true)
       return new Promise<void>((resolve) => {
@@ -101,7 +248,6 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
   const handleDownloadPDF = async () => {
     setIsGenerating(true)
     try {
-      // Make sure we have a registration ID
       if (!registration.id || registration.id === "temp-id") {
         throw new Error("Valid registration ID is required for PDF download")
       }
@@ -148,7 +294,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center no-print">
         <h2 className="text-2xl font-bold">Registration Card</h2>
         <div className="flex space-x-2">
           <Button onClick={handlePrint} disabled={isGenerating}>
@@ -177,7 +323,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
       </div>
 
       {isPending && (
-        <Alert variant="warning" className="mb-4">
+        <Alert variant="warning" className="mb-4 no-print">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Pending Approval</AlertTitle>
           <AlertDescription>
@@ -186,97 +332,110 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
         </Alert>
       )}
 
-      <div ref={printRef} className="bg-white p-8 rounded-lg border shadow-sm">
-        <div className="text-center mb-6">
-          <div className="flex justify-center mb-4">
+      <div ref={printRef} className="print-container bg-white p-6 rounded-lg border shadow-sm">
+        {/* Header */}
+        <div className="print-header text-center mb-6">
+          <div className="flex justify-center mb-3">
             <img
               src="/logo.png"
               alt="Bugema University Logo"
-              className="h-16 w-auto"
+              className="print-logo h-16 w-auto"
               onError={(e) => {
                 e.currentTarget.src = "/placeholder.svg?height=64&width=64"
                 e.currentTarget.alt = "University Logo"
               }}
             />
           </div>
-          <h1 className="text-2xl font-bold">BUGEMA UNIVERSITY</h1>
-          <p className="text-lg font-semibold">STUDENT REGISTRATION CARD</p>
-          <p className="text-md">
+          <h1 className="print-title text-2xl font-bold">BUGEMA UNIVERSITY</h1>
+          <p className="print-subtitle text-lg font-semibold">STUDENT REGISTRATION CARD</p>
+          <p className="print-subtitle text-md">
             {registration.semester.name} - {registration.semester.academicYear.name}
           </p>
-          {isPending && <p className="text-sm text-amber-600 font-medium mt-1">PROVISIONAL - PENDING APPROVAL</p>}
+          {isPending && (
+            <p className="print-warning text-sm text-amber-600 font-medium mt-1">PROVISIONAL - PENDING APPROVAL</p>
+          )}
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4 mb-6">
-          <div className="md:col-span-2">
+        {/* Student Information */}
+        <div className="print-info-grid grid md:grid-cols-3 gap-4 mb-6">
+          <div className="print-info-section md:col-span-2">
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Student Name</p>
-                <p className="font-medium">
+              <div className="print-info-item">
+                <div className="print-info-label text-sm text-gray-500">Student Name</div>
+                <div className="print-info-value font-medium">
                   {registration.user.profile?.firstName || ""} {registration.user.profile?.lastName || ""}
-                </p>
+                </div>
               </div>
-              {/* <div>
-                <p className="text-sm text-gray-500">Student ID</p>
-                <p className="font-medium">{registration.user.profile?.studentId || registration.user.id}</p>
-              </div> */}
-              <div>
-                <p className="text-sm text-gray-500">Program</p>
-                <p className="font-medium">{registration.user.profile?.program || "Not specified"}</p>
+              <div className="print-info-item">
+                <div className="print-info-label text-sm text-gray-500">Student ID</div>
+                <div className="print-info-value font-medium">
+                  {registration.user.profile?.studentId || registration.user.id}
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-500">Registration Date</p>
-                <p className="font-medium">{new Date(registration.createdAt).toLocaleDateString()}</p>
+              <div className="print-info-item">
+                <div className="print-info-label text-sm text-gray-500">Program</div>
+                <div className="print-info-value font-medium">
+                  {registration.user.profile?.program || "Not specified"}
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-500">Email</p>
-                <p className="font-medium">{registration.user.email || "N/A"}</p>
+              <div className="print-info-item">
+                <div className="print-info-label text-sm text-gray-500">Registration Date</div>
+                <div className="print-info-value font-medium">
+                  {new Date(registration.createdAt).toLocaleDateString()}
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-500">Registration Status</p>
-                <p
-                  className={`font-medium ${
-                    registration.status === "APPROVED"
-                      ? "text-green-600"
-                      : registration.status === "REJECTED"
-                        ? "text-red-600"
-                        : "text-amber-600"
-                  }`}
-                >
-                  {registration.status}
-                </p>
+              <div className="print-info-item">
+                <div className="print-info-label text-sm text-gray-500">Email</div>
+                <div className="print-info-value font-medium">{registration.user.email || "N/A"}</div>
               </div>
-              {registration.user.profile?.phoneNumber && (
-                <div>
-                  <p className="text-sm text-gray-500">Phone Number</p>
-                  <p className="font-medium">{registration.user.profile.phoneNumber}</p>
+              <div className="print-info-item">
+                <div className="print-info-label text-sm text-gray-500">Registration Status</div>
+                <div className="print-info-value font-medium">
+                  <span
+                    className={`print-status-badge px-2 py-1 rounded-full text-xs ${
+                      registration.status === "APPROVED"
+                        ? "print-status-approved bg-green-100 text-green-800"
+                        : registration.status === "REJECTED"
+                          ? "print-status-rejected bg-red-100 text-red-800"
+                          : "print-status-pending bg-yellow-100 text-yellow-800"
+                    }`}
+                  >
+                    {registration.status}
+                  </span>
+                </div>
+              </div>
+              {registration.user.profile?.phone && (
+                <div className="print-info-item">
+                  <div className="print-info-label text-sm text-gray-500">Phone Number</div>
+                  <div className="print-info-value font-medium">{registration.user.profile.phone}</div>
                 </div>
               )}
               {registration.registrationCard && (
-                <div>
-                  <p className="text-sm text-gray-500">Card Number</p>
-                  <p className="font-medium">{registration.registrationCard.cardNumber}</p>
+                <div className="print-info-item">
+                  <div className="print-info-label text-sm text-gray-500">Card Number</div>
+                  <div className="print-info-value font-medium">{registration.registrationCard.cardNumber}</div>
                 </div>
               )}
             </div>
           </div>
-          <div className="flex justify-center items-start">
+          <div className="print-photo-container flex justify-center items-start">
             <div className="border p-1 bg-gray-50">
               <img
-                src={registration.user.profile?.photoUrl || "/placeholder.svg?height=150&width=120"}
+                src={registration.user.profile?.photoUrl || "/placeholder.svg?height=120&width=100"}
                 alt="Student Photo"
-                className="h-[150px] w-[120px] object-cover"
+                className="print-photo h-[120px] w-[100px] object-cover"
                 onError={(e) => {
-                  e.currentTarget.src = "/placeholder.svg?height=150&width=120"
+                  e.currentTarget.src = "/placeholder.svg?height=120&width=100"
                 }}
               />
             </div>
           </div>
         </div>
 
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold mb-2">Registered Courses</h3>
-          <table className="w-full border-collapse">
+        {/* Registered Courses */}
+        <div className="mb-4">
+          <h3 className="print-section-title text-lg font-semibold mb-2">Registered Courses</h3>
+          <table className="print-table w-full border-collapse">
             <thead>
               <tr className="bg-gray-100">
                 <th className="border p-2 text-left">Course Code</th>
@@ -296,12 +455,12 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
                     <td className="border p-2 text-center">{upload.course.credits}</td>
                     <td className="border p-2 text-center">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs ${
+                        className={`print-status-badge px-2 py-1 rounded-full text-xs ${
                           upload.status === "APPROVED"
-                            ? "bg-green-100 text-green-800"
+                            ? "print-status-approved bg-green-100 text-green-800"
                             : upload.status === "REJECTED"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-yellow-100 text-yellow-800"
+                              ? "print-status-rejected bg-red-100 text-red-800"
+                              : "print-status-pending bg-yellow-100 text-yellow-800"
                         }`}
                       >
                         {upload.status}
@@ -316,7 +475,7 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
                   </td>
                 </tr>
               )}
-              <tr className="bg-gray-50">
+              <tr className="print-total-row bg-gray-50">
                 <td colSpan={3} className="border p-2 text-right font-semibold">
                   Total Credit Hours:
                 </td>
@@ -327,60 +486,26 @@ export function PrintRegistrationCard({ registration }: { registration: Registra
           </table>
         </div>
 
-        {registration.user.profile?.academicInfo && (
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-2">Academic Information</h3>
-            <div className="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded border">
-              <div>
-                <p className="text-sm text-gray-500">Current GPA</p>
-                <p className="font-medium">{registration.user.profile.academicInfo.gpa || "N/A"}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Academic Standing</p>
-                <p className="font-medium">{registration.user.profile.academicInfo.standing || "Good Standing"}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Year of Study</p>
-                <p className="font-medium">{registration.user.profile.academicInfo.yearOfStudy || "N/A"}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* <div className="mb-6">
-          <h3 className="text-lg font-semibold mb-2">Payment Information</h3>
-          <div className="bg-gray-50 p-4 rounded border">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Payment Status</p>
-                <p className="font-medium">{registration.paymentStatus || "Pending"}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Amount Paid</p>
-                <p className="font-medium">{registration.amountPaid || "0.00"} UGX</p>
-              </div>
-            </div>
-          </div>
-        </div> */}
-
-        <div className="grid grid-cols-2 gap-8 mt-12">
+        {/* Signatures */}
+        <div className="print-signatures grid grid-cols-2 gap-8 mt-8">
           <div>
-            <div className="border-t border-dashed pt-2">
+            <div className="print-signature-line border-t border-dashed pt-2">
               <p className="text-center">Student Signature</p>
             </div>
           </div>
           <div>
-            <div className="border-t border-dashed pt-2">
+            <div className="print-signature-line border-t border-dashed pt-2">
               <p className="text-center">Registrar Signature</p>
             </div>
           </div>
         </div>
 
-        <div className="mt-12 text-xs text-gray-500">
+        {/* Footer */}
+        <div className="print-footer mt-8 text-xs text-gray-500">
           <p>This registration card is an official document of Bugema University. Any alteration renders it invalid.</p>
           <p>Printed on: {new Date().toLocaleString()}</p>
           {isPending && (
-            <p className="text-amber-600 font-medium mt-1">
+            <p className="print-warning text-amber-600 font-medium mt-1">
               PROVISIONAL COPY - This card is pending final approval from the registrar's office.
             </p>
           )}
