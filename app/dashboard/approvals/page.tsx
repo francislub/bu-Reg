@@ -8,8 +8,8 @@ import { ApprovalsClient } from "@/components/dashboard/approvals-client"
 import { db } from "@/lib/db"
 
 export const metadata: Metadata = {
-  title: "Approvals",
-  description: "Approve or reject student registrations",
+  title: "Approvals - University Registration System",
+  description: "Approve or reject student registrations and course selections",
 }
 
 export default async function ApprovalsPage() {
@@ -40,10 +40,18 @@ export default async function ApprovalsPage() {
             profile: true,
           },
         },
-        semester: true,
+        semester: {
+          include: {
+            academicYear: true,
+          },
+        },
         courseUploads: {
           include: {
-            course: true,
+            course: {
+              include: {
+                department: true,
+              },
+            },
           },
         },
       },
@@ -74,7 +82,11 @@ export default async function ApprovalsPage() {
                 profile: true,
               },
             },
-            semester: true,
+            semester: {
+              include: {
+                academicYear: true,
+              },
+            },
           },
         },
         course: {
@@ -92,10 +104,60 @@ export default async function ApprovalsPage() {
     // Continue with empty array
   }
 
+  // Get approval statistics
+  let approvalStats = {
+    totalPending: 0,
+    totalApproved: 0,
+    totalRejected: 0,
+    pendingThisWeek: 0,
+  }
+
+  try {
+    const [totalPending, totalApproved, totalRejected] = await Promise.all([
+      db.registration.count({ where: { status: "PENDING" } }),
+      db.registration.count({ where: { status: "APPROVED" } }),
+      db.registration.count({ where: { status: "REJECTED" } }),
+    ])
+
+    const oneWeekAgo = new Date()
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+
+    const pendingThisWeek = await db.registration.count({
+      where: {
+        status: "PENDING",
+        createdAt: {
+          gte: oneWeekAgo,
+        },
+      },
+    })
+
+    approvalStats = {
+      totalPending,
+      totalApproved,
+      totalRejected,
+      pendingThisWeek,
+    }
+  } catch (error) {
+    console.error("Error fetching approval statistics:", error)
+  }
+
   return (
     <DashboardShell>
-      <DashboardHeader heading="Approvals" text="Review and manage course registration approvals" />
-      <ApprovalsClient pendingRegistrations={pendingRegistrations} pendingCourseUploads={pendingCourseUploads} />
+      <DashboardHeader
+        heading="Registration Approvals"
+        text="Review and manage student registrations and course selections"
+      >
+        <div className="flex items-center space-x-2">
+          <div className="text-sm text-muted-foreground">
+            {approvalStats.totalPending} pending • {approvalStats.pendingThisWeek} this week
+          </div>
+        </div>
+      </DashboardHeader>
+      <ApprovalsClient
+        pendingRegistrations={pendingRegistrations}
+        pendingCourseUploads={pendingCourseUploads}
+        approvalStats={approvalStats}
+      />
     </DashboardShell>
   )
 }

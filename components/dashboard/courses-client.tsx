@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { z } from "zod"
@@ -10,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Dialog,
@@ -21,7 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import { FileEdit, Loader2, PlusCircle, Trash2, RefreshCw, Search } from "lucide-react"
+import { FileEdit, Loader2, PlusCircle, Trash2, RefreshCw, Search, Filter } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
   AlertDialog,
@@ -35,6 +37,16 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
 // Update the courseSchema to include programs and semesters
 const courseSchema = z.object({
@@ -73,6 +85,15 @@ export default function CoursesClient() {
   const [programs, setPrograms] = useState<any[]>([])
   const [semesters, setSemesters] = useState<any[]>([])
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [totalPages, setTotalPages] = useState(1)
+
+  // Filtering state
+  const [departmentFilter, setDepartmentFilter] = useState<string | null>(null)
+  const [creditFilter, setCreditFilter] = useState<number | null>(null)
+
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseSchema),
     defaultValues: {
@@ -91,12 +112,30 @@ export default function CoursesClient() {
     fetchCourses()
     fetchPrograms()
     fetchSemesters()
-  }, [])
+  }, [currentPage, itemsPerPage, departmentFilter, creditFilter])
 
   const fetchCourses = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch("/api/courses")
+      // Add pagination and filter parameters to the API call
+      const queryParams = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
+      })
+
+      if (departmentFilter) {
+        queryParams.append("departmentId", departmentFilter)
+      }
+
+      if (creditFilter) {
+        queryParams.append("credits", creditFilter.toString())
+      }
+
+      if (searchTerm) {
+        queryParams.append("search", searchTerm)
+      }
+
+      const response = await fetch(`/api/courses?${queryParams.toString()}`)
 
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`)
@@ -107,6 +146,8 @@ export default function CoursesClient() {
       if (data.success) {
         setCourses(data.courses || [])
         setDepartments(data.departments || [])
+        // Update total pages based on API response
+        setTotalPages(data.totalPages || Math.ceil((data.totalCount || 0) / itemsPerPage))
         console.log("Courses fetched:", data.courses.length)
       } else {
         console.error("API returned error:", data.error)
@@ -306,13 +347,29 @@ export default function CoursesClient() {
     }
   }
 
-  // Filter courses based on search term
-  const filteredCourses = courses.filter(
-    (course) =>
-      course.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.department?.name?.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  // Handle search with debounce
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value)
+    // Reset to first page when searching
+    setCurrentPage(1)
+
+    // Debounce search
+    const timeoutId = setTimeout(() => {
+      fetchCourses()
+    }, 500)
+
+    return () => clearTimeout(timeoutId)
+  }
+
+  // Filter courses based on search term (client-side filtering as backup)
+  const filteredCourses = searchTerm
+    ? courses.filter(
+        (course) =>
+          course.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          course.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          course.department?.name?.toLowerCase().includes(searchTerm.toLowerCase()),
+      )
+    : courses
 
   const canManageCourses =
     session?.user.role === "STAFF" || session?.user.role === "REGISTRAR" || session?.user.role === "ADMIN"
@@ -333,47 +390,185 @@ export default function CoursesClient() {
     setIsDialogOpen(true)
   }
 
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number.parseInt(value))
+    setCurrentPage(1) // Reset to first page when changing items per page
+  }
+
+  // Generate pagination items
+  const renderPaginationItems = () => {
+    const items = []
+    const maxVisiblePages = 5
+
+    // Always show first page
+    items.push(
+      <PaginationItem key="first">
+        <PaginationLink onClick={() => handlePageChange(1)} isActive={currentPage === 1}>
+          1
+        </PaginationLink>
+      </PaginationItem>,
+    )
+
+    // Show ellipsis if needed
+    if (currentPage > 3) {
+      items.push(
+        <PaginationItem key="ellipsis-1">
+          <PaginationEllipsis />
+        </PaginationItem>,
+      )
+    }
+
+    // Show pages around current page
+    const startPage = Math.max(2, currentPage - 1)
+    const endPage = Math.min(totalPages - 1, currentPage + 1)
+
+    for (let i = startPage; i <= endPage; i++) {
+      if (i > 1 && i < totalPages) {
+        items.push(
+          <PaginationItem key={i}>
+            <PaginationLink onClick={() => handlePageChange(i)} isActive={currentPage === i}>
+              {i}
+            </PaginationLink>
+          </PaginationItem>,
+        )
+      }
+    }
+
+    // Show ellipsis if needed
+    if (currentPage < totalPages - 2) {
+      items.push(
+        <PaginationItem key="ellipsis-2">
+          <PaginationEllipsis />
+        </PaginationItem>,
+      )
+    }
+
+    // Always show last page if there's more than one page
+    if (totalPages > 1) {
+      items.push(
+        <PaginationItem key="last">
+          <PaginationLink onClick={() => handlePageChange(totalPages)} isActive={currentPage === totalPages}>
+            {totalPages}
+          </PaginationLink>
+        </PaginationItem>,
+      )
+    }
+
+    return items
+  }
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <CardTitle>Courses</CardTitle>
               <CardDescription>View and manage all courses</CardDescription>
             </div>
-            <Button onClick={handleRefresh} variant="outline" disabled={isRefreshing}>
-              {isRefreshing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Refreshing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh
-                </>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button onClick={handleRefresh} variant="outline" disabled={isRefreshing}>
+                {isRefreshing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Refresh
+                  </>
+                )}
+              </Button>
+
+              {canManageCourses && (
+                <Button onClick={handleAddCourse}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Course
+                </Button>
               )}
-            </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-2 mb-4">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
+            <div className="relative flex-1 w-full md:max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search courses..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-              />
+              <Input placeholder="Search courses..." value={searchTerm} onChange={handleSearch} className="pl-8" />
             </div>
-            {canManageCourses && (
-              <Button onClick={handleAddCourse}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Course
-              </Button>
-            )}
+
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full sm:w-auto">
+                    <Filter className="mr-2 h-4 w-4" />
+                    Filter
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="p-2">
+                    <p className="text-sm font-medium mb-2">Department</p>
+                    <Select
+                      value={departmentFilter || ""}
+                      onValueChange={(value) => {
+                        setDepartmentFilter(value || null)
+                        setCurrentPage(1)
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Departments" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Departments</SelectItem>
+                        {departments.map((dept) => (
+                          <SelectItem key={dept.id} value={dept.id}>
+                            {dept.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <p className="text-sm font-medium mt-4 mb-2">Credits</p>
+                    <Select
+                      value={creditFilter?.toString() || ""}
+                      onValueChange={(value) => {
+                        setCreditFilter(value ? Number.parseInt(value) : null)
+                        setCurrentPage(1)
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Credits" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Credits</SelectItem>
+                        {[1, 2, 3, 4, 5, 6].map((credit) => (
+                          <SelectItem key={credit} value={credit.toString()}>
+                            {credit} {credit === 1 ? "Credit" : "Credits"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+                <SelectTrigger className="w-full sm:w-[120px]">
+                  <SelectValue placeholder="10 per page" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 per page</SelectItem>
+                  <SelectItem value="10">10 per page</SelectItem>
+                  <SelectItem value="20">20 per page</SelectItem>
+                  <SelectItem value="50">50 per page</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {isLoading ? (
@@ -386,12 +581,12 @@ export default function CoursesClient() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="sticky top-0 bg-background z-10">Code</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-10 w-[100px]">Code</TableHead>
                       <TableHead className="sticky top-0 bg-background z-10">Title</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-10">Department</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-10">Credits</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-10 w-[180px]">Department</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-10 w-[100px]">Credits</TableHead>
                       {canManageCourses && (
-                        <TableHead className="sticky top-0 bg-background z-10 text-right">Actions</TableHead>
+                        <TableHead className="sticky top-0 bg-background z-10 text-right w-[100px]">Actions</TableHead>
                       )}
                     </TableRow>
                   </TableHeader>
@@ -434,11 +629,51 @@ export default function CoursesClient() {
               </ScrollArea>
             </div>
           ) : (
-            <div className="text-center py-12">
+            <div className="text-center py-12 border rounded-md">
               <p className="text-muted-foreground">No courses found.</p>
+              {(searchTerm || departmentFilter || creditFilter) && (
+                <Button
+                  variant="link"
+                  onClick={() => {
+                    setSearchTerm("")
+                    setDepartmentFilter(null)
+                    setCreditFilter(null)
+                    setCurrentPage(1)
+                    fetchCourses()
+                  }}
+                >
+                  Clear filters
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
+        <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-sm text-muted-foreground">
+            Showing {filteredCourses.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to{" "}
+            {Math.min(currentPage * itemsPerPage, filteredCourses.length)} of {filteredCourses.length} courses
+          </div>
+
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                />
+              </PaginationItem>
+
+              {renderPaginationItems()}
+
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </CardFooter>
       </Card>
 
       {/* Create/Edit Course Dialog */}
