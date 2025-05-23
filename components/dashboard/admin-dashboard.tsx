@@ -1,15 +1,15 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import { Users, UserCog, Building2, BookOpen, ClipboardCheck, FileBarChart2 } from "lucide-react"
-import { Card } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { Users, UserCog, Building2, BookOpen, ClipboardCheck, FileBarChart2, ArrowUpRight, Printer } from "lucide-react"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from "chart.js"
-import { Bar } from "react-chartjs-2"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
+import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
+import { RecentAnnouncements } from "@/components/dashboard/recent-announcements"
+import { UpcomingEvents } from "@/components/dashboard/upcoming-events"
+import { AdminStatsChart } from "@/components/dashboard/admin-stats-chart"
+import Link from "next/link"
 
 interface AdminDashboardProps {
   user: any
@@ -33,15 +33,7 @@ interface AdminDashboardProps {
   }
 }
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({
-  user,
-  announcements,
-  events: initialEvents,
-  stats,
-  trends,
-}) => {
-  const [loading, setLoading] = useState(true)
-  const [events, setEvents] = useState<any[]>(initialEvents || [])
+export function AdminDashboard({ user, announcements, events: initialEvents, stats, trends }: AdminDashboardProps) {
   const [adminData, setAdminData] = useState({
     studentsCount: stats?.students || 0,
     staffCount: stats?.staff || 0,
@@ -57,6 +49,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       uptime: 0,
     },
   })
+  const [loading, setLoading] = useState(true)
+  const [events, setEvents] = useState(initialEvents || [])
 
   useEffect(() => {
     async function fetchDashboardData() {
@@ -130,6 +124,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchDashboardData()
   }, [initialEvents, stats])
 
+  // Card colors and icons configuration
   const cardConfig = [
     {
       title: "Students",
@@ -187,156 +182,173 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     },
   ]
 
-  const departmentLabels = adminData.departmentStats.map((dept: any) => dept.name)
-  const studentCounts = adminData.departmentStats.map((dept: any) => dept.studentCount)
-
-  const chartData = {
-    labels: departmentLabels,
-    datasets: [
-      {
-        label: "Students per Department",
-        data: studentCounts,
-        backgroundColor: "rgba(54, 162, 235, 0.6)",
-        borderWidth: 1,
-        borderColor: "rgba(54, 162, 235, 1)",
-      },
-    ],
-  }
-
-  const chartOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: "top" as const,
-      },
-      title: {
-        display: true,
-        text: "Student Distribution by Department",
-      },
-    },
-  }
-
   return (
-    <div className="w-full">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-        {cardConfig.map((card, index) => (
-          <Card
-            key={index}
-            className={`p-4 shadow-md border-none transition-colors dark:bg-neutral-950 dark:ring-offset-neutral-950 ${card.color}`}
-          >
-            <a href={card.link}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium">{card.title}</div>
-                  {loading ? (
-                    <Skeleton className="h-4 w-16 mt-2" />
-                  ) : (
-                    <div className="text-2xl font-bold mt-2">{card.value}</div>
-                  )}
-                  <div className="text-xs text-gray-500 mt-1">
-                    {card.trend && (
-                      <>
-                        <span className={card.trend.startsWith("+") ? "text-green-500" : "text-red-500"}>
-                          {card.trend}
-                        </span>
-                        <span> vs last week</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <div className={`rounded-full p-3 ${card.iconColor}`}>
-                  {React.createElement(card.icon, { className: "h-6 w-6" })}
-                </div>
-              </div>
-            </a>
-          </Card>
-        ))}
+    <div className="grid gap-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Admin Dashboard</h2>
+          <p className="text-muted-foreground">Welcome back, {user?.name || "Administrator"}</p>
+        </div>
+        <Button asChild variant="outline" className="shadow-sm">
+          <Link href="/dashboard/registration-reports">
+            <Printer className="mr-2 h-4 w-4" />
+            Registration Reports
+          </Link>
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* System Statistics */}
-        <Card className="shadow-md border-none transition-colors dark:bg-neutral-950 dark:ring-offset-neutral-950">
-          <div className="p-4">
-            <h3 className="text-lg font-semibold mb-4">System Statistics</h3>
-            {loading ? (
-              <>
-                <Skeleton className="h-4 w-32 mb-2" />
-                <Skeleton className="h-4 w-48 mb-2" />
-                <Skeleton className="h-4 w-32 mb-2" />
-                <Skeleton className="h-4 w-40" />
-              </>
-            ) : (
-              <>
-                <div className="flex justify-between items-center mb-2">
-                  <span>CPU Usage:</span>
-                  <span>{adminData.systemStats.cpuUsage}%</span>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {loading
+          ? // Loading skeletons
+            Array(6)
+              .fill(0)
+              .map((_, i) => (
+                <Card key={i} className="overflow-hidden">
+                  <CardHeader className="p-4 pb-2">
+                    <Skeleton className="h-5 w-24" />
+                  </CardHeader>
+                  <CardContent className="p-4 pt-2">
+                    <Skeleton className="h-8 w-16 mb-2" />
+                    <Skeleton className="h-4 w-12" />
+                  </CardContent>
+                </Card>
+              ))
+          : // Actual data cards
+            cardConfig.map((card, i) => (
+              <Card key={i} className="overflow-hidden border-none shadow-md">
+                <div className={`bg-gradient-to-br ${card.color} transition-all duration-300 h-full`}>
+                  <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+                    <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+                    <div className={`p-2 rounded-full ${card.iconColor}`}>
+                      <card.icon className="h-4 w-4" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-2">
+                    <div className="text-2xl font-bold">{card.value.toLocaleString()}</div>
+                    <div className="flex items-center text-xs mt-1">
+                      <span
+                        className={`flex items-center ${card.trend.startsWith("+") ? "text-emerald-600" : card.trend === "0%" ? "text-gray-500" : "text-rose-600"}`}
+                      >
+                        {card.trend.startsWith("+") && <ArrowUpRight className="h-3 w-3 mr-1" />}
+                        {card.trend}
+                      </span>
+                      <span className="text-muted-foreground ml-1">from last month</span>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="p-2">
+                    <Link href={card.link} className="text-xs hover:underline">
+                      View Details
+                    </Link>
+                  </CardFooter>
                 </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span>Memory Usage:</span>
-                  <span>{adminData.systemStats.memoryUsage}%</span>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span>Disk Usage:</span>
-                  <span>{adminData.systemStats.diskUsage}%</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Uptime:</span>
-                  <span>{adminData.systemStats.uptime} hours</span>
-                </div>
-              </>
-            )}
+              </Card>
+            ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <Card className="md:col-span-2 shadow-md border-none overflow-hidden">
+          <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/50 dark:to-blue-950/50">
+            <CardHeader className="border-b bg-white/50 dark:bg-black/10">
+              <CardTitle className="text-lg font-semibold text-indigo-900 dark:text-indigo-100">
+                University Statistics
+              </CardTitle>
+              <CardDescription>Overview of university enrollment and performance</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              {loading ? <Skeleton className="h-[300px] w-full" /> : <AdminStatsChart />}
+            </CardContent>
           </div>
         </Card>
 
-        {/* Department Statistics Chart */}
-        <Card className="shadow-md border-none transition-colors dark:bg-neutral-950 dark:ring-offset-neutral-950">
-          <div className="p-4">
-            <Bar options={chartOptions} data={chartData} />
+        <Card className="shadow-md border-none overflow-hidden">
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/50 dark:to-teal-950/50 h-full">
+            <CardHeader className="border-b bg-white/50 dark:bg-black/10">
+              <CardTitle className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">
+                System Health
+              </CardTitle>
+              <CardDescription>Current system performance metrics</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              {loading ? (
+                <>
+                  <Skeleton className="h-4 w-full mb-1" />
+                  <Skeleton className="h-2 w-full mb-4" />
+                  <Skeleton className="h-4 w-full mb-1" />
+                  <Skeleton className="h-2 w-full mb-4" />
+                  <Skeleton className="h-4 w-full mb-1" />
+                  <Skeleton className="h-2 w-full" />
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">CPU Usage</span>
+                      <span className="font-medium">{adminData.systemStats.cpuUsage}%</span>
+                    </div>
+                    <Progress
+                      value={adminData.systemStats.cpuUsage}
+                      className="h-2"
+                      indicatorClassName={
+                        adminData.systemStats.cpuUsage > 80
+                          ? "bg-red-500"
+                          : adminData.systemStats.cpuUsage > 60
+                            ? "bg-amber-500"
+                            : "bg-emerald-500"
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Memory Usage</span>
+                      <span className="font-medium">{adminData.systemStats.memoryUsage}%</span>
+                    </div>
+                    <Progress
+                      value={adminData.systemStats.memoryUsage}
+                      className="h-2"
+                      indicatorClassName={
+                        adminData.systemStats.memoryUsage > 80
+                          ? "bg-red-500"
+                          : adminData.systemStats.memoryUsage > 60
+                            ? "bg-amber-500"
+                            : "bg-emerald-500"
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Disk Usage</span>
+                      <span className="font-medium">{adminData.systemStats.diskUsage}%</span>
+                    </div>
+                    <Progress
+                      value={adminData.systemStats.diskUsage}
+                      className="h-2"
+                      indicatorClassName={
+                        adminData.systemStats.diskUsage > 80
+                          ? "bg-red-500"
+                          : adminData.systemStats.diskUsage > 60
+                            ? "bg-amber-500"
+                            : "bg-emerald-500"
+                      }
+                    />
+                  </div>
+
+                  <div className="pt-2 text-sm text-center text-muted-foreground">
+                    System uptime: {Math.floor(adminData.systemStats.uptime / 24)} days,{" "}
+                    {adminData.systemStats.uptime % 24} hours
+                  </div>
+                </>
+              )}
+            </CardContent>
           </div>
         </Card>
       </div>
 
-      {/* Recent Announcements */}
-      <Card className="mt-4 shadow-md border-none transition-colors dark:bg-neutral-950 dark:ring-offset-neutral-950">
-        <div className="p-4">
-          <h3 className="text-lg font-semibold mb-4">Recent Announcements</h3>
-          <ScrollArea className="h-[200px] w-full">
-            <div className="space-y-2">
-              {announcements.map((announcement: any) => (
-                <div key={announcement.id} className="flex items-start space-x-2">
-                  <Badge variant="secondary">New</Badge>
-                  <div>
-                    <p className="text-sm font-medium leading-none">{announcement.title}</p>
-                    <p className="text-sm text-muted-foreground">{announcement.content}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </div>
-      </Card>
-
-      {/* Upcoming Events */}
-      <Card className="mt-4 shadow-md border-none transition-colors dark:bg-neutral-950 dark:ring-offset-neutral-950">
-        <div className="p-4">
-          <h3 className="text-lg font-semibold mb-4">Upcoming Events</h3>
-          <ScrollArea className="h-[200px] w-full">
-            <div className="space-y-2">
-              {events.map((event: any) => (
-                <div key={event.id} className="flex items-start space-x-2">
-                  <Badge variant="outline">{new Date(event.date).toLocaleDateString()}</Badge>
-                  <div>
-                    <p className="text-sm font-medium leading-none">{event.title}</p>
-                    <p className="text-sm text-muted-foreground">{event.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </div>
-      </Card>
+      <div className="grid gap-6 md:grid-cols-2">
+        <RecentAnnouncements announcements={announcements} />
+        <UpcomingEvents events={events} />
+      </div>
     </div>
   )
 }
-
-export default AdminDashboard
