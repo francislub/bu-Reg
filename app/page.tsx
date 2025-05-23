@@ -112,19 +112,19 @@ export default function Home() {
               {
                 title: "Business Administration",
                 description: "Develop essential business skills and knowledge for today's global marketplace.",
-                image: "/images/business.jpg",
+                image: "/images/palm-girls.jpg",
                 link: "/academics/undergraduate",
               },
               {
                 title: "Computer Science",
                 description: "Learn cutting-edge technologies and software development practices.",
-                image: "/images/computer-science.jpg",
+                image: "/images/grad.jpg",
                 link: "/academics/undergraduate",
               },
               {
                 title: "Education",
                 description: "Prepare for a rewarding career shaping the minds of future generations.",
-                image: "/images/education.jpg",
+                image: "/images/buadmin.jpg",
                 link: "/academics/undergraduate",
               },
             ].map((program, index) => (
@@ -239,22 +239,22 @@ export default function Home() {
                 quote:
                   "Bugema University provided me with not just academic knowledge, but also valuable life skills that have been crucial in my career.",
                 name: "Ann Chance",
-                title: "Business Administration Graduate, 2021",
+                title: "Business Administration Graduate, 2025",
                 image: "/ann.jpg",
               },
               {
                 quote:
                   "The supportive community and dedicated professors at Bugema helped me achieve my academic goals and prepared me for the professional world.",
                 name: "Leone Chirodza",
-                title: "Computer Science Graduate, 2020",
+                title: "Computer Science Graduate, 2025",
                 image: "/lio.jpg",
               },
               {
                 quote:
                   "My experience at Bugema University was transformative. The holistic education approach helped me grow intellectually and spiritually.",
-                name: "Lubanjwa Francis",
-                title: "Education Graduate, 2022",
-                image: "/lio.jpg",
+                name: "Mursila Morris Kartina",
+                title: "Education Graduate, 2025",
+                image: "/ba.jpg",
               },
             ].map((testimonial, index) => (
               <div key={index} className="bg-white p-6 rounded-lg shadow-md">

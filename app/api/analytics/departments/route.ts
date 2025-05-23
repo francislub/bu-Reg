@@ -1,61 +1,64 @@
 import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 
 export async function GET() {
   try {
-    // Get departments with course counts
+    const session = await getServerSession(authOptions)
+
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "REGISTRAR")) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    }
+
+    // Get all departments with their associated programs and courses
     const departments = await db.department.findMany({
       include: {
-        courses: {
-          select: {
-            id: true,
-          },
-        },
+        programs: true,
+        courses: true,
         _count: {
           select: {
-            courses: true,
             programs: true,
+            courses: true,
           },
         },
       },
     })
 
-    // Get student counts per department
-    const studentCounts = await db.profile.groupBy({
-      by: ["departmentId"],
-      _count: {
-        _all: true,
-      },
-    })
-
-    // Create a map of department IDs to student counts
-    const departmentStudentCounts = new Map()
-    studentCounts.forEach((count) => {
-      if (count.departmentId) {
-        departmentStudentCounts.set(count.departmentId, count._count._all)
-      }
-    })
-
-    // Format the response
+    // Format the data for the frontend
     const formattedDepartments = departments.map((dept) => ({
+      id: dept.id,
       name: dept.name,
-      students: departmentStudentCounts.get(dept.id) || 0,
-      courses: dept._count.courses,
-      programs: dept._count.programs,
+      code: dept.code,
+      programsCount: dept._count.programs,
+      coursesCount: dept._count.courses,
+      // Calculate student count (this is an approximation as students are linked to programs)
+      studentsCount: 0, // This would need a more complex query to get accurate numbers
     }))
 
-    return NextResponse.json({
-      success: true,
-      departments: formattedDepartments,
-    })
+    // For each department, try to get student count based on profiles with programs in that department
+    for (const dept of formattedDepartments) {
+      const programIds = departments.find((d) => d.id === dept.id)?.programs.map((p) => p.id) || []
+
+      if (programIds.length > 0) {
+        const studentCount = await db.profile.count({
+          where: {
+            programId: {
+              in: programIds,
+            },
+            user: {
+              role: "STUDENT",
+            },
+          },
+        })
+
+        dept.studentsCount = studentCount
+      }
+    }
+
+    return NextResponse.json({ success: true, departments: formattedDepartments })
   } catch (error) {
     console.error("Error fetching department analytics:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Failed to fetch department analytics",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ success: false, message: "Failed to fetch department analytics" }, { status: 500 })
   }
 }
